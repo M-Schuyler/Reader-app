@@ -1,4 +1,5 @@
 import { RouteError, handleRouteError, ok } from "@/server/api/response";
+import { requireApiUser } from "@/server/auth/session";
 import { captureUrl } from "@/server/modules/capture/capture.service";
 
 type CaptureUrlBody = {
@@ -7,6 +8,7 @@ type CaptureUrlBody = {
 
 export async function POST(request: Request) {
   try {
+    await requireApiUser();
     const body = (await request.json()) as CaptureUrlBody;
 
     if (typeof body?.url !== "string") {
@@ -26,4 +28,3 @@ export async function POST(request: Request) {
     return handleRouteError(error);
   }
 }
-

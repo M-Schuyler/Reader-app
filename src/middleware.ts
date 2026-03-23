@@ -1,53 +1,45 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { isAllowedSession, sanitizeCallbackUrl } from "@/server/auth/access";
 
-const REALM = "Reader App";
+const LOGIN_PATH = "/login";
 
-export function middleware(request: NextRequest) {
-  const username = process.env.APP_BASIC_AUTH_USERNAME;
-  const password = process.env.APP_BASIC_AUTH_PASSWORD;
+export default auth((request) => {
+  const { nextUrl } = request;
+  const pathname = nextUrl.pathname;
+  const isAuthenticated = isAllowedSession(request.auth);
 
-  if (!username || !password) {
+  if (pathname === LOGIN_PATH) {
+    if (!isAuthenticated) {
+      return NextResponse.next();
+    }
+
+    const callbackUrl = sanitizeCallbackUrl(nextUrl.searchParams.get("callbackUrl"));
+    return NextResponse.redirect(new URL(callbackUrl, nextUrl.origin));
+  }
+
+  if (isAuthenticated) {
     return NextResponse.next();
   }
 
-  const authorization = request.headers.get("authorization");
-  if (authorization) {
-    const [scheme, credentials] = authorization.split(" ");
-
-    if (scheme === "Basic" && credentials) {
-      const decoded = decodeBase64(credentials);
-      const separatorIndex = decoded.indexOf(":");
-
-      if (separatorIndex >= 0) {
-        const providedUsername = decoded.slice(0, separatorIndex);
-        const providedPassword = decoded.slice(separatorIndex + 1);
-
-        if (providedUsername === username && providedPassword === password) {
-          return NextResponse.next();
-        }
-      }
-    }
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required.",
+        },
+      },
+      { status: 401 },
+    );
   }
 
-  return new NextResponse("Authentication required.", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": `Basic realm="${REALM}"`,
-      "Cache-Control": "no-store",
-    },
-  });
-}
-
-function decodeBase64(value: string) {
-  try {
-    return atob(value);
-  } catch {
-    return "";
-  }
-}
+  const loginUrl = new URL(LOGIN_PATH, nextUrl.origin);
+  loginUrl.searchParams.set("callbackUrl", `${pathname}${nextUrl.search}`);
+  return NextResponse.redirect(loginUrl);
+});
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
 };
-

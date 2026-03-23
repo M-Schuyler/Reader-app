@@ -12,21 +12,44 @@ Personal reading system built with Next.js, TypeScript, Tailwind CSS, Prisma, an
 
 ## Cloud Deployment
 
-Recommended first deployment path:
+Production target for v1:
 
+- Git hosting: GitHub
 - App hosting: Vercel
 - Database: Neon Postgres
-- Git hosting: GitHub
-- Fallback app hosting: any Docker-compatible platform
+- Authentication: Auth.js with GitHub OAuth
+- Migration runner: GitHub Actions
 
 ### Required Environment Variables
 
 - `DATABASE_URL`
-- `APP_BASIC_AUTH_USERNAME`
-- `APP_BASIC_AUTH_PASSWORD`
-- `NEXT_PUBLIC_APP_URL`
+- `AUTH_SECRET`
+- `AUTH_GITHUB_ID`
+- `AUTH_GITHUB_SECRET`
+- `ALLOWED_EMAILS`
 
-`APP_BASIC_AUTH_USERNAME` and `APP_BASIC_AUTH_PASSWORD` enable a minimal app-level Basic Auth gate. If either variable is missing, the app is public.
+`ALLOWED_EMAILS` is a comma-separated whitelist. If it is empty, all sign-ins are denied.
+
+### Authentication Model
+
+- App-level authentication is mandatory. Vercel Deployment Protection is not used as the real access control layer.
+- The app uses GitHub login through Auth.js.
+- Only whitelisted email addresses may enter the Reader.
+- Private pages and private API routes are both protected.
+
+### GitHub OAuth Setup
+
+1. Create a GitHub OAuth App.
+2. Set the homepage URL to your eventual production domain.
+3. Add the callback URL:
+   `https://YOUR_DOMAIN/api/auth/callback/github`
+4. For local development, also allow:
+   `http://localhost:3000/api/auth/callback/github`
+5. Copy the client ID and client secret into `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`.
+
+Generate `AUTH_SECRET` with a strong random value, for example:
+
+`openssl rand -base64 32`
 
 ### Production Scripts
 
@@ -35,13 +58,24 @@ Recommended first deployment path:
 
 ### First Production Rollout
 
-1. Create a GitHub repository and push `main`.
-2. Create a Neon database for production.
+1. Push `main` to GitHub.
+2. Create one production database in Neon.
 3. In Vercel, create a new project from the GitHub repo.
-4. Add the required environment variables in Vercel.
-5. Run `npm run prisma:migrate:deploy` against the production database once.
-6. Deploy `main` to production.
-7. Bind a domain so the app can be opened directly on mobile.
+4. Set `main` as the production branch.
+5. Add the Vercel environment variables:
+   `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `ALLOWED_EMAILS`
+6. In GitHub repository secrets, add `DATABASE_URL` for the migration workflow.
+7. Merge migration files into `main`; the workflow at [.github/workflows/prisma-migrate-deploy.yml](/Users/chenshukai/Documents/Projects/reader-app/.github/workflows/prisma-migrate-deploy.yml) applies them with `prisma migrate deploy`.
+8. Deploy the app on Vercel.
+9. Bind a custom domain.
+10. Update the GitHub OAuth callback URL to the final production domain if needed.
+
+### Migration Flow
+
+- Development uses `prisma migrate dev`.
+- Migration files are committed into the repository.
+- Production applies migrations only through GitHub Actions with `npx prisma migrate deploy`.
+- Vercel build is intentionally not responsible for schema changes.
 
 ### Docker Deployment
 
@@ -60,4 +94,4 @@ Keep it simple for MVP:
 - `main`: production
 - `feature/*`: working branches
 
-Vercel preview deployments from non-`main` branches are enough for now. GitHub Environments are not required for the first release.
+Vercel preview deployments from non-`main` branches are enough for now. GitHub Environments and preview database branches are optional follow-up work, not part of the first release.

@@ -1,4 +1,5 @@
 import { RouteError, handleRouteError, ok } from "@/server/api/response";
+import { requireApiUser } from "@/server/auth/session";
 import { getDocument } from "@/server/modules/documents/document.service";
 
 type RouteContext = {
@@ -7,6 +8,7 @@ type RouteContext = {
 
 export async function GET(_: Request, context: RouteContext) {
   try {
+    await requireApiUser();
     const { id } = await context.params;
     const data = await getDocument(id);
 
