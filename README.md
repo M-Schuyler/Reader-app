@@ -17,6 +17,7 @@ Recommended first deployment path:
 - App hosting: Vercel
 - Database: Neon Postgres
 - Git hosting: GitHub
+- Fallback app hosting: any Docker-compatible platform
 
 ### Required Environment Variables
 
@@ -41,6 +42,16 @@ Recommended first deployment path:
 5. Run `npm run prisma:migrate:deploy` against the production database once.
 6. Deploy `main` to production.
 7. Bind a domain so the app can be opened directly on mobile.
+
+### Docker Deployment
+
+If you do not want to depend on Vercel, the repo now includes a production `Dockerfile`.
+
+1. Build the image: `docker build -t reader-app .`
+2. Run it with your production environment variables:
+   `docker run --rm -p 3000:3000 --env-file .env reader-app`
+3. Point `DATABASE_URL` at a managed PostgreSQL database.
+4. Run `npm run prisma:migrate:deploy` against that database before first production traffic.
 
 ### Branch Strategy
 
