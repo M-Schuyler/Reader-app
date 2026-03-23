@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentType {
+  RSS_ITEM
+  WEB_PAGE
+  PDF
+}
+
+enum ReadState {
+  UNREAD
+  READING
+  READ
+}
+
+enum IngestionStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum IngestionJobKind {
+  FETCH_WEB_PAGE
+  IMPORT_FEED_ITEM
+  EXTRACT_PDF_TEXT
+  SYNC_FEED
+}
+
+enum IngestionJobStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+model Feed {
+  id           String         @id @default(cuid())
+  title        String
+  feedUrl      String
+  siteUrl      String?
+  isActive     Boolean        @default(true)
+  lastSyncedAt DateTime?
+
+  documents    Document[]
+  jobs         IngestionJob[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([feedUrl])
+  @@index([isActive])
+  @@index([lastSyncedAt])
+}
+
+model Document {
+  id              String           @id @default(cuid())
+  type            DocumentType
+  title           String
+  sourceUrl       String?
+  canonicalUrl    String?
+  // TODO: RSS externalId may be missing or unstable for some feeds.
+  // Add a fallback dedupe strategy in the RSS import service before shipping RSS support.
+  externalId      String?
+  lang            String?
+  excerpt         String?
+  author          String?
+  publishedAt     DateTime?
+  readState       ReadState        @default(UNREAD)
+  isFavorite      Boolean          @default(false)
+  isLater         Boolean          @default(false)
+  ingestionStatus IngestionStatus  @default(PENDING)
+
+  feedId          String?
+  feed            Feed?            @relation(fields: [feedId], references: [id], onDelete: SetNull)
+
+  content         DocumentContent?
+  file            DocumentFile?
+  tags            DocumentTag[]
+  highlights      Highlight[]
+  jobs            IngestionJob[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([feedId, externalId])
+  @@index([type, createdAt])
+  @@index([readState, createdAt])
+  @@index([isFavorite, createdAt])
+  @@index([isLater, createdAt])
+  @@index([feedId, publishedAt])
+  @@index([canonicalUrl])
+  @@index([sourceUrl])
+}
+
+model DocumentContent {
+  id          String    @id @default(cuid())
+  documentId  String    @unique
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  contentHtml String?
+  plainText   String
+  rawHtml     String?
+  textHash    String?
+  wordCount   Int?
+  extractedAt DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([textHash])
+  @@index([extractedAt])
+}
+
+model DocumentFile {
+  id         String    @id @default(cuid())
+  documentId String    @unique
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  fileName   String
+  mimeType   String
+  storageKey String
+  sizeBytes  Int
+  checksum   String
+  pageCount  Int?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([checksum])
+  @@index([mimeType])
+}
+
+model Tag {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String
+  documents DocumentTag[]
+
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([slug])
+  @@unique([name])
+}
+
+model DocumentTag {
+  documentId String
+  tagId      String
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@id([documentId, tagId])
+  @@index([tagId, documentId])
+}
+
+model Highlight {
+  id           String    @id @default(cuid())
+  documentId   String
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  quoteText    String
+  note         String?
+  color        String?
+  startOffset  Int?
+  endOffset    Int?
+  selectorJson Json?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([documentId, createdAt])
+}
+
+model IngestionJob {
+  id           String             @id @default(cuid())
+  kind         IngestionJobKind
+  status       IngestionJobStatus @default(PENDING)
+
+  documentId   String?
+  document     Document?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  feedId       String?
+  feed         Feed?              @relation(fields: [feedId], references: [id], onDelete: SetNull)
+
+  sourceUrl    String?
+  payloadJson  Json?
+  errorMessage String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([kind, status, createdAt])
+  @@index([documentId, createdAt])
+  @@index([feedId, createdAt])
+}
+

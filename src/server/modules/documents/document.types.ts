@@ -1,0 +1,110 @@
+import type { DocumentType, IngestionStatus, ReadState } from "@prisma/client";
+
+export type DocumentListSort = "newest" | "oldest" | "published";
+
+export type DocumentListQuery = {
+  q?: string;
+  type?: DocumentType;
+  readState?: ReadState;
+  isFavorite?: boolean;
+  isLater?: boolean;
+  tag?: string;
+  page: number;
+  pageSize: number;
+  sort: DocumentListSort;
+};
+
+export type DocumentListItem = {
+  id: string;
+  type: DocumentType;
+  title: string;
+  sourceUrl: string | null;
+  canonicalUrl: string | null;
+  excerpt: string | null;
+  lang: string | null;
+  publishedAt: string | null;
+  readState: ReadState;
+  isFavorite: boolean;
+  isLater: boolean;
+  ingestionStatus: IngestionStatus;
+  createdAt: string;
+  updatedAt: string;
+  wordCount: number | null;
+  feed: {
+    id: string;
+    title: string;
+  } | null;
+};
+
+export type GetDocumentsResponseData = {
+  items: DocumentListItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  filters: {
+    q?: string;
+    type?: DocumentType;
+    readState?: ReadState;
+    isFavorite?: boolean;
+    isLater?: boolean;
+    tag?: string;
+    sort: DocumentListSort;
+  };
+};
+
+export type DocumentDetail = {
+  id: string;
+  type: DocumentType;
+  title: string;
+  sourceUrl: string | null;
+  canonicalUrl: string | null;
+  excerpt: string | null;
+  lang: string | null;
+  author: string | null;
+  publishedAt: string | null;
+  readState: ReadState;
+  isFavorite: boolean;
+  isLater: boolean;
+  ingestionStatus: IngestionStatus;
+  createdAt: string;
+  updatedAt: string;
+  feed: {
+    id: string;
+    title: string;
+    feedUrl: string;
+    siteUrl: string | null;
+  } | null;
+  file: {
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    pageCount: number | null;
+  } | null;
+  content: {
+    contentHtml: string | null;
+    plainText: string;
+    wordCount: number | null;
+    extractedAt: string | null;
+  } | null;
+};
+
+export type GetDocumentResponseData = {
+  document: DocumentDetail;
+};
+
+export type CaptureIngestionError = {
+  code: string;
+  message: string;
+};
+
+export type CaptureUrlResponseData = {
+  document: DocumentDetail;
+  deduped: boolean;
+  jobId: string | null;
+  ingestion: {
+    error: CaptureIngestionError | null;
+  };
+};
