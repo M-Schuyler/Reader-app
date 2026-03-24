@@ -5,6 +5,7 @@ dist
 coverage
 .env
 .env.local
+.env.vercel
 prisma/dev.db
 
 .vercel
