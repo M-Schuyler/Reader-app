@@ -1,5 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { IngestionStatus } from "@prisma/client";
+import {
+  FavoriteSummaryBadge,
+  FavoriteToggleButton,
+  useDocumentFavoriteController,
+} from "@/components/documents/favorite-control";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 
 type DocumentReaderProps = {
@@ -11,7 +18,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
   const hasExtractedContent = Boolean(document.content?.plainText.trim());
   const isFailed = document.ingestionStatus === IngestionStatus.FAILED;
   const isReadable = !isFailed && hasExtractedContent;
-  const supportText = resolveSupportText(document);
+  const favorite = useDocumentFavoriteController(document);
   const paragraphs = isReadable ? document.content!.plainText.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0) : [];
 
   return (
@@ -23,9 +30,22 @@ export function DocumentReader({ document }: DocumentReaderProps) {
           <span>{formatDate(document.createdAt)}</span>
         </div>
 
-        <div className="space-y-3">
-          <h2 className="max-w-4xl font-serif text-4xl leading-tight text-black/92">{document.title}</h2>
-          {supportText ? <p className="max-w-3xl text-base leading-7 text-black/68">{supportText}</p> : null}
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-3">
+            <h2 className="max-w-4xl font-serif text-4xl leading-tight text-black/92">{document.title}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <FavoriteSummaryBadge state={favorite.summaryState} />
+            </div>
+            {favorite.supportText ? <p className="max-w-3xl text-base leading-7 text-black/68">{favorite.supportText}</p> : null}
+            {favorite.actionError ? <p className="text-sm text-red-700">{favorite.actionError}</p> : null}
+          </div>
+
+          <FavoriteToggleButton
+            buttonLabel={favorite.buttonLabel}
+            isFavorite={favorite.isFavorite}
+            isSubmitting={favorite.isSubmitting}
+            onClick={favorite.toggleFavorite}
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-sm text-black/60">
@@ -78,18 +98,6 @@ export function DocumentReader({ document }: DocumentReaderProps) {
       </section>
     </article>
   );
-}
-
-function resolveSupportText(document: DocumentDetail) {
-  if (document.ingestionStatus === IngestionStatus.FAILED) {
-    return null;
-  }
-
-  if (document.isFavorite) {
-    return document.aiSummary ?? "已收藏，AI 摘要生成中。";
-  }
-
-  return document.excerpt;
 }
 
 function formatDate(value: string) {

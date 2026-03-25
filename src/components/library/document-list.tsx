@@ -1,5 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { IngestionStatus } from "@prisma/client";
+import {
+  FavoriteSummaryBadge,
+  FavoriteToggleButton,
+  useDocumentFavoriteController,
+} from "@/components/documents/favorite-control";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 
 type DocumentListProps = {
@@ -26,46 +33,50 @@ export function DocumentList({ data }: DocumentListProps) {
 
 function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number] }) {
   const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
-  const supportText = resolveSupportText(item);
+  const favorite = useDocumentFavoriteController(item);
 
   return (
-    <Link
-      className="block rounded-3xl border border-black/10 bg-white/80 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-black/20"
-      href={`/documents/${item.id}`}
-    >
-      <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-black/45">
-        <span>{item.type}</span>
-        <span className={statusClassName(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</span>
-        <span>{formatDate(item.createdAt)}</span>
+    <article className="rounded-3xl border border-black/10 bg-white/80 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-black/20">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-black/45">
+          <span>{item.type}</span>
+          <span className={statusClassName(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</span>
+          <span>{formatDate(item.createdAt)}</span>
+        </div>
+
+        <FavoriteToggleButton
+          buttonLabel={favorite.buttonLabel}
+          isFavorite={favorite.isFavorite}
+          isSubmitting={favorite.isSubmitting}
+          onClick={favorite.toggleFavorite}
+        />
       </div>
 
-      <h3 className="mt-3 font-serif text-2xl text-black/90">{item.title}</h3>
+      <Link className="block" href={`/documents/${item.id}`}>
+        <h3 className="mt-3 font-serif text-2xl text-black/90">{item.title}</h3>
 
-      {!isFailed && supportText ? <p className="mt-3 line-clamp-4 text-sm leading-6 text-black/68">{supportText}</p> : null}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <FavoriteSummaryBadge state={favorite.summaryState} />
+        </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-black/55">
-        {!isFailed && item.wordCount ? <span>{item.wordCount} words</span> : null}
-        {item.lang ? <span>{item.lang}</span> : null}
-        {item.canonicalUrl ? (
-          <span className="truncate">{truncateUrl(item.canonicalUrl)}</span>
-        ) : item.sourceUrl ? (
-          <span className="truncate">{truncateUrl(item.sourceUrl)}</span>
+        {favorite.supportText ? (
+          <p className="mt-3 line-clamp-4 text-sm leading-6 text-black/68">{favorite.supportText}</p>
         ) : null}
-      </div>
-    </Link>
+
+        {favorite.actionError ? <p className="mt-3 text-sm text-red-700">{favorite.actionError}</p> : null}
+
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-black/55">
+          {!isFailed && item.wordCount ? <span>{item.wordCount} words</span> : null}
+          {item.lang ? <span>{item.lang}</span> : null}
+          {item.canonicalUrl ? (
+            <span className="truncate">{truncateUrl(item.canonicalUrl)}</span>
+          ) : item.sourceUrl ? (
+            <span className="truncate">{truncateUrl(item.sourceUrl)}</span>
+          ) : null}
+        </div>
+      </Link>
+    </article>
   );
-}
-
-function resolveSupportText(item: GetDocumentsResponseData["items"][number]) {
-  if (item.ingestionStatus === IngestionStatus.FAILED) {
-    return null;
-  }
-
-  if (item.isFavorite) {
-    return item.aiSummary ?? "已收藏，AI 摘要生成中。";
-  }
-
-  return item.excerpt;
 }
 
 function formatDate(value: string) {
