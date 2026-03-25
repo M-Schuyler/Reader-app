@@ -68,6 +68,7 @@ model Document {
   // TODO: RSS externalId may be missing or unstable for some feeds.
   // Add a fallback dedupe strategy in the RSS import service before shipping RSS support.
   externalId      String?
+  aiSummary       String?
   lang            String?
   excerpt         String?
   author          String?
@@ -206,4 +207,3 @@ model IngestionJob {
   @@index([documentId, createdAt])
   @@index([feedId, createdAt])
 }
-

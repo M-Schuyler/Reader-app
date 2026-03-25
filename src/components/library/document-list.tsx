@@ -26,6 +26,7 @@ export function DocumentList({ data }: DocumentListProps) {
 
 function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number] }) {
   const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
+  const supportText = resolveSupportText(item);
 
   return (
     <Link
@@ -40,7 +41,7 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
 
       <h3 className="mt-3 font-serif text-2xl text-black/90">{item.title}</h3>
 
-      {!isFailed && item.excerpt ? <p className="mt-3 line-clamp-4 text-sm leading-6 text-black/68">{item.excerpt}</p> : null}
+      {!isFailed && supportText ? <p className="mt-3 line-clamp-4 text-sm leading-6 text-black/68">{supportText}</p> : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-black/55">
         {!isFailed && item.wordCount ? <span>{item.wordCount} words</span> : null}
@@ -53,6 +54,18 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
       </div>
     </Link>
   );
+}
+
+function resolveSupportText(item: GetDocumentsResponseData["items"][number]) {
+  if (item.ingestionStatus === IngestionStatus.FAILED) {
+    return null;
+  }
+
+  if (item.isFavorite) {
+    return item.aiSummary ?? "已收藏，AI 摘要生成中。";
+  }
+
+  return item.excerpt;
 }
 
 function formatDate(value: string) {

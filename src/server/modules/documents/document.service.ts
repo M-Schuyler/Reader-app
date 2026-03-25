@@ -1,8 +1,17 @@
 import { DocumentType, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
-import { getDocumentById, listDocuments } from "./document.repository";
+import { generateDocumentAiSummary } from "./document-ai-summary.service";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
-import type { DocumentListQuery, DocumentListSort, GetDocumentResponseData, GetDocumentsResponseData } from "./document.types";
+import { getDocumentById, listDocuments, updateDocumentAiSummary, updateDocumentFavorite } from "./document.repository";
+import type {
+  DocumentListQuery,
+  DocumentListSort,
+  GenerateAiSummaryError,
+  GetDocumentResponseData,
+  GetDocumentsResponseData,
+  UpdateDocumentFavoriteInput,
+  UpdateDocumentFavoriteResponseData,
+} from "./document.types";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -43,6 +52,65 @@ export async function getDocument(id: string): Promise<GetDocumentResponseData |
   };
 }
 
+export async function updateDocumentFavoriteStatus(
+  id: string,
+  input: UpdateDocumentFavoriteInput,
+): Promise<UpdateDocumentFavoriteResponseData | null> {
+  const existingDocument = await getDocumentById(id);
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  const document =
+    existingDocument.isFavorite === input.isFavorite ? existingDocument : await updateDocumentFavorite(id, input.isFavorite);
+
+  if (!input.isFavorite) {
+    return {
+      document: mapDocumentDetail(document),
+      summary: {
+        status: "not_requested",
+        source: null,
+        error: null,
+      },
+    };
+  }
+
+  if (document.aiSummary && !input.regenerateAiSummary) {
+    return {
+      document: mapDocumentDetail(document),
+      summary: {
+        status: "skipped",
+        source: null,
+        error: null,
+      },
+    };
+  }
+
+  try {
+    const generated = await generateDocumentAiSummary(document);
+    const updatedDocument = await updateDocumentAiSummary(document.id, generated.summary);
+
+    return {
+      document: mapDocumentDetail(updatedDocument),
+      summary: {
+        status: "generated",
+        source: generated.source,
+        error: null,
+      },
+    };
+  } catch (error) {
+    return {
+      document: mapDocumentDetail(document),
+      summary: {
+        status: "failed",
+        source: null,
+        error: toGenerateAiSummaryError(error),
+      },
+    };
+  }
+}
+
 export function parseDocumentListQuery(searchParams: URLSearchParams): DocumentListQuery {
   return {
     q: parseOptionalString(searchParams.get("q")),
@@ -54,6 +122,28 @@ export function parseDocumentListQuery(searchParams: URLSearchParams): DocumentL
     page: parsePositiveInt(searchParams.get("page"), DEFAULT_PAGE),
     pageSize: parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
     sort: parseDocumentSort(searchParams.get("sort")),
+  };
+}
+
+export function parseUpdateDocumentFavoriteInput(body: unknown): UpdateDocumentFavoriteInput {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new RouteError("INVALID_BODY", 400, "Request body must be a JSON object.");
+  }
+
+  const isFavorite = (body as { isFavorite?: unknown }).isFavorite;
+  const regenerateAiSummary = (body as { regenerateAiSummary?: unknown }).regenerateAiSummary;
+
+  if (typeof isFavorite !== "boolean") {
+    throw new RouteError("INVALID_BODY", 400, '"isFavorite" must be a boolean.');
+  }
+
+  if (typeof regenerateAiSummary !== "undefined" && typeof regenerateAiSummary !== "boolean") {
+    throw new RouteError("INVALID_BODY", 400, '"regenerateAiSummary" must be a boolean when provided.');
+  }
+
+  return {
+    isFavorite,
+    regenerateAiSummary,
   };
 }
 
@@ -132,3 +222,23 @@ function parseDocumentSort(value: string | null): DocumentListSort {
   throw new RouteError("INVALID_QUERY", 400, `Sort "${value}" is invalid.`);
 }
 
+function toGenerateAiSummaryError(error: unknown): GenerateAiSummaryError {
+  if (error instanceof RouteError) {
+    return {
+      code: error.code,
+      message: error.message,
+    };
+  }
+
+  if (error instanceof Error && error.message) {
+    return {
+      code: "AI_SUMMARY_FAILED",
+      message: error.message,
+    };
+  }
+
+  return {
+    code: "AI_SUMMARY_FAILED",
+    message: "AI summary generation failed.",
+  };
+}

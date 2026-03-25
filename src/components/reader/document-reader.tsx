@@ -11,6 +11,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
   const hasExtractedContent = Boolean(document.content?.plainText.trim());
   const isFailed = document.ingestionStatus === IngestionStatus.FAILED;
   const isReadable = !isFailed && hasExtractedContent;
+  const supportText = resolveSupportText(document);
   const paragraphs = isReadable ? document.content!.plainText.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0) : [];
 
   return (
@@ -24,7 +25,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
 
         <div className="space-y-3">
           <h2 className="max-w-4xl font-serif text-4xl leading-tight text-black/92">{document.title}</h2>
-          {isReadable && document.excerpt ? <p className="max-w-3xl text-base leading-7 text-black/68">{document.excerpt}</p> : null}
+          {supportText ? <p className="max-w-3xl text-base leading-7 text-black/68">{supportText}</p> : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-sm text-black/60">
@@ -77,6 +78,18 @@ export function DocumentReader({ document }: DocumentReaderProps) {
       </section>
     </article>
   );
+}
+
+function resolveSupportText(document: DocumentDetail) {
+  if (document.ingestionStatus === IngestionStatus.FAILED) {
+    return null;
+  }
+
+  if (document.isFavorite) {
+    return document.aiSummary ?? "已收藏，AI 摘要生成中。";
+  }
+
+  return document.excerpt;
 }
 
 function formatDate(value: string) {

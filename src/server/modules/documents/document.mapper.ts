@@ -8,6 +8,7 @@ export function mapDocumentListItem(record: DocumentListRecord): DocumentListIte
     title: record.title,
     sourceUrl: record.sourceUrl,
     canonicalUrl: record.canonicalUrl,
+    aiSummary: record.aiSummary,
     excerpt: record.excerpt,
     lang: record.lang,
     publishedAt: toIso(record.publishedAt),
@@ -34,6 +35,7 @@ export function mapDocumentDetail(record: DocumentDetailRecord): DocumentDetail 
     title: record.title,
     sourceUrl: record.sourceUrl,
     canonicalUrl: record.canonicalUrl,
+    aiSummary: record.aiSummary,
     excerpt: record.excerpt,
     lang: record.lang,
     author: record.author,
@@ -74,4 +76,3 @@ export function mapDocumentDetail(record: DocumentDetailRecord): DocumentDetail 
 function toIso(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
-

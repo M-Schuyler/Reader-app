@@ -20,6 +20,7 @@ export type DocumentListItem = {
   title: string;
   sourceUrl: string | null;
   canonicalUrl: string | null;
+  aiSummary: string | null;
   excerpt: string | null;
   lang: string | null;
   publishedAt: string | null;
@@ -61,6 +62,7 @@ export type DocumentDetail = {
   title: string;
   sourceUrl: string | null;
   canonicalUrl: string | null;
+  aiSummary: string | null;
   excerpt: string | null;
   lang: string | null;
   author: string | null;
@@ -98,6 +100,27 @@ export type GetDocumentResponseData = {
 export type CaptureIngestionError = {
   code: string;
   message: string;
+};
+
+export type AiSummarySource = "content" | "excerpt" | "metadata";
+
+export type GenerateAiSummaryError = {
+  code: string;
+  message: string;
+};
+
+export type UpdateDocumentFavoriteInput = {
+  isFavorite: boolean;
+  regenerateAiSummary?: boolean;
+};
+
+export type UpdateDocumentFavoriteResponseData = {
+  document: DocumentDetail;
+  summary: {
+    status: "generated" | "skipped" | "failed" | "not_requested";
+    source: AiSummarySource | null;
+    error: GenerateAiSummaryError | null;
+  };
 };
 
 export type CaptureUrlResponseData = {

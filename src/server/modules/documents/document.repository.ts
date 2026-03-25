@@ -75,6 +75,16 @@ export async function getDocumentById(id: string) {
   });
 }
 
+export async function updateDocumentFavorite(id: string, isFavorite: boolean) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      isFavorite,
+    },
+    ...documentDetailArgs,
+  });
+}
+
 export async function findWebDocumentByUrlCandidates(urlCandidates: string[]) {
   if (urlCandidates.length === 0) {
     return null;
@@ -170,6 +180,16 @@ export async function updateDocumentIngestionStatus(id: string, status: Ingestio
     data: {
       ingestionStatus: status,
     },
+  });
+}
+
+export async function updateDocumentAiSummary(id: string, aiSummary: string) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      aiSummary,
+    },
+    ...documentDetailArgs,
   });
 }
 
