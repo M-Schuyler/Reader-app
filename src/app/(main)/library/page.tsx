@@ -1,3 +1,8 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Field, SelectInput, TextInput } from "@/components/ui/form-controls";
+import { PageHeader } from "@/components/ui/page-header";
+import { Panel } from "@/components/ui/panel";
 import { CaptureUrlForm } from "@/components/library/capture-url-form";
 import { DocumentList } from "@/components/library/document-list";
 import { getDocuments, parseDocumentListQuery } from "@/server/modules/documents/document.service";
@@ -11,74 +16,85 @@ type LibraryPageProps = {
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const query = parseDocumentListQuery(await toUrlSearchParams(searchParams));
   const data = await getDocuments(query);
+  const hasActiveFilters = Boolean(data.filters.q || (data.filters.sort && data.filters.sort !== "newest"));
 
   return (
-    <section className="space-y-8">
-      <div className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.25em] text-black/45">Library</p>
-        <h2 className="font-serif text-3xl text-black/90">Unified documents, one reading flow.</h2>
-        <p className="max-w-3xl text-sm leading-6 text-black/65">
-          This page already reads from the document service. For P1, the only ingestion entry is saving a web URL.
-        </p>
-      </div>
+    <section className="space-y-10">
+      <PageHeader
+        description="A single library for saved articles and captured documents. Quiet enough to scan quickly, stable enough to read deeply."
+        eyebrow="Library"
+        title="Everything you saved, ready to read."
+      />
 
-      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="space-y-6">
-          <CaptureUrlForm />
+      <div className="grid gap-8 xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start">
+        <aside className="xl:sticky xl:top-24">
+          <Panel className="overflow-hidden" padding="none">
+            <div className="border-b border-[color:var(--border-subtle)] px-6 py-6">
+              <CaptureUrlForm />
+            </div>
 
-          <form className="rounded-3xl border border-black/10 bg-white/75 p-5 shadow-sm" method="GET">
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-black/45">Search</p>
-                <h3 className="mt-2 font-serif text-xl text-black/90">Filter the library</h3>
+            <form className="space-y-5 px-6 py-6" method="GET">
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
+                  Filter
+                </p>
+                <h2 className="font-display text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
+                  Refine what matters.
+                </h2>
               </div>
 
-              <label className="block space-y-2 text-sm text-black/70">
-                <span>Keyword</span>
-                <input
-                  className="w-full rounded-2xl border border-black/10 bg-white px-4 py-2.5 outline-none transition focus:border-black/30"
+              <Field label="Keyword">
+                <TextInput
                   defaultValue={data.filters.q}
                   name="q"
-                  placeholder="title or URL"
+                  placeholder="Search by title or source"
                   type="text"
                 />
-              </label>
+              </Field>
 
-              <label className="block space-y-2 text-sm text-black/70">
-                <span>Sort</span>
-                <select
-                  className="w-full rounded-2xl border border-black/10 bg-white px-4 py-2.5 outline-none transition focus:border-black/30"
+              <Field label="Sort">
+                <SelectInput
                   defaultValue={data.filters.sort}
                   name="sort"
                 >
                   <option value="newest">Newest</option>
                   <option value="oldest">Oldest</option>
                   <option value="published">Published</option>
-                </select>
-              </label>
+                </SelectInput>
+              </Field>
 
-              <button
-                className="w-full rounded-2xl bg-stone-900 px-4 py-2.5 text-sm font-medium text-stone-50 transition hover:bg-stone-800"
-                type="submit"
-              >
-                Apply filters
-              </button>
-            </div>
-          </form>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button className="flex-1" type="submit" variant="primary">
+                  Apply
+                </Button>
+                {hasActiveFilters ? (
+                  <Link
+                    className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
+                    href="/library"
+                  >
+                    Reset
+                  </Link>
+                ) : null}
+              </div>
+            </form>
+          </Panel>
         </aside>
 
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-black/10 bg-white/75 px-5 py-4 shadow-sm">
-            <p className="text-sm text-black/65">
-              <span className="font-medium text-black/90">{data.pagination.total}</span> documents
+        <div className="space-y-5">
+          <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm text-[color:var(--text-secondary)]">
+                <span className="font-medium text-[color:var(--text-primary)]">{data.pagination.total}</span> documents
+              </p>
               {data.filters.q ? (
-                <>
-                  {" "}
-                  matching <span className="font-medium text-black/90">&quot;{data.filters.q}&quot;</span>
-                </>
+                <p className="text-sm text-[color:var(--text-secondary)]">
+                  Matching <span className="font-medium text-[color:var(--text-primary)]">&quot;{data.filters.q}&quot;</span>
+                </p>
               ) : null}
-            </p>
+            </div>
+            <p className="text-sm text-[color:var(--text-tertiary)]">Saved items are grouped in one calm reading flow.</p>
           </div>
+
           <DocumentList data={data} />
         </div>
       </div>

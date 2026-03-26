@@ -26,6 +26,12 @@ enum IngestionStatus {
   FAILED
 }
 
+enum AiSummaryStatus {
+  PENDING
+  READY
+  FAILED
+}
+
 enum IngestionJobKind {
   FETCH_WEB_PAGE
   IMPORT_FEED_ITEM
@@ -69,6 +75,8 @@ model Document {
   // Add a fallback dedupe strategy in the RSS import service before shipping RSS support.
   externalId      String?
   aiSummary       String?
+  aiSummaryStatus AiSummaryStatus?
+  aiSummaryError  String?
   lang            String?
   excerpt         String?
   author          String?

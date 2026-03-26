@@ -1,4 +1,4 @@
-import type { DocumentType, IngestionStatus, ReadState } from "@prisma/client";
+import type { AiSummaryStatus, DocumentType, IngestionStatus, ReadState } from "@prisma/client";
 
 export type DocumentListSort = "newest" | "oldest" | "published";
 
@@ -21,6 +21,8 @@ export type DocumentListItem = {
   sourceUrl: string | null;
   canonicalUrl: string | null;
   aiSummary: string | null;
+  aiSummaryStatus: AiSummaryStatus | null;
+  aiSummaryError: string | null;
   excerpt: string | null;
   lang: string | null;
   publishedAt: string | null;
@@ -63,6 +65,8 @@ export type DocumentDetail = {
   sourceUrl: string | null;
   canonicalUrl: string | null;
   aiSummary: string | null;
+  aiSummaryStatus: AiSummaryStatus | null;
+  aiSummaryError: string | null;
   excerpt: string | null;
   lang: string | null;
   author: string | null;

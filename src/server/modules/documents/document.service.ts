@@ -2,7 +2,14 @@ import { DocumentType, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
 import { generateDocumentAiSummary } from "./document-ai-summary.service";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
-import { getDocumentById, listDocuments, updateDocumentAiSummary, updateDocumentFavorite } from "./document.repository";
+import {
+  getDocumentById,
+  listDocuments,
+  updateDocumentAiSummary,
+  updateDocumentAiSummaryFailure,
+  updateDocumentAiSummaryState,
+  updateDocumentFavorite,
+} from "./document.repository";
 import type {
   DocumentListQuery,
   DocumentListSort,
@@ -87,8 +94,10 @@ export async function updateDocumentFavoriteStatus(
     };
   }
 
+  const pendingDocument = await updateDocumentAiSummaryState(document.id, "PENDING");
+
   try {
-    const generated = await generateDocumentAiSummary(document);
+    const generated = await generateDocumentAiSummary(pendingDocument);
     const updatedDocument = await updateDocumentAiSummary(document.id, generated.summary);
 
     return {
@@ -100,12 +109,19 @@ export async function updateDocumentFavoriteStatus(
       },
     };
   } catch (error) {
+    const summaryError = toGenerateAiSummaryError(error);
+    const failedDocument = await updateDocumentAiSummaryFailure(
+      document.id,
+      summaryError.message,
+      Boolean(document.aiSummary),
+    );
+
     return {
-      document: mapDocumentDetail(document),
+      document: mapDocumentDetail(failedDocument),
       summary: {
         status: "failed",
         source: null,
-        error: toGenerateAiSummaryError(error),
+        error: summaryError,
       },
     };
   }

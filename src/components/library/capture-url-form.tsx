@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { Field, TextInput } from "@/components/ui/form-controls";
 
 type CaptureUrlApiResponse =
   | {
@@ -60,38 +62,37 @@ export function CaptureUrlForm() {
   }
 
   return (
-    <form className="rounded-3xl border border-black/10 bg-white/75 p-5 shadow-sm" onSubmit={handleSubmit}>
-      <div className="space-y-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-black/45">Capture</p>
-          <h3 className="mt-2 font-serif text-xl text-black/90">Save a web page</h3>
-          <p className="mt-2 text-sm leading-6 text-black/65">
-            This is the only ingestion entry in P1. Submit a URL and the app will fetch, extract, and create a
-            document.
-          </p>
-        </div>
-
-        <label className="block space-y-2 text-sm text-black/70">
-          <span>Web URL</span>
-          <input
-            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-2.5 outline-none transition focus:border-black/30"
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder="https://example.com/article"
-            type="url"
-            value={url}
-          />
-        </label>
-
-        {error ? <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
-
-        <button
-          className="w-full rounded-2xl bg-stone-900 px-4 py-2.5 text-sm font-medium text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting || isPending || !url.trim()}
-          type="submit"
-        >
-          {isSubmitting || isPending ? "Saving..." : "Save URL"}
-        </button>
+    <form className="space-y-5" onSubmit={handleSubmit}>
+      <div className="space-y-1.5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
+          Capture
+        </p>
+        <h2 className="font-display text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
+          Save a web page
+        </h2>
+        <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
+          Drop in a link and send it straight into the reading flow.
+        </p>
       </div>
+
+      <Field label="Web URL">
+        <TextInput
+          onChange={(event) => setUrl(event.target.value)}
+          placeholder="https://example.com/article"
+          type="url"
+          value={url}
+        />
+      </Field>
+
+      {error ? (
+        <p className="rounded-[18px] border border-[color:var(--badge-danger-bg)] bg-[color:var(--badge-danger-bg)] px-4 py-3 text-sm text-[color:var(--badge-danger-text)]">
+          {error}
+        </p>
+      ) : null}
+
+      <Button className="w-full" disabled={isSubmitting || isPending || !url.trim()} type="submit" variant="primary">
+        {isSubmitting || isPending ? "Saving..." : "Save URL"}
+      </Button>
     </form>
   );
 }

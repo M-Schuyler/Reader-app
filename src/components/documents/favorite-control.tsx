@@ -3,7 +3,10 @@
 import { IngestionStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { ApiError, ApiSuccess } from "@/server/api/response";
+import { cx } from "@/utils/cx";
 import type {
   DocumentDetail,
   DocumentListItem,
@@ -12,8 +15,14 @@ import type {
 
 export type FavoriteSummaryUiState = "not_favorite" | "generating" | "ready" | "failed";
 
-type FavoriteDocument = Pick<DocumentListItem, "id" | "isFavorite" | "aiSummary" | "excerpt" | "ingestionStatus"> |
-  Pick<DocumentDetail, "id" | "isFavorite" | "aiSummary" | "excerpt" | "ingestionStatus">;
+type FavoriteDocument = Pick<
+  DocumentListItem,
+  "id" | "isFavorite" | "aiSummary" | "aiSummaryStatus" | "aiSummaryError" | "excerpt" | "ingestionStatus"
+> |
+  Pick<
+    DocumentDetail,
+    "id" | "isFavorite" | "aiSummary" | "aiSummaryStatus" | "aiSummaryError" | "excerpt" | "ingestionStatus"
+  >;
 
 type FavoriteControllerState = {
   isFavorite: boolean;
@@ -34,7 +43,7 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
   const router = useRouter();
   const [state, setState] = useState<FavoriteControllerState>(() => deriveStateFromDocument(document));
   const [actionError, setActionError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<"favorite" | "unfavorite" | null>(null);
+  const [pendingAction, setPendingAction] = useState<"favorite" | "unfavorite" | "retry" | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -45,17 +54,18 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
     const nextState = deriveStateFromDocument(document, readPersistedFailureState(document.id));
     setState(nextState);
     syncPersistedFailureState(document.id, nextState);
-  }, [document.aiSummary, document.id, document.isFavorite, pendingAction]);
+  }, [document.aiSummary, document.aiSummaryError, document.aiSummaryStatus, document.id, document.ingestionStatus, document.isFavorite, pendingAction]);
 
   async function toggleFavorite() {
     if (pendingAction) {
       return;
     }
 
-    const nextFavorite = !state.isFavorite;
+    const isRetryingSummary = state.isFavorite && state.summaryState === "failed";
+    const nextFavorite = isRetryingSummary ? true : !state.isFavorite;
     const previousState = state;
     setActionError(null);
-    setPendingAction(nextFavorite ? "favorite" : "unfavorite");
+    setPendingAction(isRetryingSummary ? "retry" : nextFavorite ? "favorite" : "unfavorite");
     setState({
       isFavorite: nextFavorite,
       aiSummary: state.aiSummary,
@@ -69,7 +79,10 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ isFavorite: nextFavorite }),
+        body: JSON.stringify({
+          isFavorite: nextFavorite,
+          ...(isRetryingSummary ? { regenerateAiSummary: true } : {}),
+        }),
       });
       const payload = (await response.json()) as UpdateFavoriteApiResponse;
       if (!payload.ok) {
@@ -85,7 +98,7 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
       });
     } catch (error) {
       setState(previousState);
-      setActionError(error instanceof Error ? error.message : "收藏状态更新失败。");
+      setActionError(error instanceof Error ? error.message : "Failed to update favorite state.");
     } finally {
       setPendingAction(null);
     }
@@ -97,7 +110,7 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
     summaryState: state.summaryState,
     summaryError: state.summaryError,
     supportText: resolveDocumentSupportText(document, state),
-    buttonLabel: formatFavoriteButtonLabel(state.isFavorite, pendingAction),
+    buttonLabel: formatFavoriteButtonLabel(state.summaryState, state.isFavorite, pendingAction),
     isSubmitting: pendingAction !== null,
     actionError,
     toggleFavorite,
@@ -106,32 +119,26 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
 
 export function FavoriteToggleButton(props: {
   buttonLabel: string;
+  className?: string;
   isFavorite: boolean;
   isSubmitting: boolean;
   onClick: () => void;
 }) {
   return (
-    <button
-      className={
-        props.isFavorite
-          ? "rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800 transition hover:border-amber-400 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
-          : "rounded-full border border-black/15 bg-white px-3 py-1.5 text-sm text-black/70 transition hover:border-black/30 hover:text-black disabled:cursor-not-allowed disabled:opacity-70"
-      }
+    <Button
+      size="sm"
+      variant={props.isFavorite ? "secondary" : "quiet"}
+      className={cx(props.isFavorite ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)]" : undefined, props.className)}
       disabled={props.isSubmitting}
       onClick={props.onClick}
-      type="button"
     >
       {props.buttonLabel}
-    </button>
+    </Button>
   );
 }
 
 export function FavoriteSummaryBadge({ state }: { state: FavoriteSummaryUiState }) {
-  return (
-    <span className={summaryBadgeClassName(state)}>
-      {formatSummaryState(state)}
-    </span>
-  );
+  return <Badge tone={summaryBadgeTone(state)}>{formatSummaryState(state)}</Badge>;
 }
 
 function deriveStateFromDocument(
@@ -156,12 +163,21 @@ function deriveStateFromDocument(
     };
   }
 
+  if (document.aiSummaryStatus === "FAILED" || document.ingestionStatus === IngestionStatus.FAILED) {
+    return {
+      isFavorite: true,
+      aiSummary: null,
+      summaryState: "failed",
+      summaryError: document.aiSummaryError ?? defaultSummaryFailureMessage(document),
+    };
+  }
+
   if (persistedFailureState) {
     return {
       isFavorite: true,
       aiSummary: null,
       summaryState: "failed",
-      summaryError: persistedFailureState.errorMessage ?? defaultSummaryFailureMessage(),
+      summaryError: persistedFailureState.errorMessage ?? defaultSummaryFailureMessage(document),
     };
   }
 
@@ -197,7 +213,7 @@ function deriveStateFromResponse(data: UpdateDocumentFavoriteResponseData): Favo
       isFavorite: true,
       aiSummary: null,
       summaryState: "failed",
-      summaryError: data.summary.error?.message ?? defaultSummaryFailureMessage(),
+      summaryError: data.summary.error?.message ?? defaultSummaryFailureMessage(data.document),
     };
   }
 
@@ -214,52 +230,64 @@ function resolveDocumentSupportText(document: FavoriteDocument, state: FavoriteC
     case "ready":
       return state.aiSummary;
     case "generating":
-      return "已收藏，AI 摘要生成中。";
+      return "Saved. Summary is being generated.";
     case "failed":
-      return state.summaryError ?? defaultSummaryFailureMessage();
+      return state.summaryError ?? defaultSummaryFailureMessage(document);
     case "not_favorite":
     default:
       return document.ingestionStatus === IngestionStatus.FAILED ? null : document.excerpt;
   }
 }
 
-function formatFavoriteButtonLabel(isFavorite: boolean, pendingAction: "favorite" | "unfavorite" | null) {
+function formatFavoriteButtonLabel(
+  summaryState: FavoriteSummaryUiState,
+  isFavorite: boolean,
+  pendingAction: "favorite" | "unfavorite" | "retry" | null,
+) {
   if (pendingAction === "favorite") {
-    return "收藏中...";
+    return "Saving...";
   }
 
   if (pendingAction === "unfavorite") {
-    return "取消中...";
+    return "Removing...";
   }
 
-  return isFavorite ? "已收藏" : "收藏";
+  if (pendingAction === "retry") {
+    return "Retrying...";
+  }
+
+  if (isFavorite && summaryState === "failed") {
+    return "Retry summary";
+  }
+
+  return isFavorite ? "Saved" : "Save";
 }
 
 function formatSummaryState(state: FavoriteSummaryUiState) {
   switch (state) {
     case "generating":
-      return "已收藏，摘要生成中";
+      return "Saved, summary pending";
     case "ready":
-      return "已收藏，摘要已生成";
+      return "Saved, summary ready";
     case "failed":
-      return "已收藏，摘要生成失败";
+      return "Saved, summary failed";
     case "not_favorite":
     default:
-      return "未收藏";
+      return "Not saved";
   }
 }
 
-function summaryBadgeClassName(state: FavoriteSummaryUiState) {
+function summaryBadgeTone(state: FavoriteSummaryUiState) {
   switch (state) {
     case "generating":
-      return "inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-700";
+      return "neutral";
     case "ready":
-      return "inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700";
+      return "success";
     case "failed":
-      return "inline-flex rounded-full bg-red-50 px-2.5 py-1 text-xs text-red-700";
+      return "danger";
     case "not_favorite":
     default:
-      return "inline-flex rounded-full bg-black/5 px-2.5 py-1 text-xs text-black/55";
+      return "subtle";
   }
 }
 
@@ -305,6 +333,10 @@ function syncPersistedFailureState(documentId: string, state: FavoriteController
   );
 }
 
-function defaultSummaryFailureMessage() {
-  return "AI 摘要生成失败，请稍后重试。";
+function defaultSummaryFailureMessage(document?: FavoriteDocument) {
+  if (document?.ingestionStatus === IngestionStatus.FAILED) {
+    return "Content capture failed, so a summary is not available yet.";
+  }
+
+  return "Summary generation failed. Try again later.";
 }

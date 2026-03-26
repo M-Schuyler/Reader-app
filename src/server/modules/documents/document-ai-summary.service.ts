@@ -11,6 +11,7 @@ const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 const MAX_SOURCE_TEXT_CHARS = 12_000;
 const MAX_SUMMARY_CHARS = 180;
+const EXTRA_RETRY_DELAYS_MS = [3_000, 8_000];
 
 type AiProvider = "gemini" | "openai";
 
@@ -39,20 +40,7 @@ export async function generateDocumentAiSummary(document: DocumentDetailRecord) 
   });
 
   try {
-    const completion = await client.chat.completions.create({
-      model: provider.model,
-      messages: [
-        {
-          role: "system",
-          content: buildSummaryInstructions(),
-        },
-        {
-          role: "user",
-          content: buildSummaryInput(document, preparedInput),
-        },
-      ],
-      ...(provider.provider === "gemini" ? { reasoning_effort: "none" as const } : {}),
-    });
+    const completion = await createSummaryCompletion(client, provider, document, preparedInput);
 
     const summary = sanitizeSummary(extractOutputText(completion));
     if (!summary) {
@@ -66,6 +54,44 @@ export async function generateDocumentAiSummary(document: DocumentDetailRecord) 
   } catch (error) {
     throw toAiProviderError(error);
   }
+}
+
+async function createSummaryCompletion(
+  client: OpenAI,
+  provider: AiProviderConfig,
+  document: DocumentDetailRecord,
+  preparedInput: PreparedSummaryInput,
+) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= EXTRA_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await client.chat.completions.create({
+        model: provider.model,
+        messages: [
+          {
+            role: "system",
+            content: buildSummaryInstructions(),
+          },
+          {
+            role: "user",
+            content: buildSummaryInput(document, preparedInput),
+          },
+        ],
+        ...(provider.provider === "gemini" ? { reasoning_effort: "none" as const } : {}),
+      });
+    } catch (error) {
+      lastError = error;
+
+      if (!shouldRetryAiProviderRequest(error) || attempt === EXTRA_RETRY_DELAYS_MS.length) {
+        throw error;
+      }
+
+      await sleep(resolveRetryDelayMs(error, attempt));
+    }
+  }
+
+  throw lastError;
 }
 
 function prepareSummaryInput(document: DocumentDetailRecord): PreparedSummaryInput {
@@ -160,6 +186,15 @@ function sanitizeSummary(value: string | null) {
   return normalized.slice(0, MAX_SUMMARY_CHARS).trimEnd();
 }
 
+function shouldRetryAiProviderRequest(error: unknown) {
+  const status = getAiProviderStatus(error);
+  return status === 429 || status === 408 || status === 409 || (typeof status === "number" && status >= 500) || isConnectionError(error);
+}
+
+function resolveRetryDelayMs(error: unknown, attempt: number) {
+  return getRetryAfterMs(error) ?? EXTRA_RETRY_DELAYS_MS[Math.min(attempt, EXTRA_RETRY_DELAYS_MS.length - 1)];
+}
+
 function resolveAiProviderConfig(): AiProviderConfig {
   const provider = normalizeProvider(process.env.AI_PROVIDER) ?? DEFAULT_AI_PROVIDER;
 
@@ -203,6 +238,54 @@ function normalizeProvider(value: string | undefined): AiProvider | null {
   throw new RouteError("AI_PROVIDER_UNSUPPORTED", 500, `AI provider "${value}" is not supported.`);
 }
 
+function getAiProviderStatus(error: unknown) {
+  if (error && typeof error === "object" && "status" in error && typeof (error as { status?: unknown }).status === "number") {
+    return (error as { status: number }).status;
+  }
+
+  return null;
+}
+
+function getRetryAfterMs(error: unknown) {
+  if (!error || typeof error !== "object" || !("headers" in error)) {
+    return null;
+  }
+
+  const headers = (error as { headers?: unknown }).headers;
+  const retryAfterValue =
+    headers instanceof Headers
+      ? headers.get("retry-after")
+      : headers && typeof headers === "object" && "get" in headers && typeof (headers as { get?: unknown }).get === "function"
+        ? ((headers as { get: (name: string) => string | null }).get("retry-after") ?? null)
+        : null;
+
+  if (!retryAfterValue) {
+    return null;
+  }
+
+  const seconds = Number.parseInt(retryAfterValue, 10);
+  if (!Number.isNaN(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1_000, 30_000);
+  }
+
+  const parsedDate = Date.parse(retryAfterValue);
+  if (Number.isNaN(parsedDate)) {
+    return null;
+  }
+
+  return Math.min(Math.max(parsedDate - Date.now(), 0), 30_000);
+}
+
+function isConnectionError(error: unknown) {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "message" in error &&
+      typeof (error as { message?: unknown }).message === "string" &&
+      (error as { message: string }).message.toLowerCase().includes("connection error"),
+  );
+}
+
 function extractOutputText(completion: {
   choices?: Array<{
     message?: {
@@ -233,6 +316,14 @@ function toAiProviderError(error: unknown) {
     return error;
   }
 
+  if (getAiProviderStatus(error) === 429) {
+    return new RouteError("AI_PROVIDER_RATE_LIMITED", 429, "AI 服务请求过于频繁，请稍后重试。");
+  }
+
+  if (isConnectionError(error)) {
+    return new RouteError("AI_PROVIDER_UNAVAILABLE", 502, "AI 服务暂时不可用，请稍后重试。");
+  }
+
   if (
     error &&
     typeof error === "object" &&
@@ -244,4 +335,10 @@ function toAiProviderError(error: unknown) {
   }
 
   return new RouteError("AI_PROVIDER_REQUEST_FAILED", 502, "AI provider request failed.");
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

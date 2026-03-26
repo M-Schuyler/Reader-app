@@ -1,4 +1,4 @@
-import { DocumentType, IngestionStatus, Prisma } from "@prisma/client";
+import { AiSummaryStatus, DocumentType, IngestionStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import type { DocumentListQuery, DocumentListSort } from "./document.types";
 
@@ -188,6 +188,30 @@ export async function updateDocumentAiSummary(id: string, aiSummary: string) {
     where: { id },
     data: {
       aiSummary,
+      aiSummaryStatus: AiSummaryStatus.READY,
+      aiSummaryError: null,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function updateDocumentAiSummaryState(id: string, status: AiSummaryStatus) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      aiSummaryStatus: status,
+      aiSummaryError: null,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function updateDocumentAiSummaryFailure(id: string, errorMessage: string, preserveReadyState = false) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      aiSummaryStatus: preserveReadyState ? AiSummaryStatus.READY : AiSummaryStatus.FAILED,
+      aiSummaryError: errorMessage,
     },
     ...documentDetailArgs,
   });

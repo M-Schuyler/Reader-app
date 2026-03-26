@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { IngestionStatus } from "@prisma/client";
+import { Badge } from "@/components/ui/badge";
 import {
   FavoriteSummaryBadge,
   FavoriteToggleButton,
   useDocumentFavoriteController,
 } from "@/components/documents/favorite-control";
+import { Panel } from "@/components/ui/panel";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 
 type DocumentListProps = {
@@ -16,65 +18,85 @@ type DocumentListProps = {
 export function DocumentList({ data }: DocumentListProps) {
   if (data.items.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-black/15 bg-white/55 p-8 text-sm text-black/55">
-        No documents yet. Save a web URL to create the first record in the library.
-      </div>
+      <Panel className="px-8 py-10 text-center" tone="muted">
+        <div className="mx-auto max-w-md space-y-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
+            Empty library
+          </p>
+          <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+            Save the first article to start the archive.
+          </h2>
+          <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
+            Captured links will appear here as soon as they are stored as documents.
+          </p>
+        </div>
+      </Panel>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {data.items.map((item) => (
-        <DocumentCard item={item} key={item.id} />
-      ))}
-    </div>
+    <Panel className="overflow-hidden" padding="none">
+      <div className="divide-y divide-[color:var(--border-subtle)]">
+        {data.items.map((item) => (
+          <DocumentCard item={item} key={item.id} />
+        ))}
+      </div>
+    </Panel>
   );
 }
 
 function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number] }) {
   const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
   const favorite = useDocumentFavoriteController(item);
+  const shouldShowSummaryBadge = favorite.summaryState !== "not_favorite";
+  const shouldShowStatusBadge = item.ingestionStatus !== IngestionStatus.READY;
 
   return (
-    <article className="rounded-3xl border border-black/10 bg-white/80 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-black/20">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-black/45">
-          <span>{item.type}</span>
-          <span className={statusClassName(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</span>
-          <span>{formatDate(item.createdAt)}</span>
+    <article className="group px-6 py-6 sm:px-7">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-4">
+          <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+            <span>{formatDocumentType(item.type)}</span>
+            <span>{formatDate(item.createdAt)}</span>
+            {shouldShowStatusBadge ? (
+              <Badge tone={statusTone(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</Badge>
+            ) : null}
+          </div>
+
+          <Link className="block space-y-3" href={`/documents/${item.id}`}>
+            <h3 className="max-w-4xl font-display text-[1.75rem] leading-[1.08] tracking-[-0.03em] text-[color:var(--text-primary)] transition group-hover:text-[color:var(--text-primary-strong)]">
+              {item.title}
+            </h3>
+            {favorite.supportText ? (
+              <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{favorite.supportText}</p>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {shouldShowSummaryBadge ? <FavoriteSummaryBadge state={favorite.summaryState} /> : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm text-[color:var(--text-tertiary)]">
+              {!isFailed && item.wordCount ? <span>{formatWordCount(item.wordCount)}</span> : null}
+              {item.lang ? <span>{item.lang}</span> : null}
+              {item.canonicalUrl ? (
+                <span className="truncate">{truncateUrl(item.canonicalUrl)}</span>
+              ) : item.sourceUrl ? (
+                <span className="truncate">{truncateUrl(item.sourceUrl)}</span>
+              ) : null}
+            </div>
+          </Link>
+
+          {favorite.actionError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{favorite.actionError}</p> : null}
         </div>
 
         <FavoriteToggleButton
           buttonLabel={favorite.buttonLabel}
+          className="shrink-0"
           isFavorite={favorite.isFavorite}
           isSubmitting={favorite.isSubmitting}
           onClick={favorite.toggleFavorite}
         />
       </div>
-
-      <Link className="block" href={`/documents/${item.id}`}>
-        <h3 className="mt-3 font-serif text-2xl text-black/90">{item.title}</h3>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <FavoriteSummaryBadge state={favorite.summaryState} />
-        </div>
-
-        {favorite.supportText ? (
-          <p className="mt-3 line-clamp-4 text-sm leading-6 text-black/68">{favorite.supportText}</p>
-        ) : null}
-
-        {favorite.actionError ? <p className="mt-3 text-sm text-red-700">{favorite.actionError}</p> : null}
-
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-black/55">
-          {!isFailed && item.wordCount ? <span>{item.wordCount} words</span> : null}
-          {item.lang ? <span>{item.lang}</span> : null}
-          {item.canonicalUrl ? (
-            <span className="truncate">{truncateUrl(item.canonicalUrl)}</span>
-          ) : item.sourceUrl ? (
-            <span className="truncate">{truncateUrl(item.sourceUrl)}</span>
-          ) : null}
-        </div>
-      </Link>
     </article>
   );
 }
@@ -90,23 +112,46 @@ function formatDate(value: string) {
 function formatIngestionStatus(status: IngestionStatus) {
   switch (status) {
     case IngestionStatus.FAILED:
-      return "抓取失败";
+      return "Capture failed";
     case IngestionStatus.READY:
-      return "READY";
+      return "Ready";
     case IngestionStatus.PROCESSING:
-      return "PROCESSING";
+      return "Processing";
     case IngestionStatus.PENDING:
     default:
-      return "PENDING";
+      return "Queued";
   }
 }
 
-function statusClassName(status: IngestionStatus) {
-  if (status === IngestionStatus.FAILED) {
-    return "rounded-full bg-red-50 px-2 py-0.5 text-red-700";
+function statusTone(status: IngestionStatus) {
+  switch (status) {
+    case IngestionStatus.FAILED:
+      return "danger";
+    case IngestionStatus.PROCESSING:
+      return "warning";
+    case IngestionStatus.PENDING:
+      return "subtle";
+    case IngestionStatus.READY:
+    default:
+      return "neutral";
   }
+}
 
-  return "";
+function formatDocumentType(value: string) {
+  switch (value) {
+    case "WEB_PAGE":
+      return "Web page";
+    case "RSS_ITEM":
+      return "RSS item";
+    case "PDF":
+      return "PDF";
+    default:
+      return value;
+  }
+}
+
+function formatWordCount(value: number) {
+  return `${new Intl.NumberFormat("en").format(value)} words`;
 }
 
 function truncateUrl(value: string) {

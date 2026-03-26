@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { signOut } from "@/auth";
+import { MainNav } from "@/components/layout/main-nav";
+import { Button } from "@/components/ui/button";
 import { requirePageUser } from "@/server/auth/session";
 
 type MainLayoutProps = {
@@ -12,39 +14,37 @@ export default async function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-black/10 bg-white/60 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-black/45">Reader App</p>
-            <h1 className="font-serif text-xl text-black/90">Unified personal reading system</h1>
+      <header className="sticky top-0 z-30 border-b border-[color:var(--border-subtle)] bg-[rgba(248,245,238,0.82)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[78rem] flex-col gap-4 px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <div className="flex min-w-0 items-center gap-8">
+            <Link className="min-w-0" href="/library">
+              <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[color:var(--text-tertiary)]">
+                Reader
+              </p>
+              <p className="mt-1 text-[15px] text-[color:var(--text-primary)]">Personal reading archive</p>
+            </Link>
+
+            <MainNav />
           </div>
-          <nav className="flex items-center gap-3 text-sm text-black/70">
-            <Link className="rounded-full border border-black/10 px-3 py-1.5 hover:bg-black/5" href="/library">
-              Library
-            </Link>
-            <Link className="rounded-full border border-black/10 px-3 py-1.5 hover:bg-black/5" href="/sources">
-              Sources
-            </Link>
-          </nav>
-          <div className="flex items-center gap-3 text-sm text-black/70">
-            <span className="hidden rounded-full border border-black/10 px-3 py-1.5 sm:inline-flex">{user.email}</span>
+
+          <div className="flex flex-wrap items-center gap-2.5 text-sm text-[color:var(--text-secondary)]">
+            <span className="hidden rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 py-2 sm:inline-flex">
+              {user.email}
+            </span>
             <form
               action={async () => {
                 "use server";
                 await signOut({ redirectTo: "/login" });
               }}
             >
-              <button
-                className="rounded-full border border-black/10 px-3 py-1.5 transition hover:bg-black/5"
-                type="submit"
-              >
+              <Button size="sm" type="submit" variant="quiet">
                 Sign out
-              </button>
+              </Button>
             </form>
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-[78rem] px-5 py-8 sm:px-6 lg:px-8 lg:py-10">{children}</main>
     </div>
   );
 }
