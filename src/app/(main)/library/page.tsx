@@ -30,9 +30,9 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   return (
     <section className="space-y-10">
       <PageHeader
-        description="Reader keeps web pages, imported articles, and later reading in one queue. Bring things in quickly, scan the signal, then open the document when it deserves real attention."
+        description="Collect first, decide depth later. A calm queue keeps signal visible before you commit real reading time."
         eyebrow="Library"
-        title="One calm queue for everything worth reading."
+        title="把值得读的内容放进一个安静队列"
       />
 
       <div className="flex flex-wrap gap-2">
@@ -64,40 +64,40 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
                   Filter
                 </p>
                 <h2 className="font-display text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
-                  Shape the queue.
+                  筛选当前文档库
                 </h2>
               </div>
 
-              <Field label="Keyword">
+              <Field label="关键词">
                 <TextInput
                   defaultValue={data.filters.q}
                   name="q"
-                  placeholder="Search titles, summaries, or sources"
+                  placeholder="搜索标题、摘要或来源"
                   type="text"
                 />
               </Field>
 
-              <Field label="Sort">
+              <Field label="排序">
                 <SelectInput
                   defaultValue={data.filters.sort}
                   name="sort"
                 >
-                  <option value="newest">Newest</option>
-                  <option value="oldest">Oldest</option>
-                  <option value="published">Published</option>
+                  <option value="newest">最新收录</option>
+                  <option value="oldest">最早收录</option>
+                  <option value="published">发布时间</option>
                 </SelectInput>
               </Field>
 
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Button className="flex-1" type="submit" variant="primary">
-                  Apply
+                  应用筛选
                 </Button>
                 {hasActiveFilters ? (
                   <Link
                     className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
                     href="/library"
                   >
-                    Reset
+                    清空
                   </Link>
                 ) : null}
               </div>
@@ -109,12 +109,12 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
           <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1">
               <p className="text-sm text-[color:var(--text-secondary)]">
-                <span className="font-medium text-[color:var(--text-primary)]">{data.pagination.total}</span> documents in{" "}
-                <span className="font-medium text-[color:var(--text-primary)]">{activeViewMeta.label}</span>
+                当前共有 <span className="font-medium text-[color:var(--text-primary)]">{data.pagination.total}</span> 篇文档
+                <span className="ml-1 font-medium text-[color:var(--text-primary)]">· {activeViewMeta.label}</span>
               </p>
               {data.filters.q ? (
                 <p className="text-sm text-[color:var(--text-secondary)]">
-                  Matching <span className="font-medium text-[color:var(--text-primary)]">&quot;{data.filters.q}&quot;</span>
+                  搜索 <span className="font-medium text-[color:var(--text-primary)]">&quot;{data.filters.q}&quot;</span>
                 </p>
               ) : null}
             </div>
@@ -155,22 +155,22 @@ async function toUrlSearchParams(
 const LIBRARY_VIEWS: Array<{ id: LibraryViewId; label: string; description: string }> = [
   {
     id: "inbox",
-    label: "Inbox",
-    description: "Everything you pulled into Reader, ready to scan and sort into a deeper reading pass.",
+    label: "文档库",
+    description: "Everything you saved, ready for triage before it turns into deliberate reading.",
   },
   {
     id: "later",
-    label: "Later",
-    description: "The pieces worth returning to when you are ready for a slower, more deliberate session.",
+    label: "稍后读",
+    description: "Pieces worth coming back to when you have a slower and more focused reading session.",
   },
   {
     id: "starred",
-    label: "Starred",
-    description: "Documents you marked for fast recall because they should stay near the top of your reading orbit.",
+    label: "收藏",
+    description: "Documents kept close because they deserve a faster return and a shorter path back in.",
   },
   {
     id: "archive",
-    label: "Archive",
-    description: "Finished reading that still belongs in your library, but no longer needs to sit in the main queue.",
+    label: "归档",
+    description: "Reading that has been absorbed, but still belongs in the library as lasting reference.",
   },
 ];

@@ -3,11 +3,11 @@ import test from "node:test";
 import { ReadState } from "@prisma/client";
 import { buildLibraryViewHref, getMainNavItems, resolveLibraryView } from "./product-shell";
 
-test("marks Library as active for library and document routes", () => {
+test("marks 文档库 as active for library and document routes", () => {
   const libraryItems = getMainNavItems("/library");
   const documentItems = getMainNavItems("/documents/doc-123");
 
-  assert.equal(libraryItems[0]?.label, "Library");
+  assert.equal(libraryItems[0]?.label, "文档库");
   assert.equal(libraryItems[0]?.isActive, true);
   assert.equal(documentItems[0]?.isActive, true);
 });
@@ -19,18 +19,18 @@ test("marks highlights and export as distinct primary surfaces", () => {
   assert.deepEqual(
     highlightItems.map((item) => [item.label, item.isActive]),
     [
-      ["Library", false],
-      ["Highlights", true],
-      ["Export", false],
+      ["文档库", false],
+      ["高亮", true],
+      ["导出", false],
     ],
   );
 
   assert.deepEqual(
     exportItems.map((item) => [item.label, item.isActive]),
     [
-      ["Library", false],
-      ["Highlights", false],
-      ["Export", true],
+      ["文档库", false],
+      ["高亮", false],
+      ["导出", true],
     ],
   );
 });

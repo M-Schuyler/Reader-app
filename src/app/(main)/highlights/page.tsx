@@ -11,20 +11,20 @@ export default async function HighlightsPage() {
   return (
     <section className="space-y-10">
       <PageHeader
-        description="Highlights are where reading leaves residue. Keep them narrow: capture a passage, add a short note when needed, and revisit only what deserves to travel onward."
+        description="Keep the residue light. Save the line, leave a short note, come back only when it still matters."
         eyebrow="Highlights"
-        title="A second pass over what mattered."
+        title="把真正重要的句子留下来"
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <MetricPanel label="Passages saved" value={String(overview.totalHighlights)} />
-        <MetricPanel label="Documents marked" value={String(overview.highlightedDocuments)} />
+        <MetricPanel hint="Saved passages" label="已保存高亮" value={String(overview.totalHighlights)} />
+        <MetricPanel hint="Marked documents" label="涉及文档" value={String(overview.highlightedDocuments)} />
         <Panel className="space-y-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-            Reader boundary
+            Reader
           </p>
           <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-            This page is for revisiting passages, not writing long-form notes. The deeper synthesis belongs downstream.
+            这里适合回看重点，不适合写长文式整理。更深的沉淀留给下游笔记系统。
           </p>
         </Panel>
       </div>
@@ -32,24 +32,23 @@ export default async function HighlightsPage() {
       <Panel className="space-y-6">
         <div className="space-y-2">
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-            Recent highlights
+            Recent
           </p>
           <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-            Reading traces stay light and easy to revisit.
+            最近高亮，适合快速回看
           </h2>
         </div>
 
         {overview.recentHighlights.length === 0 ? (
           <div className="space-y-4">
             <p className="max-w-2xl text-sm leading-7 text-[color:var(--text-secondary)]">
-              No highlights yet. Once passages start getting marked inside Reader, they will collect here for a quieter
-              second pass.
+              还没有高亮。等你在阅读页开始标记句子，这里会慢慢形成一条轻量的回看轨迹。
             </p>
             <Link
               className="inline-flex min-h-11 items-center justify-center rounded-[20px] border border-transparent bg-[color:var(--text-primary)] px-4.5 text-sm font-medium text-white transition hover:bg-[color:var(--text-primary-strong)]"
               href="/library"
             >
-              Return to Library
+              返回文档库
             </Link>
           </div>
         ) : (
@@ -77,18 +76,21 @@ export default async function HighlightsPage() {
   );
 }
 
-function MetricPanel({ label, value }: { label: string; value: string }) {
+function MetricPanel({ hint, label, value }: { hint: string; label: string; value: string }) {
   return (
     <Panel className="space-y-3">
-      <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">{label}</p>
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium text-[color:var(--text-primary)]">{label}</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">{hint}</p>
+      </div>
       <p className="font-display text-[2.4rem] leading-none tracking-[-0.04em] text-[color:var(--text-primary)]">{value}</p>
     </Panel>
   );
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "long",
     day: "numeric",
     year: "numeric",
   }).format(new Date(value));

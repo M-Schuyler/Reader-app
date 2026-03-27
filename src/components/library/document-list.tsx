@@ -17,13 +17,13 @@ export function DocumentList({ data }: DocumentListProps) {
       <Panel className="px-8 py-10 text-center" tone="muted">
         <div className="mx-auto max-w-md space-y-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-            Empty queue
+            Library
           </p>
           <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-            Bring the first document into Reader.
+            文档库还没有内容
           </h2>
           <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-            Captured links, imported articles, and later reading all collect here once they are stored as documents.
+            Start with one saved link, then let the queue grow quietly.
           </p>
         </div>
       </Panel>
@@ -92,9 +92,9 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
-    month: "short",
+    month: "long",
     day: "numeric",
   }).format(new Date(value));
 }
@@ -102,14 +102,14 @@ function formatDate(value: string) {
 function formatIngestionStatus(status: IngestionStatus) {
   switch (status) {
     case IngestionStatus.FAILED:
-      return "Capture failed";
+      return "抓取失败";
     case IngestionStatus.READY:
-      return "Ready";
+      return "可阅读";
     case IngestionStatus.PROCESSING:
-      return "Processing";
+      return "处理中";
     case IngestionStatus.PENDING:
     default:
-      return "Queued";
+      return "排队中";
   }
 }
 
@@ -130,9 +130,9 @@ function statusTone(status: IngestionStatus) {
 function formatDocumentType(value: string) {
   switch (value) {
     case "WEB_PAGE":
-      return "Web page";
+      return "Web";
     case "RSS_ITEM":
-      return "RSS item";
+      return "RSS";
     case "PDF":
       return "PDF";
     default:
@@ -141,7 +141,7 @@ function formatDocumentType(value: string) {
 }
 
 function formatWordCount(value: number) {
-  return `${new Intl.NumberFormat("en").format(value)} words`;
+  return `${new Intl.NumberFormat("zh-CN").format(value)} 字`;
 }
 
 function truncateUrl(value: string) {

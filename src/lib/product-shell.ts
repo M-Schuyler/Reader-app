@@ -12,9 +12,9 @@ export type LibraryViewId = "inbox" | "later" | "starred" | "archive";
 type LibraryViewState = Pick<DocumentListQuery, "isFavorite" | "isLater" | "readState">;
 
 const MAIN_NAV_ITEMS = [
-  { href: "/library", label: "Library" },
-  { href: "/highlights", label: "Highlights" },
-  { href: "/export", label: "Export" },
+  { href: "/library", label: "文档库" },
+  { href: "/highlights", label: "高亮" },
+  { href: "/export", label: "导出" },
 ] as const;
 
 export function getMainNavItems(pathname: string): MainNavItem[] {

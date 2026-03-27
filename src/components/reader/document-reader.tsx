@@ -35,7 +35,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
       <header className="mx-auto max-w-[var(--content-measure)] space-y-5">
         <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
           <Link className="transition hover:text-[color:var(--text-primary)]" href="/library">
-            Library
+            文档库
           </Link>
           <span>/</span>
           <span>{formatDocumentType(document.type)}</span>
@@ -67,18 +67,17 @@ export function DocumentReader({ document }: DocumentReaderProps) {
               <div className="space-y-6">
                 <div className="space-y-3">
                   <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-                    Stored, but not readable yet.
+                    链接已保存，但正文暂不可读
                   </h2>
                   <p className="max-w-2xl text-[15px] leading-7 text-[color:var(--text-secondary)]">
-                    The source still belongs in your reading flow, but the body could not be captured from the original
-                    page.
+                    正文抓取没有成功，但这篇内容仍然保留在你的阅读流里。
                   </p>
                 </div>
 
                 {sourceUrl ? (
                   <div className="space-y-3 rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-5 py-4">
                     <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-                      Original URL
+                      原始链接
                     </p>
                     <p className="break-all text-sm leading-7 text-[color:var(--text-secondary)]">{sourceUrl}</p>
                     <Link
@@ -86,7 +85,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                       href={sourceUrl}
                       target="_blank"
                     >
-                      Open original
+                      打开原文
                     </Link>
                   </div>
                 ) : null}
@@ -109,7 +108,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                 {documentHighlights.selectionDraft ? (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3">
                     <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-                      Save this passage to your reading traces.
+                      把这段文字保存为高亮，方便稍后回看。
                     </p>
                     <Button
                       className="shrink-0"
@@ -118,7 +117,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                       size="sm"
                       variant="secondary"
                     >
-                      {documentHighlights.isCreating ? "Saving…" : "Save highlight"}
+                      {documentHighlights.isCreating ? "保存中…" : "保存高亮"}
                     </Button>
                   </div>
                 ) : null}
@@ -144,7 +143,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                 {documentHighlights.selectionDraft ? (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3">
                     <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-                      Save this passage to your reading traces.
+                      把这段文字保存为高亮，方便稍后回看。
                     </p>
                     <Button
                       className="shrink-0"
@@ -153,7 +152,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                       size="sm"
                       variant="secondary"
                     >
-                      {documentHighlights.isCreating ? "Saving…" : "Save highlight"}
+                      {documentHighlights.isCreating ? "保存中…" : "保存高亮"}
                     </Button>
                   </div>
                 ) : null}
@@ -163,7 +162,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
               </div>
             ) : (
               <p className="text-[15px] leading-7 text-[color:var(--text-secondary)]">
-                This document is stored, but readable content is not available yet.
+                文档已保存，但暂时没有可阅读正文。
               </p>
             )}
           </div>
@@ -173,7 +172,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
           <Panel className="space-y-6 lg:sticky lg:top-24" tone="muted">
             <div className="space-y-3">
               <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                Actions
+                操作
               </p>
               <FavoriteToggleButton
                 buttonLabel={favorite.buttonLabel}
@@ -189,14 +188,14 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                     href={sourceUrl}
                     target="_blank"
                   >
-                    Open original
+                    打开原文
                   </Link>
                 ) : null}
                 <Link
                   className="inline-flex min-h-10 items-center rounded-[18px] border border-transparent px-1 text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
                   href="/library"
                 >
-                  Back to library
+                  返回文档库
                 </Link>
               </div>
               {favorite.actionError ? (
@@ -206,26 +205,26 @@ export function DocumentReader({ document }: DocumentReaderProps) {
 
             <div className="space-y-3">
               <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                Document
+                文档信息
               </p>
               <dl className="space-y-3 text-sm">
-                <MetaRow label="Status" value={formatIngestionStatus(document.ingestionStatus)} />
-                <MetaRow label="Added" value={formatDate(document.createdAt)} />
-                {document.lang ? <MetaRow label="Language" value={document.lang} /> : null}
+                <MetaRow label="状态" value={formatIngestionStatus(document.ingestionStatus)} />
+                <MetaRow label="收录时间" value={formatDate(document.createdAt)} />
+                {document.lang ? <MetaRow label="语言" value={document.lang} /> : null}
                 {isReadable && document.content?.wordCount ? (
-                  <MetaRow label="Length" value={formatWordCount(document.content.wordCount)} />
+                  <MetaRow label="字数" value={formatWordCount(document.content.wordCount)} />
                 ) : null}
-                {sourceUrl ? <MetaRow label="Source" value={truncateUrl(sourceUrl)} /> : null}
+                {sourceUrl ? <MetaRow label="来源" value={truncateUrl(sourceUrl)} /> : null}
               </dl>
             </div>
 
             {favorite.isFavorite ? (
               <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
                 <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                  Starred
+                  收藏
                 </p>
                 <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">
-                  This document stays close to the top of your reading orbit for a faster return later on.
+                  这篇内容会保留在收藏视图里，方便你之后更快回到它。
                 </p>
               </div>
             ) : null}
@@ -261,7 +260,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -271,14 +270,14 @@ function formatDate(value: string) {
 function formatIngestionStatus(status: IngestionStatus) {
   switch (status) {
     case IngestionStatus.FAILED:
-      return "Capture failed";
+      return "抓取失败";
     case IngestionStatus.READY:
-      return "Ready";
+      return "可阅读";
     case IngestionStatus.PROCESSING:
-      return "Processing";
+      return "处理中";
     case IngestionStatus.PENDING:
     default:
-      return "Queued";
+      return "排队中";
   }
 }
 
@@ -299,9 +298,9 @@ function statusTone(status: IngestionStatus) {
 function formatDocumentType(value: string) {
   switch (value) {
     case "WEB_PAGE":
-      return "Web page";
+      return "Web";
     case "RSS_ITEM":
-      return "RSS item";
+      return "RSS";
     case "PDF":
       return "PDF";
     default:
@@ -310,7 +309,7 @@ function formatDocumentType(value: string) {
 }
 
 function formatWordCount(value: number) {
-  return `${new Intl.NumberFormat("en").format(value)} words`;
+  return `${new Intl.NumberFormat("zh-CN").format(value)} 字`;
 }
 
 function resolveLeadText(document: DocumentDetail) {

@@ -21,7 +21,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
               <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[color:var(--text-tertiary)]">
                 Reader
               </p>
-              <p className="mt-1 text-[15px] text-[color:var(--text-primary)]">Reading-first input hub</p>
+              <p className="mt-1 text-[15px] text-[color:var(--text-primary)]">阅读优先的个人资料库</p>
             </Link>
 
             <MainNav />
@@ -38,7 +38,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
               }}
             >
               <Button size="sm" type="submit" variant="quiet">
-                Sign out
+                退出登录
               </Button>
             </form>
           </div>

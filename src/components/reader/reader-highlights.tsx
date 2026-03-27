@@ -70,7 +70,7 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
 
         if (!payload.ok) {
           if (!isCancelled) {
-            setActionError(payload.error.message);
+            setActionError("加载高亮失败，请稍后再试。");
           }
           return;
         }
@@ -80,7 +80,7 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
         }
       } catch {
         if (!isCancelled) {
-          setActionError("Failed to load highlights.");
+          setActionError("加载高亮失败，请稍后再试。");
         }
       } finally {
         if (!isCancelled) {
@@ -129,7 +129,7 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
       const payload = (await response.json()) as HighlightMutationApiResponse;
 
       if (!payload.ok) {
-        setActionError(payload.error.message);
+        setActionError("保存高亮失败，请稍后再试。");
         return;
       }
 
@@ -137,7 +137,7 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
       setSelectionDraft(null);
       window.getSelection()?.removeAllRanges();
     } catch {
-      setActionError("Failed to save the highlight.");
+      setActionError("保存高亮失败，请稍后再试。");
     } finally {
       setIsCreating(false);
     }
@@ -159,7 +159,7 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
       const payload = (await response.json()) as HighlightMutationApiResponse;
 
       if (!payload.ok) {
-        setActionError(payload.error.message);
+        setActionError("更新批注失败，请稍后再试。");
         return;
       }
 
@@ -167,7 +167,7 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
         sortHighlights(current.map((highlight) => (highlight.id === id ? payload.data.highlight : highlight))),
       );
     } catch {
-      setActionError("Failed to update the highlight note.");
+      setActionError("更新批注失败，请稍后再试。");
     } finally {
       setSavingNoteId(null);
     }
@@ -183,13 +183,13 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
       const payload = (await response.json()) as { ok: boolean; error?: { message: string } };
 
       if (!payload.ok) {
-        setActionError(payload.error?.message ?? "Failed to remove the highlight.");
+        setActionError("删除高亮失败，请稍后再试。");
         return;
       }
 
       setHighlights((current) => current.filter((highlight) => highlight.id !== id));
     } catch {
-      setActionError("Failed to remove the highlight.");
+      setActionError("删除高亮失败，请稍后再试。");
     }
   }
 
@@ -232,17 +232,17 @@ export function ReaderHighlightsPanel({
           Highlights
         </p>
         <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-          Keep only what is worth exporting or revisiting. Notes stay short and attached to the passage.
+          只留下值得回看的句子，批注保持短而清楚。
         </p>
       </div>
 
       {actionError ? <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{actionError}</p> : null}
 
       {isLoading ? (
-        <p className="text-sm leading-6 text-[color:var(--text-secondary)]">Loading highlights…</p>
+        <p className="text-sm leading-6 text-[color:var(--text-secondary)]">正在加载高亮…</p>
       ) : highlights.length === 0 ? (
         <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-          No highlights yet. Select a passage in the reader to save the first one.
+          还没有高亮。在阅读页选中一段文字后，这里会出现第一条。
         </p>
       ) : (
         <div className="space-y-4">
@@ -300,7 +300,7 @@ function HighlightCard({
       <textarea
         className="min-h-24 w-full rounded-[16px] border border-[color:var(--border-subtle)] bg-white px-3.5 py-3 text-sm leading-6 text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--border-strong)]"
         defaultValue={highlight.note ?? ""}
-        placeholder="Add a short note"
+        placeholder="写一句批注"
         ref={textareaRef}
       />
       <div className="flex items-center justify-between gap-3">
@@ -310,14 +310,14 @@ function HighlightCard({
           size="sm"
           variant="secondary"
         >
-          {isSaving ? "Saving…" : "Save note"}
+          {isSaving ? "保存中…" : "保存批注"}
         </Button>
         <button
           className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--badge-danger-text)]"
           onClick={() => void onDelete(highlight.id)}
           type="button"
         >
-          Delete
+          删除
         </button>
       </div>
     </div>

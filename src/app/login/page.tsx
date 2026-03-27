@@ -27,18 +27,21 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div className="space-y-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[color:var(--text-tertiary)]">Reader</p>
           <h1 className="font-display text-[2.3rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-            Sign in to your private reading hub
+            登录你的私人阅读空间
           </h1>
-          <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-            GitHub sign-in protects the personal intake, reading, and export flow. Access is limited to explicitly
-            whitelisted email addresses.
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
+              这里承载你的采集、阅读与导出流程，只对明确授权的邮箱开放。
+            </p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
+              Private access via GitHub
+            </p>
+          </div>
         </div>
 
         {!whitelistConfigured ? (
           <div className="mt-6 rounded-[20px] border border-[color:var(--badge-warning-bg)] bg-[color:var(--badge-warning-bg)] px-4 py-3 text-sm leading-6 text-[color:var(--badge-warning-text)]">
-            Set <code>ALLOWED_EMAILS</code> before attempting to sign in. Until that whitelist is configured, all
-            logins will be denied.
+            请先配置 <code>ALLOWED_EMAILS</code>。在白名单设置完成之前，所有登录都会被拒绝。
           </div>
         ) : null}
 
@@ -56,7 +59,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           className="mt-8"
         >
           <Button className="w-full" disabled={!whitelistConfigured} type="submit" variant="primary">
-            Continue with GitHub
+            使用 GitHub 登录
           </Button>
         </form>
       </Panel>
@@ -75,10 +78,10 @@ function getFirstValue(value: string | string[] | undefined) {
 function formatErrorMessage(error: string) {
   switch (error) {
     case "AccessDenied":
-      return "This GitHub account signed in successfully, but its email address is not on the Reader allowlist.";
+      return "GitHub 登录成功，但当前邮箱不在 Reader 白名单中。";
     case "Configuration":
-      return "Authentication is not configured correctly yet. Check the Auth.js environment variables.";
+      return "认证配置还不完整，请检查 Auth.js 相关环境变量。";
     default:
-      return "Sign in failed. Please try again.";
+      return "登录失败，请稍后再试。";
   }
 }

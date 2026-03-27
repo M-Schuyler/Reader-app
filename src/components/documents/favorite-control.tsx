@@ -60,7 +60,7 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
 
       const payload = (await response.json()) as UpdateFavoriteApiResponse;
       if (!payload.ok) {
-        throw new Error(payload.error.message);
+        throw new Error(localizeFavoriteError(payload.error.code));
       }
 
       setState(deriveStateFromResponse(payload.data));
@@ -70,7 +70,7 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
       });
     } catch (error) {
       setState(previousState);
-      setActionError(error instanceof Error ? error.message : "Failed to update star state.");
+      setActionError(error instanceof Error ? error.message : "更新收藏状态失败，请稍后再试。");
     } finally {
       setPendingAction(null);
     }
@@ -125,12 +125,21 @@ function formatFavoriteButtonLabel(
   pendingAction: "favorite" | "unfavorite" | null,
 ) {
   if (pendingAction === "favorite") {
-    return "Starring...";
+    return "收藏中…";
   }
 
   if (pendingAction === "unfavorite") {
-    return "Unstarring...";
+    return "取消收藏…";
   }
 
-  return isFavorite ? "Starred" : "Star";
+  return isFavorite ? "已收藏" : "收藏";
+}
+
+function localizeFavoriteError(code: string) {
+  switch (code) {
+    case "DOCUMENT_NOT_FOUND":
+      return "文档不存在，无法更新收藏状态。";
+    default:
+      return "更新收藏状态失败，请稍后再试。";
+  }
 }

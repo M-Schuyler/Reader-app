@@ -46,7 +46,7 @@ export function CaptureUrlForm() {
       const payload = (await response.json()) as CaptureUrlApiResponse;
 
       if (!payload.ok) {
-        setError(payload.error.message);
+        setError(localizeCaptureError(payload.error.code));
         return;
       }
 
@@ -55,7 +55,7 @@ export function CaptureUrlForm() {
         router.refresh();
       });
     } catch {
-      setError("Failed to submit the URL.");
+      setError("提交链接失败，请稍后再试。");
     } finally {
       setIsSubmitting(false);
     }
@@ -68,14 +68,14 @@ export function CaptureUrlForm() {
           Capture
         </p>
         <h2 className="font-display text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
-          Bring a web page in
+          保存网页链接
         </h2>
         <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-          Drop in a link and store it as a document before deciding what deserves a deeper read.
+          先把链接收进文档库，再决定它值不值得深读。
         </p>
       </div>
 
-      <Field label="Web URL">
+      <Field label="网页链接">
         <TextInput
           onChange={(event) => setUrl(event.target.value)}
           placeholder="https://example.com/article"
@@ -91,8 +91,21 @@ export function CaptureUrlForm() {
       ) : null}
 
       <Button className="w-full" disabled={isSubmitting || isPending || !url.trim()} type="submit" variant="primary">
-        {isSubmitting || isPending ? "Importing..." : "Import URL"}
+        {isSubmitting || isPending ? "导入中…" : "导入链接"}
       </Button>
     </form>
   );
+}
+
+function localizeCaptureError(code: string) {
+  switch (code) {
+    case "INVALID_URL":
+      return "链接格式不正确，请检查后再试。";
+    case "FETCH_FAILED":
+      return "抓取原始链接失败，请稍后再试。";
+    case "CAPTURE_FAILED":
+      return "保存链接失败，请稍后再试。";
+    default:
+      return "保存链接失败，请稍后再试。";
+  }
 }
