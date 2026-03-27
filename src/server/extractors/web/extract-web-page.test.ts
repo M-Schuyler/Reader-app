@@ -1,0 +1,96 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { RouteError } from "@/server/api/response";
+import { extractWebPageFromHtml } from "@/server/extractors/web/extract-web-page";
+
+const LONG_WECHAT_BODY =
+  "这是一个正常的微信公众号正文段落，用来验证采集器仍然能够提取真实内容，而不是把中间壳页或者提示页误判成正文。".repeat(4);
+
+test("rejects wechat share shell pages even when head metadata looks readable", () => {
+  const rawHtml = `
+    <html>
+      <head>
+        <title>分享页标题</title>
+        <meta property="og:description" content="这里是完整文章摘要，但它只存在于 head 里，不能被当成可阅读正文。">
+      </head>
+      <body>
+        <div id="js_article" class="share_content_page">
+          <div class="share_media_swiper">
+            <p>HarryHan 邓云瀚</p>
+            <p>向上滑动看下一个</p>
+            <p>微信扫一扫</p>
+            <p>使用小程序</p>
+            <p>微信扫一扫可打开此内容，使用完整服务</p>
+          </div>
+        </div>
+        <div id="js_jump_wx_qrcode_dialog"></div>
+      </body>
+    </html>
+  `;
+
+  assert.throws(
+    () =>
+      extractWebPageFromHtml({
+        requestUrl: "https://mp.weixin.qq.com/s/sBzRsu6YLMBACOr-BZshMg",
+        rawHtml,
+      }),
+    (error) => error instanceof RouteError && error.code === "EXTRACTION_UNREADABLE",
+  );
+});
+
+test("keeps normal wechat articles readable when content containers exist", () => {
+  const rawHtml = `
+    <html>
+      <head>
+        <meta property="og:title" content="正常微信文章">
+      </head>
+      <body>
+        <div class="share_media_swiper"></div>
+        <div id="img-content" class="rich_media_content">
+          <h1 id="activity-name">正常微信文章</h1>
+          <div id="js_content">
+            <p>${LONG_WECHAT_BODY}</p>
+            <p>${LONG_WECHAT_BODY}</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const result = extractWebPageFromHtml({
+    requestUrl: "https://mp.weixin.qq.com/s/fs6QGr7FHSMEfi6_w5IPZQ",
+    rawHtml,
+  });
+
+  assert.equal(result.title, "正常微信文章");
+  assert.match(result.plainText, /正常的微信公众号正文段落/);
+  assert.equal(result.contentHtml?.includes("<p>"), true);
+});
+
+test("rejects low-signal wechat output even if extraction produced some text", () => {
+  const rawHtml = `
+    <html>
+      <head>
+        <title>壳页噪音</title>
+      </head>
+      <body>
+        <div class="page-shell">
+          <p>HarryHan 邓云瀚</p>
+          <p>向上滑动看下一个</p>
+          <p>微信扫一扫</p>
+          <p>使用小程序</p>
+          <p>微信扫一扫可打开此内容，使用完整服务</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  assert.throws(
+    () =>
+      extractWebPageFromHtml({
+        requestUrl: "https://mp.weixin.qq.com/s/sBzRsu6YLMBACOr-BZshMg",
+        rawHtml,
+      }),
+    (error) => error instanceof RouteError && error.code === "EXTRACTION_UNREADABLE",
+  );
+});
