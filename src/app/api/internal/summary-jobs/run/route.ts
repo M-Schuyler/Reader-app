@@ -1,5 +1,6 @@
 import { handleRouteError, ok, RouteError } from "@/server/api/response";
 import { requireInternalApiAccess } from "@/server/auth/internal";
+import { requireApiUser } from "@/server/auth/session";
 import { runPendingDocumentAiSummaryJobs } from "@/server/modules/documents/document-ai-summary-jobs.service";
 
 export async function POST(request: Request) {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
 
 async function handleRunRequest(request: Request) {
   try {
-    requireInternalApiAccess(request);
+    await requireSummaryRunAccess(request);
 
     const limit = parseLimit(new URL(request.url).searchParams.get("limit"));
     const data = await runPendingDocumentAiSummaryJobs(limit);
@@ -20,6 +21,15 @@ async function handleRunRequest(request: Request) {
   } catch (error) {
     return handleRouteError(error);
   }
+}
+
+async function requireSummaryRunAccess(request: Request) {
+  if (request.headers.get("authorization")) {
+    requireInternalApiAccess(request);
+    return;
+  }
+
+  await requireApiUser();
 }
 
 function parseLimit(value: string | null) {

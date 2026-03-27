@@ -90,13 +90,14 @@ Generate `AUTH_SECRET` with a strong random value, for example:
   - `GET /api/internal/summary-jobs/run`
   - `POST /api/internal/summary-jobs/run`
   - `POST /api/internal/summary-jobs/backfill`
-- Authenticate manual calls with:
+- Logged-in app users may open the worker and backfill routes directly in the browser for manual maintenance.
+- Internal or scripted calls may authenticate with:
   `Authorization: Bearer YOUR_INTERNAL_API_SECRET`
 - Vercel cron calls may authenticate with `CRON_SECRET`.
 - The repository includes `vercel.json`, which schedules `/api/internal/summary-jobs/run` once per day for Hobby-compatible deployments.
 - To backfill older documents that are still missing summaries:
-  1. Call `POST /api/internal/summary-jobs/backfill?limit=20`
-  2. Then call `POST /api/internal/summary-jobs/run?limit=20` until the queued backlog is drained
+  1. Open `/api/internal/summary-jobs/backfill?limit=20` while signed in
+  2. The route now queues and runs a batch immediately when the runtime is healthy
 
 ### Docker Deployment
 

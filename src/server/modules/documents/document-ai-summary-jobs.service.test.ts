@@ -195,6 +195,28 @@ test("allows direct summary generation without INTERNAL_API_SECRET when provider
   }
 });
 
+test("summary runtime accepts CRON_SECRET when INTERNAL_API_SECRET is absent", () => {
+  const previousEnv = {
+    AI_PROVIDER: process.env.AI_PROVIDER,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET,
+    CRON_SECRET: process.env.CRON_SECRET,
+  };
+
+  process.env.AI_PROVIDER = "gemini";
+  process.env.GEMINI_API_KEY = "test-gemini-key";
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.INTERNAL_API_SECRET;
+  process.env.CRON_SECRET = "test-cron-secret";
+
+  try {
+    assert.deepEqual(getSummaryRuntimeIssues(), []);
+  } finally {
+    restoreEnv(previousEnv);
+  }
+});
+
 function restoreEnv(values: Record<string, string | undefined>) {
   for (const [key, value] of Object.entries(values)) {
     if (typeof value === "string") {

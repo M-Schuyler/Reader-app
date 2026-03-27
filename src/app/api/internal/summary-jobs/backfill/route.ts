@@ -1,17 +1,48 @@
 import { handleRouteError, ok, RouteError } from "@/server/api/response";
 import { requireInternalApiAccess } from "@/server/auth/internal";
-import { backfillAutomaticDocumentAiSummaryJobs } from "@/server/modules/documents/document-ai-summary-jobs.service";
+import { requireApiUser } from "@/server/auth/session";
+import {
+  backfillAutomaticDocumentAiSummaryJobs,
+  getSummaryRuntimeIssues,
+  runPendingDocumentAiSummaryJobs,
+} from "@/server/modules/documents/document-ai-summary-jobs.service";
 
 export async function POST(request: Request) {
-  try {
-    requireInternalApiAccess(request);
+  return handleBackfillRequest(request);
+}
 
-    const limit = parseLimit(new URL(request.url).searchParams.get("limit"));
+export async function GET(request: Request) {
+  return handleBackfillRequest(request);
+}
+
+async function handleBackfillRequest(request: Request) {
+  try {
+    await requireSummaryBackfillAccess(request);
+
+    const searchParams = new URL(request.url).searchParams;
+    const limit = parseLimit(searchParams.get("limit"));
+    const shouldRun = parseRun(searchParams.get("run"));
     const data = await backfillAutomaticDocumentAiSummaryJobs(limit);
-    return ok(data);
+    const runtimeIssues = getSummaryRuntimeIssues({ requireInternalApiSecret: false });
+    const run = shouldRun && runtimeIssues.length === 0 ? await runPendingDocumentAiSummaryJobs(limit) : null;
+
+    return ok({
+      ...data,
+      runtimeIssues,
+      run,
+    });
   } catch (error) {
     return handleRouteError(error);
   }
+}
+
+async function requireSummaryBackfillAccess(request: Request) {
+  if (request.headers.get("authorization")) {
+    requireInternalApiAccess(request);
+    return;
+  }
+
+  await requireApiUser();
 }
 
 function parseLimit(value: string | null) {
@@ -25,4 +56,20 @@ function parseLimit(value: string | null) {
   }
 
   return parsed;
+}
+
+function parseRun(value: string | null) {
+  if (!value) {
+    return true;
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  throw new RouteError("INVALID_QUERY", 400, '"run" must be "true" or "false" when provided.');
 }
