@@ -68,7 +68,7 @@ export function CaptureUrlForm() {
           Capture
         </p>
         <h2 className="font-display text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
-          Save a web page
+          Import a web page
         </h2>
         <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
           Drop in a link and send it straight into the reading flow.
@@ -91,7 +91,7 @@ export function CaptureUrlForm() {
       ) : null}
 
       <Button className="w-full" disabled={isSubmitting || isPending || !url.trim()} type="submit" variant="primary">
-        {isSubmitting || isPending ? "Saving..." : "Save URL"}
+        {isSubmitting || isPending ? "Importing..." : "Import URL"}
       </Button>
     </form>
   );

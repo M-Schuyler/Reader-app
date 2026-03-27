@@ -36,8 +36,9 @@ type AutoAiSummaryCandidate = {
 
 type SummaryJobResult = RunDocumentAiSummaryJobsResponseData["results"][number];
 
-export function getSummaryRuntimeIssues() {
+export function getSummaryRuntimeIssues(options?: { requireInternalApiSecret?: boolean }) {
   const issues: string[] = [];
+  const requireInternalApiSecret = options?.requireInternalApiSecret ?? true;
   const provider = normalizeAiProvider(process.env.AI_PROVIDER);
 
   if (!provider) {
@@ -48,7 +49,7 @@ export function getSummaryRuntimeIssues() {
     issues.push("OPENAI_API_KEY is not configured.");
   }
 
-  if (!process.env.INTERNAL_API_SECRET?.trim()) {
+  if (requireInternalApiSecret && !process.env.INTERNAL_API_SECRET?.trim()) {
     issues.push("INTERNAL_API_SECRET is not configured.");
   }
 
@@ -121,6 +122,16 @@ export async function queueAutomaticDocumentAiSummary(document: DocumentDetailRe
   ]);
 
   return pendingDocument;
+}
+
+export async function queueAndRunAutomaticDocumentAiSummary(document: DocumentDetailRecord) {
+  const queuedDocument = await queueAutomaticDocumentAiSummary(document);
+
+  if (getSummaryRuntimeIssues({ requireInternalApiSecret: false }).length > 0) {
+    return queuedDocument;
+  }
+
+  return (await runPendingDocumentAiSummaryForDocument(queuedDocument.id)) ?? queuedDocument;
 }
 
 export async function runPendingDocumentAiSummaryJobs(limitInput?: number): Promise<RunDocumentAiSummaryJobsResponseData> {
@@ -257,6 +268,26 @@ async function processSummaryJob(job: Prisma.IngestionJobGetPayload<Record<strin
     await updateDocumentAiSummaryFailure(document.id, summaryError.message);
     return failSummaryJob(job.id, document.id, summaryError);
   }
+}
+
+async function runPendingDocumentAiSummaryForDocument(documentId: string) {
+  const pendingJob = await prisma.ingestionJob.findFirst({
+    where: {
+      kind: IngestionJobKind.GENERATE_AI_SUMMARY,
+      documentId,
+      status: IngestionJobStatus.PENDING,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  if (!pendingJob) {
+    return getDocumentById(documentId);
+  }
+
+  await processSummaryJob(pendingJob);
+  return getDocumentById(documentId);
 }
 
 function isEligibleQueuedDocument(document: DocumentDetailRecord) {

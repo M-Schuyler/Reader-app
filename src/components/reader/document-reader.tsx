@@ -61,7 +61,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
               <div className="space-y-6">
                 <div className="space-y-3">
                   <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-                    Saved, but not readable yet.
+                    Stored, but not readable yet.
                   </h2>
                   <p className="max-w-2xl text-[15px] leading-7 text-[color:var(--text-secondary)]">
                     The link is stored in your library, but the body could not be captured from the source.
@@ -153,10 +153,10 @@ export function DocumentReader({ document }: DocumentReaderProps) {
             {favorite.isFavorite ? (
               <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
                 <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                  Collection
+                  Starred
                 </p>
                 <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">
-                  This document is saved for quick return in your library.
+                  This document is starred for quick return in your library.
                 </p>
               </div>
             ) : null}

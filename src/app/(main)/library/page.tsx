@@ -21,9 +21,9 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   return (
     <section className="space-y-10">
       <PageHeader
-        description="A single library for saved articles and captured documents. Quiet enough to scan quickly, stable enough to read deeply."
+        description="A single library for imported articles and captured documents. Quiet enough to scan quickly, stable enough to read deeply."
         eyebrow="Library"
-        title="Everything you saved, ready to read."
+        title="Everything you imported, ready to read."
       />
 
       <div className="grid gap-8 xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start">
@@ -92,7 +92,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
                 </p>
               ) : null}
             </div>
-            <p className="text-sm text-[color:var(--text-tertiary)]">Saved items are grouped in one calm reading flow.</p>
+            <p className="text-sm text-[color:var(--text-tertiary)]">Imported documents are grouped in one calm reading flow.</p>
           </div>
 
           <DocumentList data={data} />

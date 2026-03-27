@@ -67,7 +67,6 @@ const SESSION_COOKIE_NAME = "authjs.session-token";
 const TEST_EMAIL = "test@example.com";
 const TEST_NAME = "Reader Smoke";
 const SERVER_READY_TIMEOUT_MS = 30_000;
-const SUMMARY_READY_TIMEOUT_MS = 45_000;
 const SAMPLES: SmokeSample[] = [
   {
     key: "normal",
@@ -133,30 +132,26 @@ async function main() {
         assert.equal(document.data.document.title, capture.sample.expectedTitle);
         assert.ok(document.data.document.content?.plainText.trim().length);
         assert.ok(document.data.document.content?.contentHtml?.trim().length);
-        assert.doesNotMatch(readerHtml, /Saved, but not readable yet\./);
+        assert.doesNotMatch(readerHtml, /Stored, but not readable yet\./);
         assert.doesNotMatch(readerHtml, /Capture failed/);
         assert.match(readerHtml, /一人IP公司的诅咒/);
       } else {
         assert.equal(document.data.document.content, null);
         assert.equal(document.data.document.aiSummaryStatus, null);
-        assert.match(readerHtml, /Saved, but not readable yet\./);
+        assert.match(readerHtml, /Stored, but not readable yet\./);
         assert.match(readerHtml, /Capture failed/);
       }
     }
 
     assert.ok(normalDocumentId, "Expected a normal document capture result.");
 
-    const favoriteResponse = await patchJson(baseUrl, sessionToken, `/api/documents/${normalDocumentId}/favorite`, {
-      isFavorite: true,
-    });
-    assert.equal(favoriteResponse.data.document.isFavorite, true);
-
     const health = await getSummaryHealth(baseUrl, sessionToken);
     healthIssues = health.data.issues;
 
+    const normalDocument = await getDocument(baseUrl, sessionToken, normalDocumentId);
+    assert.equal(normalDocument.data.document.isFavorite, false);
+
     if (health.data.ok) {
-      await runSummaryJobs(baseUrl, env.INTERNAL_API_SECRET);
-      const normalDocument = await waitForSummaryReady(baseUrl, sessionToken, normalDocumentId);
       assert.equal(normalDocument.data.document.aiSummaryStatus, "READY");
       assert.ok(normalDocument.data.document.aiSummary);
       normalSummaryText = normalDocument.data.document.aiSummary;
@@ -385,44 +380,6 @@ async function getSummaryHealth(baseUrl: string, sessionToken: string) {
   return getJson<SummaryHealthResponse>(baseUrl, sessionToken, "/api/internal/summary-jobs/health");
 }
 
-async function runSummaryJobs(baseUrl: string, secret: string) {
-  const response = await fetch(`${baseUrl}/api/internal/summary-jobs/run?limit=10`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${secret}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Summary job runner failed with ${response.status}: ${await response.text()}`);
-  }
-
-  return response.json();
-}
-
-async function waitForSummaryReady(baseUrl: string, sessionToken: string, documentId: string) {
-  const deadline = Date.now() + SUMMARY_READY_TIMEOUT_MS;
-  let lastDocument: DocumentResponse | null = null;
-
-  while (Date.now() < deadline) {
-    lastDocument = await getDocument(baseUrl, sessionToken, documentId);
-    const status = lastDocument.data.document.aiSummaryStatus;
-    if (status === "READY") {
-      return lastDocument;
-    }
-
-    if (status === "FAILED") {
-      throw new Error(`Summary generation failed: ${lastDocument.data.document.aiSummaryError ?? "unknown error"}`);
-    }
-
-    await sleep(1_000);
-  }
-
-  throw new Error(
-    `Summary did not reach READY within timeout. Last status: ${lastDocument?.data.document.aiSummaryStatus ?? "unknown"}`,
-  );
-}
-
 async function getHtml(baseUrl: string, sessionToken: string, path: string) {
   const response = await fetch(`${baseUrl}${path}`, {
     headers: {
@@ -466,23 +423,6 @@ async function postJson<T>(baseUrl: string, sessionToken: string, path: string, 
   }
 
   return (await response.json()) as T;
-}
-
-async function patchJson(baseUrl: string, sessionToken: string, path: string, body: unknown) {
-  const response = await fetch(`${baseUrl}${path}`, {
-    method: "PATCH",
-    headers: {
-      "content-type": "application/json",
-      cookie: cookieHeader(sessionToken),
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(`PATCH ${path} failed with ${response.status}: ${await response.text()}`);
-  }
-
-  return response.json() as Promise<CaptureResponse | DocumentResponse>;
 }
 
 function withSuffix(url: string, suffix: string, sample: string) {

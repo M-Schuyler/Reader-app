@@ -20,7 +20,7 @@ export function DocumentList({ data }: DocumentListProps) {
             Empty library
           </p>
           <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-            Save the first article to start the archive.
+            Import the first article to start the archive.
           </h2>
           <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
             Captured links will appear here as soon as they are stored as documents.

@@ -70,7 +70,7 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
       });
     } catch (error) {
       setState(previousState);
-      setActionError(error instanceof Error ? error.message : "Failed to update favorite state.");
+      setActionError(error instanceof Error ? error.message : "Failed to update star state.");
     } finally {
       setPendingAction(null);
     }
@@ -125,12 +125,12 @@ function formatFavoriteButtonLabel(
   pendingAction: "favorite" | "unfavorite" | null,
 ) {
   if (pendingAction === "favorite") {
-    return "Saving...";
+    return "Starring...";
   }
 
   if (pendingAction === "unfavorite") {
-    return "Removing...";
+    return "Unstarring...";
   }
 
-  return isFavorite ? "Saved" : "Save";
+  return isFavorite ? "Starred" : "Star";
 }
