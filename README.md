@@ -1,6 +1,59 @@
-# Reader App
+# Reader
 
-Personal reading system built with Next.js, TypeScript, Tailwind CSS, Prisma, and PostgreSQL.
+Reader is a personal, reading-first input hub.
+
+It collects web pages, articles, and PDFs into one document-centered flow so you can:
+
+- capture signal quickly
+- read in a calm, structured surface
+- keep light traces through highlights, notes, and AI summary
+- send the finished signal onward to Obsidian
+
+Reader is intentionally **not** a full personal knowledge system. It does not try to replace long-form notes, backlinks, graphs, or project management.
+
+## Product Surfaces
+
+### Library
+- The intake queue for everything worth reading
+- Primary actions: capture, scan, filter, star, defer, archive
+
+### Reader
+- The core surface
+- Reading stays central; controls remain secondary
+
+### Highlights
+- A revisit surface for marked passages
+- Not a long-form notes workspace
+
+### Export
+- The downstream handoff lane
+- Reader prepares material; Obsidian owns deeper synthesis
+
+## Boundaries
+
+Reader is responsible for:
+- collecting
+- storing as unified `Document` records
+- reading
+- light annotation and state
+- export preparation
+
+Reader is not responsible for:
+- replacing Obsidian
+- heavy PKM dashboards
+- graph views
+- task or project management
+- multi-user collaboration
+
+## Current Product Direction
+
+The next stage follows the **Input Hub Reader** direction:
+
+- keep Library as the main intake queue
+- keep Reader as the main stage
+- add Highlights as the review surface
+- add Export as the exit lane
+- expand sources without expanding into a bloated workspace product
 
 ## Local Development
 

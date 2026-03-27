@@ -17,13 +17,13 @@ export function DocumentList({ data }: DocumentListProps) {
       <Panel className="px-8 py-10 text-center" tone="muted">
         <div className="mx-auto max-w-md space-y-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-            Empty library
+            Empty queue
           </p>
           <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-            Import the first article to start the archive.
+            Bring the first document into Reader.
           </h2>
           <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-            Captured links will appear here as soon as they are stored as documents.
+            Captured links, imported articles, and later reading all collect here once they are stored as documents.
           </p>
         </div>
       </Panel>

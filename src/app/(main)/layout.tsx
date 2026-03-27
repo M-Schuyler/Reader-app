@@ -21,7 +21,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
               <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[color:var(--text-tertiary)]">
                 Reader
               </p>
-              <p className="mt-1 text-[15px] text-[color:var(--text-primary)]">Personal reading archive</p>
+              <p className="mt-1 text-[15px] text-[color:var(--text-primary)]">Reading-first input hub</p>
             </Link>
 
             <MainNav />

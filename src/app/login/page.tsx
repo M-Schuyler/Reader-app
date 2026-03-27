@@ -27,10 +27,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div className="space-y-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[color:var(--text-tertiary)]">Reader</p>
           <h1 className="font-display text-[2.3rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-            Sign in to your private reading archive
+            Sign in to your private reading hub
           </h1>
           <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-            GitHub sign-in is required. Access is limited to explicitly whitelisted email addresses.
+            GitHub sign-in protects the personal intake, reading, and export flow. Access is limited to explicitly
+            whitelisted email addresses.
           </p>
         </div>
 

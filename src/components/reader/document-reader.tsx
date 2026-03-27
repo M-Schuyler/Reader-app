@@ -64,7 +64,8 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                     Stored, but not readable yet.
                   </h2>
                   <p className="max-w-2xl text-[15px] leading-7 text-[color:var(--text-secondary)]">
-                    The link is stored in your library, but the body could not be captured from the source.
+                    The source still belongs in your reading flow, but the body could not be captured from the original
+                    page.
                   </p>
                 </div>
 
@@ -156,7 +157,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                   Starred
                 </p>
                 <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">
-                  This document is starred for quick return in your library.
+                  This document stays close to the top of your reading orbit for a faster return later on.
                 </p>
               </div>
             ) : null}

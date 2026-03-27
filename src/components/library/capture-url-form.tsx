@@ -68,10 +68,10 @@ export function CaptureUrlForm() {
           Capture
         </p>
         <h2 className="font-display text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
-          Import a web page
+          Bring a web page in
         </h2>
         <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-          Drop in a link and send it straight into the reading flow.
+          Drop in a link and store it as a document before deciding what deserves a deeper read.
         </p>
       </div>
 
