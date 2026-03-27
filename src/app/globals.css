@@ -75,3 +75,28 @@ textarea {
 .reader-prose p + p {
   margin-top: 1.75rem;
 }
+
+.reader-rich-content {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.reader-rich-content > :first-child {
+  margin-top: 0;
+}
+
+.reader-rich-content h2,
+.reader-rich-content h3,
+.reader-rich-content h4,
+.reader-rich-content figure,
+.reader-rich-content pre,
+.reader-rich-content blockquote,
+.reader-rich-content ul,
+.reader-rich-content ol,
+.reader-rich-content hr {
+  margin-top: 0.25rem;
+}
+
+.reader-rich-content img {
+  display: block;
+}

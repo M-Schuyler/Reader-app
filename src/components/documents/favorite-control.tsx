@@ -43,7 +43,7 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
   const router = useRouter();
   const [state, setState] = useState<FavoriteControllerState>(() => deriveStateFromDocument(document));
   const [actionError, setActionError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<"favorite" | "unfavorite" | "retry" | null>(null);
+  const [pendingAction, setPendingAction] = useState<"favorite" | "unfavorite" | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -61,11 +61,10 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
       return;
     }
 
-    const isRetryingSummary = state.isFavorite && state.summaryState === "failed";
-    const nextFavorite = isRetryingSummary ? true : !state.isFavorite;
+    const nextFavorite = !state.isFavorite;
     const previousState = state;
     setActionError(null);
-    setPendingAction(isRetryingSummary ? "retry" : nextFavorite ? "favorite" : "unfavorite");
+    setPendingAction(nextFavorite ? "favorite" : "unfavorite");
     setState({
       isFavorite: nextFavorite,
       aiSummary: state.aiSummary,
@@ -81,7 +80,6 @@ export function useDocumentFavoriteController(document: FavoriteDocument) {
         },
         body: JSON.stringify({
           isFavorite: nextFavorite,
-          ...(isRetryingSummary ? { regenerateAiSummary: true } : {}),
         }),
       });
       const payload = (await response.json()) as UpdateFavoriteApiResponse;
@@ -163,6 +161,15 @@ function deriveStateFromDocument(
     };
   }
 
+  if (shouldHideSummaryUi(document.aiSummaryError)) {
+    return {
+      isFavorite: true,
+      aiSummary: null,
+      summaryState: "not_favorite",
+      summaryError: null,
+    };
+  }
+
   if (document.aiSummaryStatus === "FAILED" || document.ingestionStatus === IngestionStatus.FAILED) {
     return {
       isFavorite: true,
@@ -208,6 +215,15 @@ function deriveStateFromResponse(data: UpdateDocumentFavoriteResponseData): Favo
     };
   }
 
+  if (shouldHideSummaryUi(data.summary.error?.message, data.summary.error?.code)) {
+    return {
+      isFavorite: true,
+      aiSummary: null,
+      summaryState: "not_favorite",
+      summaryError: null,
+    };
+  }
+
   if (data.summary.status === "failed") {
     return {
       isFavorite: true,
@@ -226,23 +242,21 @@ function deriveStateFromResponse(data: UpdateDocumentFavoriteResponseData): Favo
 }
 
 function resolveDocumentSupportText(document: FavoriteDocument, state: FavoriteControllerState) {
-  switch (state.summaryState) {
-    case "ready":
-      return state.aiSummary;
-    case "generating":
-      return "Saved. Summary is being generated.";
-    case "failed":
-      return state.summaryError ?? defaultSummaryFailureMessage(document);
-    case "not_favorite":
-    default:
-      return document.ingestionStatus === IngestionStatus.FAILED ? null : document.excerpt;
+  if (document.ingestionStatus === IngestionStatus.FAILED) {
+    return null;
   }
+
+  if (state.summaryState === "ready") {
+    return state.aiSummary;
+  }
+
+  return document.excerpt;
 }
 
 function formatFavoriteButtonLabel(
   summaryState: FavoriteSummaryUiState,
   isFavorite: boolean,
-  pendingAction: "favorite" | "unfavorite" | "retry" | null,
+  pendingAction: "favorite" | "unfavorite" | null,
 ) {
   if (pendingAction === "favorite") {
     return "Saving...";
@@ -250,14 +264,6 @@ function formatFavoriteButtonLabel(
 
   if (pendingAction === "unfavorite") {
     return "Removing...";
-  }
-
-  if (pendingAction === "retry") {
-    return "Retrying...";
-  }
-
-  if (isFavorite && summaryState === "failed") {
-    return "Retry summary";
   }
 
   return isFavorite ? "Saved" : "Save";
@@ -339,4 +345,17 @@ function defaultSummaryFailureMessage(document?: FavoriteDocument) {
   }
 
   return "Summary generation failed. Try again later.";
+}
+
+function shouldHideSummaryUi(message?: string | null, code?: string | null) {
+  if (code === "AI_PROVIDER_NOT_CONFIGURED") {
+    return true;
+  }
+
+  const normalizedMessage = message?.trim().toLowerCase();
+  if (!normalizedMessage) {
+    return false;
+  }
+
+  return normalizedMessage.includes("not configured");
 }

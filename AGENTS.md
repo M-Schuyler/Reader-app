@@ -189,6 +189,21 @@ Do not:
 
 ---
 
+## Innovation mode
+
+When the task is product design, UI/UX, interaction, architecture direction, or feature strategy:
+
+- Do not default to the smallest safe patch
+- Challenge the current structure before preserving it
+- Produce at least 3 materially different options when the problem is open-ended
+- Ensure at least 1 option is bold and structurally ambitious
+- Prefer raising product coherence and quality over preserving mediocre existing patterns
+- Do not confuse “safe” with “good”
+- If the current implementation is limiting the product, say so directly
+- Preserve core functionality, but do not preserve weak structure just because it already exists
+
+---
+
 ## Engineering conventions
 
 When changing code:

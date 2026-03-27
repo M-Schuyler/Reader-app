@@ -9,6 +9,7 @@ import {
   FavoriteToggleButton,
   useDocumentFavoriteController,
 } from "@/components/documents/favorite-control";
+import { ReaderRichContent } from "@/components/reader/reader-rich-content";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 
 type DocumentReaderProps = {
@@ -17,15 +18,22 @@ type DocumentReaderProps = {
 
 export function DocumentReader({ document }: DocumentReaderProps) {
   const sourceUrl = document.sourceUrl ?? document.canonicalUrl;
-  const hasExtractedContent = Boolean(document.content?.plainText.trim());
+  const contentHtml = document.content?.contentHtml?.trim() ?? null;
+  const plainText = document.content?.plainText ?? "";
+  const hasExtractedContent = Boolean(contentHtml || plainText.trim());
   const isFailed = document.ingestionStatus === IngestionStatus.FAILED;
   const isReadable = !isFailed && hasExtractedContent;
   const favorite = useDocumentFavoriteController(document);
-  const paragraphs = isReadable ? document.content!.plainText.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0) : [];
+  const paragraphs = isReadable ? plainText.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0) : [];
   const leadText = resolveLeadText(document);
   const showIngestionBadge = document.ingestionStatus !== IngestionStatus.READY;
-  const showSummaryBadge = favorite.summaryState !== "not_favorite";
-  const summarySupportText = favorite.summaryState === "failed" ? favorite.summaryError : favorite.summaryState === "generating" ? "Summary generation is still in progress." : null;
+  const showSummaryBadge = favorite.isFavorite && favorite.summaryState !== "not_favorite";
+  const summarySupportText =
+    favorite.summaryState === "ready"
+      ? "Summary available."
+      : favorite.summaryState === "generating"
+        ? "Summary generation is still in progress."
+        : null;
 
   return (
     <section className="space-y-10 lg:space-y-12">
@@ -87,6 +95,8 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                   </div>
                 ) : null}
               </div>
+            ) : contentHtml ? (
+              <ReaderRichContent contentHtml={contentHtml} fallbackText={plainText} sourceUrl={sourceUrl} />
             ) : paragraphs.length > 0 ? (
               <div className="reader-prose">
                 {paragraphs.map((paragraph, index) => (
@@ -148,7 +158,7 @@ export function DocumentReader({ document }: DocumentReaderProps) {
               </dl>
             </div>
 
-            {showSummaryBadge || summarySupportText || favorite.actionError ? (
+            {showSummaryBadge || summarySupportText ? (
               <div className="space-y-3 rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
                 <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
                   Saved state
@@ -156,9 +166,6 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                 {showSummaryBadge ? <FavoriteSummaryBadge state={favorite.summaryState} /> : null}
                 {summarySupportText ? (
                   <p className="text-sm leading-6 text-[color:var(--text-secondary)]">{summarySupportText}</p>
-                ) : null}
-                {favorite.actionError ? (
-                  <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{favorite.actionError}</p>
                 ) : null}
               </div>
             ) : null}
@@ -171,9 +178,13 @@ export function DocumentReader({ document }: DocumentReaderProps) {
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4">
       <dt className="text-[color:var(--text-tertiary)]">{label}</dt>
-      <dd className="max-w-[10rem] text-right text-[color:var(--text-primary)]">{value}</dd>
+      <dd className="min-w-0 text-right text-[color:var(--text-primary)]">
+        <span className="block truncate" title={value}>
+          {value}
+        </span>
+      </dd>
     </div>
   );
 }
