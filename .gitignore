@@ -10,3 +10,4 @@ prisma/dev.db
 
 .vercel
 .env*.local
+.worktrees
