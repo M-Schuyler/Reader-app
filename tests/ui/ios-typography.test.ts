@@ -19,7 +19,7 @@ test("root layout exposes the Chinese locale and key UI components use stronger 
   const mainNav = readWorkspaceFile("src/components/layout/main-nav.tsx");
   const button = readWorkspaceFile("src/components/ui/button.tsx");
 
-  assert.match(layout, /<html lang="zh-CN">/);
+  assert.match(layout, /lang="zh-CN"/);
   assert.match(pageHeader, /className="font-ui-heading text-4xl/);
   assert.doesNotMatch(pageHeader, /className="font-display text-4xl/);
   assert.match(mainNav, /className=\{cx\([\s\S]*font-semibold/);

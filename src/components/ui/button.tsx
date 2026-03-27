@@ -11,11 +11,11 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantClassName: Record<ButtonVariant, string> = {
   primary:
-    "bg-[color:var(--text-primary)] text-white hover:bg-[color:var(--text-primary-strong)] border-transparent shadow-[0_10px_24px_rgba(27,24,19,0.12)]",
+    "border-transparent bg-[color:var(--button-primary-bg)] text-[color:var(--button-primary-text)] hover:bg-[color:var(--button-primary-hover-bg)] shadow-[var(--shadow-surface-muted)]",
   secondary:
-    "border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] hover:border-[color:var(--text-primary)] hover:bg-white",
+    "border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] hover:border-[color:var(--text-primary)] hover:bg-[color:var(--button-secondary-hover-bg)]",
   quiet:
-    "border-transparent bg-transparent text-[color:var(--text-secondary)] hover:bg-black/[0.035] hover:text-[color:var(--text-primary)]",
+    "border-transparent bg-transparent text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
 };
 
 const sizeClassName: Record<ButtonSize, string> = {

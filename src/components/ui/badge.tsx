@@ -13,7 +13,7 @@ const toneClassName: Record<BadgeTone, string> = {
   success: "bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-text)]",
   warning: "bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-text)]",
   danger: "bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]",
-  subtle: "bg-black/[0.045] text-[color:var(--text-tertiary)]",
+  subtle: "bg-[color:var(--badge-subtle-bg)] text-[color:var(--text-tertiary)]",
 };
 
 export function Badge({ children, className, tone = "neutral", ...props }: BadgeProps) {

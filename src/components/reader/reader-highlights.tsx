@@ -298,7 +298,7 @@ function HighlightCard({
         {highlight.quoteText}
       </blockquote>
       <textarea
-        className="min-h-24 w-full rounded-[16px] border border-[color:var(--border-subtle)] bg-white px-3.5 py-3 text-sm leading-6 text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--border-strong)]"
+        className="min-h-24 w-full rounded-[16px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-field)] px-3.5 py-3 text-sm leading-6 text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--border-strong)] focus:bg-[color:var(--bg-field-focus)]"
         defaultValue={highlight.note ?? ""}
         placeholder="写一句批注"
         ref={textareaRef}

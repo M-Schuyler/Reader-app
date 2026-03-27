@@ -45,7 +45,7 @@ export default async function HighlightsPage() {
               还没有高亮。等你在阅读页开始标记句子，这里会慢慢形成一条轻量的回看轨迹。
             </p>
             <Link
-              className="inline-flex min-h-11 items-center justify-center rounded-[20px] border border-transparent bg-[color:var(--text-primary)] px-4.5 text-sm font-medium text-white transition hover:bg-[color:var(--text-primary-strong)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-[20px] border border-transparent bg-[color:var(--button-primary-bg)] px-4.5 text-sm font-medium text-[color:var(--button-primary-text)] transition hover:bg-[color:var(--button-primary-hover-bg)]"
               href="/library"
             >
               返回文档库

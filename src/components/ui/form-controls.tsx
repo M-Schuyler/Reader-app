@@ -25,7 +25,7 @@ export function TextInput({ className, ...props }: TextInputProps) {
   return (
     <input
       className={cx(
-        "min-h-11 w-full rounded-[18px] border border-[color:var(--border-subtle)] bg-white px-4 text-sm text-[color:var(--text-primary)] outline-none transition placeholder:text-[color:var(--text-tertiary)] focus:border-[color:var(--border-strong)] focus:bg-[color:var(--bg-surface-strong)]",
+        "min-h-11 w-full rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-field)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition placeholder:text-[color:var(--text-tertiary)] focus:border-[color:var(--border-strong)] focus:bg-[color:var(--bg-field-focus)]",
         className,
       )}
       {...props}
@@ -37,7 +37,7 @@ export function SelectInput({ className, ...props }: SelectProps) {
   return (
     <select
       className={cx(
-        "min-h-11 w-full rounded-[18px] border border-[color:var(--border-subtle)] bg-white px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--border-strong)] focus:bg-[color:var(--bg-surface-strong)]",
+        "min-h-11 w-full rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-field)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--border-strong)] focus:bg-[color:var(--bg-field-focus)]",
         className,
       )}
       {...props}

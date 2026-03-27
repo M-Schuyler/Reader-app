@@ -11,12 +11,19 @@
   --bg-surface: rgba(255, 252, 247, 0.72);
   --bg-surface-strong: rgba(255, 253, 249, 0.9);
   --bg-surface-soft: rgba(255, 255, 255, 0.56);
+  --bg-header: rgba(248, 245, 238, 0.82);
+  --bg-field: rgba(255, 255, 255, 0.92);
+  --bg-field-focus: rgba(255, 253, 249, 0.9);
+  --bg-radial-accent: rgba(173, 158, 129, 0.16);
+  --bg-gradient-start: #fcfaf5;
+  --bg-gradient-end: #f2ede3;
   --text-primary: #1f1c17;
   --text-primary-strong: #15120f;
   --text-secondary: #5f5a4e;
   --text-tertiary: #8d8678;
   --border-subtle: rgba(29, 24, 17, 0.09);
   --border-strong: rgba(29, 24, 17, 0.16);
+  --badge-subtle-bg: rgba(29, 24, 17, 0.045);
   --badge-neutral-bg: rgba(29, 24, 17, 0.07);
   --badge-neutral-text: #585247;
   --badge-success-bg: #e9f2e9;
@@ -25,9 +32,56 @@
   --badge-warning-text: #84663a;
   --badge-danger-bg: #f8e8e5;
   --badge-danger-text: #8d4137;
+  --button-primary-bg: #1f1c17;
+  --button-primary-hover-bg: #15120f;
+  --button-primary-text: #fffaf5;
+  --button-secondary-hover-bg: rgba(255, 255, 255, 0.94);
+  --button-quiet-hover-bg: rgba(0, 0, 0, 0.035);
+  --selection-bg: rgba(188, 171, 136, 0.34);
+  --highlight-mark-bg: rgba(214, 186, 96, 0.34);
   --shadow-surface: 0 1px 2px rgba(26, 22, 17, 0.03), 0 18px 44px rgba(26, 22, 17, 0.05);
   --shadow-surface-muted: 0 1px 1px rgba(26, 22, 17, 0.02), 0 12px 28px rgba(26, 22, 17, 0.035);
   --content-measure: 44rem;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  background: #161311;
+  color: #f1e6d6;
+  --bg-canvas: #161311;
+  --bg-surface: rgba(33, 28, 24, 0.76);
+  --bg-surface-strong: rgba(37, 31, 27, 0.92);
+  --bg-surface-soft: rgba(255, 255, 255, 0.06);
+  --bg-header: rgba(19, 16, 14, 0.82);
+  --bg-field: rgba(27, 23, 20, 0.96);
+  --bg-field-focus: rgba(40, 34, 29, 0.96);
+  --bg-radial-accent: rgba(128, 104, 69, 0.18);
+  --bg-gradient-start: #1b1714;
+  --bg-gradient-end: #100e0d;
+  --text-primary: #f1e6d6;
+  --text-primary-strong: #fff7ea;
+  --text-secondary: #b9ae9f;
+  --text-tertiary: #94897c;
+  --border-subtle: rgba(241, 230, 214, 0.08);
+  --border-strong: rgba(241, 230, 214, 0.16);
+  --badge-subtle-bg: rgba(255, 255, 255, 0.06);
+  --badge-neutral-bg: rgba(241, 230, 214, 0.08);
+  --badge-neutral-text: #c8bdaf;
+  --badge-success-bg: rgba(67, 103, 74, 0.28);
+  --badge-success-text: #b8d7bf;
+  --badge-warning-bg: rgba(126, 94, 43, 0.28);
+  --badge-warning-text: #ebcb91;
+  --badge-danger-bg: rgba(126, 63, 52, 0.3);
+  --badge-danger-text: #f1b6ad;
+  --button-primary-bg: #f1e6d6;
+  --button-primary-hover-bg: #fff7ea;
+  --button-primary-text: #161311;
+  --button-secondary-hover-bg: rgba(255, 255, 255, 0.08);
+  --button-quiet-hover-bg: rgba(255, 255, 255, 0.06);
+  --selection-bg: rgba(188, 171, 136, 0.28);
+  --highlight-mark-bg: rgba(181, 148, 70, 0.34);
+  --shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.22), 0 18px 44px rgba(0, 0, 0, 0.3);
+  --shadow-surface-muted: 0 1px 1px rgba(0, 0, 0, 0.18), 0 12px 28px rgba(0, 0, 0, 0.24);
 }
 
 html {
@@ -37,8 +91,8 @@ html {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(173, 158, 129, 0.16), transparent 28rem),
-    linear-gradient(180deg, #fcfaf5 0%, #f2ede3 100%);
+    radial-gradient(circle at top left, var(--bg-radial-accent), transparent 28rem),
+    linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
   color: var(--text-primary);
   font-family: var(--font-sans);
   text-rendering: optimizeLegibility;
@@ -58,7 +112,7 @@ textarea {
 }
 
 ::selection {
-  background: rgba(188, 171, 136, 0.34);
+  background: var(--selection-bg);
 }
 
 .font-display {

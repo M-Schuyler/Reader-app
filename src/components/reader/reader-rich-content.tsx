@@ -339,7 +339,7 @@ function renderTextWithHighlights(
 }
 
 const highlightClassName =
-  "rounded-[0.48rem] bg-[rgba(214,186,96,0.34)] px-[0.12em] py-[0.05em] text-[color:var(--text-primary)]";
+  "rounded-[0.48rem] bg-[color:var(--highlight-mark-bg)] px-[0.12em] py-[0.05em] text-[color:var(--text-primary)]";
 
 function resolveWhitespaceContext(node: Node) {
   return {

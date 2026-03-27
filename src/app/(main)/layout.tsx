@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { signOut } from "@/auth";
 import { MainNav } from "@/components/layout/main-nav";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { requirePageUser } from "@/server/auth/session";
 
@@ -14,7 +15,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-[color:var(--border-subtle)] bg-[rgba(248,245,238,0.82)] backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-[color:var(--border-subtle)] bg-[color:var(--bg-header)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-[78rem] flex-col gap-4 px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="flex min-w-0 items-center gap-8">
             <Link className="min-w-0" href="/library">
@@ -28,6 +29,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 text-sm text-[color:var(--text-secondary)]">
+            <ThemeToggle />
             <span className="hidden rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 py-2 sm:inline-flex">
               {user.email}
             </span>
