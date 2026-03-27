@@ -6,6 +6,7 @@ import {
   getSummaryRuntimeIssues,
   runPendingDocumentAiSummaryJobs,
 } from "@/server/modules/documents/document-ai-summary-jobs.service";
+import { parseBackfillRun } from "./params";
 
 export async function POST(request: Request) {
   return handleBackfillRequest(request);
@@ -21,7 +22,7 @@ async function handleBackfillRequest(request: Request) {
 
     const searchParams = new URL(request.url).searchParams;
     const limit = parseLimit(searchParams.get("limit"));
-    const shouldRun = parseRun(searchParams.get("run"));
+    const shouldRun = parseBackfillRun(searchParams.get("run"));
     const data = await backfillAutomaticDocumentAiSummaryJobs(limit);
     const runtimeIssues = getSummaryRuntimeIssues({ requireInternalApiSecret: false });
     const run = shouldRun && runtimeIssues.length === 0 ? await runPendingDocumentAiSummaryJobs(limit) : null;
@@ -56,20 +57,4 @@ function parseLimit(value: string | null) {
   }
 
   return parsed;
-}
-
-function parseRun(value: string | null) {
-  if (!value) {
-    return true;
-  }
-
-  if (value === "true") {
-    return true;
-  }
-
-  if (value === "false") {
-    return false;
-  }
-
-  throw new RouteError("INVALID_QUERY", 400, '"run" must be "true" or "false" when provided.');
 }

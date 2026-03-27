@@ -96,8 +96,9 @@ Generate `AUTH_SECRET` with a strong random value, for example:
 - Vercel cron calls may authenticate with `CRON_SECRET`.
 - The repository includes `vercel.json`, which schedules `/api/internal/summary-jobs/run` once per day for Hobby-compatible deployments.
 - To backfill older documents that are still missing summaries:
-  1. Open `/api/internal/summary-jobs/backfill?limit=20` while signed in
-  2. The route now queues and runs a batch immediately when the runtime is healthy
+  1. Open `/api/internal/summary-jobs/backfill?limit=20` while signed in to queue a batch quickly
+  2. If you want to run a small batch immediately, use `/api/internal/summary-jobs/backfill?limit=5&run=true`
+  3. Or open `/api/internal/summary-jobs/run?limit=5` while signed in to drain queued work manually
 
 ### Docker Deployment
 
