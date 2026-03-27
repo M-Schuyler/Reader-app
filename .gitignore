@@ -10,3 +10,7 @@ prisma/dev.db
 
 .vercel
 .env*.local
+.worktrees
+.qa-artifacts
+test-results
+tsconfig.tsbuildinfo

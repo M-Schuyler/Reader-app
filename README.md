@@ -63,6 +63,27 @@ The next stage follows the **Input Hub Reader** direction:
 4. Run `npx prisma migrate dev --name init`.
 5. Run `npm run dev`.
 
+### Worktree-safe Local Startup
+
+If you are developing inside a git worktree, do **not** rely on the repo-level `.env.local` for local startup.
+In this repo, `.env.local` may point at a remote Neon database and override the local `DATABASE_URL` in `.env`.
+
+Use this flow instead:
+
+1. Keep `.env` pointed at your local PostgreSQL database.
+2. If the worktree needs extra local-only overrides, copy `.env.worktree.local.example` to `.env.worktree.local`.
+3. Start the app with:
+   - `npm run dev:local`
+4. Build the app with the same worktree-local environment using:
+   - `npm run build:local`
+5. Inside a git worktree, bare `npm run dev` and `npm run build` now fail fast on purpose so the wrong database cannot be used by accident.
+
+`dev:local` and `build:local` intentionally load only:
+- `.env`
+- `.env.worktree.local`
+
+They do **not** read `.env.local`, which prevents the worktree from accidentally booting against the wrong database.
+
 ## Cloud Deployment
 
 Production target for v1:

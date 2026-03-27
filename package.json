@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "prisma generate && next build",
+    "dev": "node scripts/dev/guard-worktree-command.mjs dev",
+    "dev:local": "node scripts/dev/run-worktree-command.mjs dev",
+    "build": "node scripts/dev/guard-worktree-command.mjs build",
+    "build:local": "node scripts/dev/run-worktree-command.mjs build",
     "start": "node .next/standalone/server.js",
     "test:extractor": "node --import tsx --test tests/**/*.test.ts",
     "smoke:wechat": "node --import tsx scripts/smoke/wechat-capture.ts",

@@ -9,6 +9,20 @@ export default auth((request) => {
   const pathname = nextUrl.pathname;
   const isAuthenticated = isAllowedSession(request.auth);
   const isInternalApiPath = pathname.startsWith("/api/internal/");
+  const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/");
+  const isQaFixtureApiPath =
+    pathname === "/api/documents/qa-highlights-document/highlights" || pathname.startsWith("/api/highlights/qa-highlight-");
+  const isQaRealDocumentApiPath =
+    pathname.startsWith("/api/documents/qa-real-document--") && pathname.endsWith("/highlights");
+  const isQaRealHighlightApiPath = pathname.startsWith("/api/highlights/qa-real-highlight--");
+
+  if (isQaPath && process.env.NODE_ENV !== "production") {
+    return NextResponse.next();
+  }
+
+  if ((isQaFixtureApiPath || isQaRealDocumentApiPath || isQaRealHighlightApiPath) && process.env.NODE_ENV !== "production") {
+    return NextResponse.next();
+  }
 
   if (pathname === LOGIN_PATH) {
     if (!isAuthenticated) {
@@ -46,5 +60,5 @@ export default auth((request) => {
 });
 
 export const config = {
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|qa(?:/.*)?$).*)"],
 };
