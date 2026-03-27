@@ -37,6 +37,7 @@ enum IngestionJobKind {
   IMPORT_FEED_ITEM
   EXTRACT_PDF_TEXT
   SYNC_FEED
+  GENERATE_AI_SUMMARY
 }
 
 enum IngestionJobStatus {

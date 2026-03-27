@@ -135,3 +135,16 @@ export type CaptureUrlResponseData = {
     error: CaptureIngestionError | null;
   };
 };
+
+export type RunDocumentAiSummaryJobsResponseData = {
+  processed: number;
+  generated: number;
+  failed: number;
+  skipped: number;
+  results: Array<{
+    jobId: string;
+    documentId: string | null;
+    outcome: "generated" | "failed" | "skipped";
+    error: GenerateAiSummaryError | null;
+  }>;
+};

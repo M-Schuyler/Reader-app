@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { IngestionStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import {
-  FavoriteSummaryBadge,
-  FavoriteToggleButton,
-  useDocumentFavoriteController,
-} from "@/components/documents/favorite-control";
+import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
 import { Panel } from "@/components/ui/panel";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 
@@ -48,8 +44,8 @@ export function DocumentList({ data }: DocumentListProps) {
 function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number] }) {
   const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
   const favorite = useDocumentFavoriteController(item);
-  const shouldShowSummaryBadge = favorite.summaryState !== "not_favorite";
   const shouldShowStatusBadge = item.ingestionStatus !== IngestionStatus.READY;
+  const previewText = resolvePreviewText(item);
 
   return (
     <article className="group px-6 py-6 sm:px-7">
@@ -67,13 +63,7 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
             <h3 className="max-w-4xl font-display text-[1.75rem] leading-[1.08] tracking-[-0.03em] text-[color:var(--text-primary)] transition group-hover:text-[color:var(--text-primary-strong)]">
               {item.title}
             </h3>
-            {favorite.supportText ? (
-              <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{favorite.supportText}</p>
-            ) : null}
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              {shouldShowSummaryBadge ? <FavoriteSummaryBadge state={favorite.summaryState} /> : null}
-            </div>
+            {previewText ? <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{previewText}</p> : null}
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm text-[color:var(--text-tertiary)]">
               {!isFailed && item.wordCount ? <span>{formatWordCount(item.wordCount)}</span> : null}
@@ -161,4 +151,12 @@ function truncateUrl(value: string) {
   } catch {
     return value;
   }
+}
+
+function resolvePreviewText(item: GetDocumentsResponseData["items"][number]) {
+  if (item.ingestionStatus === IngestionStatus.FAILED) {
+    return null;
+  }
+
+  return item.aiSummary ?? item.excerpt;
 }

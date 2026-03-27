@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "node .next/standalone/server.js",
+    "test:extractor": "node --import tsx --test tests/**/*.test.ts",
+    "smoke:wechat": "node --import tsx scripts/smoke/wechat-capture.ts",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
@@ -28,6 +30,7 @@
     "postcss": "^8.0.0",
     "prisma": "^6.0.0",
     "tailwindcss": "^4.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   }
 }

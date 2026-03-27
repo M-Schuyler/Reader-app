@@ -94,3 +94,30 @@ test("rejects low-signal wechat output even if extraction produced some text", (
     (error) => error instanceof RouteError && error.code === "EXTRACTION_UNREADABLE",
   );
 });
+
+test("rejects wechat migration pages as unreadable content", () => {
+  const rawHtml = `
+    <html>
+      <head>
+        <title>账号已迁移</title>
+      </head>
+      <body>
+        <div class="migration-page">
+          <h1>该公众号已迁移</h1>
+          <p>该公众号已迁移至新的账号，原账号已回收。</p>
+          <p>若需访问原文章链接，请点击下方按钮。</p>
+          <a href="https://mp.weixin.qq.com/">访问原文章</a>
+        </div>
+      </body>
+    </html>
+  `;
+
+  assert.throws(
+    () =>
+      extractWebPageFromHtml({
+        requestUrl: "https://mp.weixin.qq.com/s/51iYLcQwh7r31UN3jSkcPQ",
+        rawHtml,
+      }),
+    (error) => error instanceof RouteError && error.code === "EXTRACTION_UNREADABLE",
+  );
+});

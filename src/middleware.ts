@@ -8,6 +8,7 @@ export default auth((request) => {
   const { nextUrl } = request;
   const pathname = nextUrl.pathname;
   const isAuthenticated = isAllowedSession(request.auth);
+  const isInternalApiPath = pathname.startsWith("/api/internal/");
 
   if (pathname === LOGIN_PATH) {
     if (!isAuthenticated) {
@@ -19,6 +20,10 @@ export default auth((request) => {
   }
 
   if (isAuthenticated) {
+    return NextResponse.next();
+  }
+
+  if (isInternalApiPath) {
     return NextResponse.next();
   }
 

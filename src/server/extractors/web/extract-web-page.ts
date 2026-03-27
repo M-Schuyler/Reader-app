@@ -36,6 +36,12 @@ const SHELL_PAGE_PATTERNS =
   /access denied|403 forbidden|404 not found|page not found|temporarily unavailable|service unavailable|redirecting|正在跳转|请先登录|login required|sign in to continue/i;
 const LEADING_META_TEXT_PATTERNS = /^(原创|作者|来源|编辑|文[:：]|by\s|发表于|阅读原文|在.+阅读$)/i;
 const WECHAT_LOW_SIGNAL_TEXT_PATTERNS = /微信扫一扫|使用小程序|向上滑动看下一个|使用完整服务/i;
+const WECHAT_INTERMEDIATE_TEXT_PATTERNS =
+  /账号已迁移|该公众号已迁移|已迁移至新的账号|原账号已回收|若需访问原文章链接|访问原文章|点击下方按钮/i;
+const WECHAT_END_MARKER_TEXT_PATTERNS = /^(?:（完）|\(完\)|全文完|完)$/;
+const WECHAT_TRAILING_SEPARATOR_PATTERNS = /^(?:[.\-_*•。·…\s]{6,}|\.{6,}|。{6,}|_{6,}|\*{6,}|•{6,})$/;
+const WECHAT_TRAILING_PROMO_TEXT_PATTERNS =
+  /Tips[:：]|后台私信|交流群|加助理|网址[:：]|自动交易系统|复利吃息系统|知识星球|星球|私董会|定投|X ID[:：]|星标|感谢你的阅读|欢迎⭐|欢迎\*|web3leon|aidog\.xyz/i;
 const WECHAT_NOISE_SELECTORS = [
   "#meta_content",
   "#js_tags",
@@ -139,7 +145,7 @@ export function extractWebPageFromHtml(input: {
   const lang = extractLang($);
   const canonicalUrl = extractCanonicalUrl($, finalUrl);
   const author = extractAuthor($);
-  const contentHtml = trimReadableHtml(extractReadableHtml($, finalUrl), title);
+  const contentHtml = trimReadableHtml(extractReadableHtml($, finalUrl), title, finalUrl);
   const plainText = htmlToPlainText(contentHtml);
 
   if (!plainText) {
@@ -149,7 +155,7 @@ export function extractWebPageFromHtml(input: {
   assertReadableExtractionQuality(finalUrl, plainText);
 
   const excerpt = plainText.slice(0, 240);
-  const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+  const wordCount = countReadableUnits(plainText);
   const textHash = createHash("sha256").update(plainText).digest("hex");
 
   return {
@@ -200,6 +206,10 @@ function assertPageIsReadable(requestUrl: URL, finalUrl: string, $: CheerioAPI, 
 
   if (isWeChatShareShellPage($, finalPageUrl)) {
     throw new RouteError("EXTRACTION_UNREADABLE", 422, "来源站点返回了微信分享壳页面，无法提取可阅读正文。");
+  }
+
+  if (isWeChatIntermediatePage($, finalPageUrl, bodyText)) {
+    throw new RouteError("EXTRACTION_UNREADABLE", 422, "来源站点返回了微信迁移或跳转说明页，无法提取可阅读正文。");
   }
 
   if (VERIFICATION_PAGE_PATTERNS.test(bodyText) && bodyText.length < 800) {
@@ -511,7 +521,7 @@ function normalizeExtractedHtml(html: string) {
   return html.replace(/\u00a0/g, " ").replace(/>\s+</g, "><").trim();
 }
 
-function trimReadableHtml(contentHtml: string, title: string) {
+function trimReadableHtml(contentHtml: string, title: string, finalUrl: string) {
   if (!contentHtml) {
     return "";
   }
@@ -535,7 +545,84 @@ function trimReadableHtml(contentHtml: string, title: string) {
     $node.remove();
   }
 
+  if (isWeChatHost(safeParseUrl(finalUrl))) {
+    removeWeChatTrailingPromo($content, $body);
+  }
+
   return normalizeExtractedHtml($body.html() ?? "");
+}
+
+function removeWeChatTrailingPromo($: CheerioAPI, $body: Cheerio<Element>) {
+  const children = $body.children().toArray();
+  const startIndex = findWeChatTrailingPromoStart($, children);
+
+  if (startIndex === null) {
+    return;
+  }
+
+  for (const node of children.slice(startIndex)) {
+    $(node).remove();
+  }
+}
+
+function findWeChatTrailingPromoStart($: CheerioAPI, children: AnyNode[]) {
+  if (children.length === 0) {
+    return null;
+  }
+
+  const windowStart = Math.max(0, children.length - 12);
+  const texts = children.map((node) => getNodeText($(node)));
+  let endMarkerIndex = -1;
+
+  for (let index = windowStart; index < texts.length; index += 1) {
+    if (WECHAT_END_MARKER_TEXT_PATTERNS.test(texts[index])) {
+      endMarkerIndex = index;
+    }
+  }
+
+  if (endMarkerIndex >= 0) {
+    for (let index = endMarkerIndex + 1; index < texts.length; index += 1) {
+      if (isWeChatTrailingPromoText(texts[index])) {
+        return index;
+      }
+    }
+  }
+
+  let suspiciousRunStart: number | null = null;
+  let suspiciousCount = 0;
+
+  for (let index = windowStart; index < texts.length; index += 1) {
+    if (isWeChatTrailingPromoText(texts[index])) {
+      suspiciousRunStart ??= index;
+      suspiciousCount += 1;
+
+      if (suspiciousCount >= 2) {
+        return suspiciousRunStart;
+      }
+
+      continue;
+    }
+
+    if (texts[index].length > 0) {
+      suspiciousRunStart = null;
+      suspiciousCount = 0;
+    }
+  }
+
+  return null;
+}
+
+function isWeChatTrailingPromoText(text: string) {
+  const normalized = normalizeWhitespace(text) ?? "";
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized.length <= 160 && WECHAT_TRAILING_SEPARATOR_PATTERNS.test(normalized)) {
+    return true;
+  }
+
+  return WECHAT_TRAILING_PROMO_TEXT_PATTERNS.test(normalized);
 }
 
 function assertReadableExtractionQuality(finalUrl: string, plainText: string) {
@@ -545,6 +632,10 @@ function assertReadableExtractionQuality(finalUrl: string, plainText: string) {
   }
 
   const readableUnitCount = countReadableUnits(plainText);
+  if (readableUnitCount < 180 && WECHAT_INTERMEDIATE_TEXT_PATTERNS.test(plainText)) {
+    throw new RouteError("EXTRACTION_UNREADABLE", 422, "提取结果只包含微信迁移或跳转说明，未拿到可阅读正文。");
+  }
+
   if (readableUnitCount < 80 && WECHAT_LOW_SIGNAL_TEXT_PATTERNS.test(plainText)) {
     throw new RouteError("EXTRACTION_UNREADABLE", 422, "提取结果只包含微信分享壳页提示，未拿到可阅读正文。");
   }
@@ -840,12 +931,31 @@ function isWeChatShareShellPage($: CheerioAPI, finalUrl: URL | null) {
     return false;
   }
 
-  const hasReadableContentContainer = $("#img-content, #js_content, .rich_media_content").length > 0;
+  const hasReadableContentContainer = hasWeChatReadableContentContainer($);
   if (hasReadableContentContainer) {
     return false;
   }
 
   return $("#js_article.share_content_page").length > 0 || $(".img_swiper_area, .share_media_swiper, #js_jump_wx_qrcode_dialog").length > 0;
+}
+
+function isWeChatIntermediatePage($: CheerioAPI, finalUrl: URL | null, bodyText: string) {
+  if (!isWeChatHost(finalUrl)) {
+    return false;
+  }
+
+  if (hasWeChatReadableContentContainer($)) {
+    return false;
+  }
+
+  const title = normalizeWhitespace($("title").first().text()) ?? "";
+  const readableUnitCount = countReadableUnits(bodyText);
+
+  return readableUnitCount < 180 && (WECHAT_INTERMEDIATE_TEXT_PATTERNS.test(title) || WECHAT_INTERMEDIATE_TEXT_PATTERNS.test(bodyText));
+}
+
+function hasWeChatReadableContentContainer($: CheerioAPI) {
+  return $("#img-content, #js_content, .rich_media_content").length > 0;
 }
 
 function extractWeChatTitle($: CheerioAPI) {

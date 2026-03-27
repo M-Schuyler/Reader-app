@@ -1,13 +1,9 @@
 import { DocumentType, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
-import { generateDocumentAiSummary } from "./document-ai-summary.service";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
 import {
   getDocumentById,
   listDocuments,
-  updateDocumentAiSummary,
-  updateDocumentAiSummaryFailure,
-  updateDocumentAiSummaryState,
   updateDocumentFavorite,
 } from "./document.repository";
 import type {
@@ -83,48 +79,14 @@ export async function updateDocumentFavoriteStatus(
     };
   }
 
-  if (document.aiSummary && !input.regenerateAiSummary) {
-    return {
-      document: mapDocumentDetail(document),
-      summary: {
-        status: "skipped",
-        source: null,
-        error: null,
-      },
-    };
-  }
-
-  const pendingDocument = await updateDocumentAiSummaryState(document.id, "PENDING");
-
-  try {
-    const generated = await generateDocumentAiSummary(pendingDocument);
-    const updatedDocument = await updateDocumentAiSummary(document.id, generated.summary);
-
-    return {
-      document: mapDocumentDetail(updatedDocument),
-      summary: {
-        status: "generated",
-        source: generated.source,
-        error: null,
-      },
-    };
-  } catch (error) {
-    const summaryError = toGenerateAiSummaryError(error);
-    const failedDocument = await updateDocumentAiSummaryFailure(
-      document.id,
-      summaryError.message,
-      Boolean(document.aiSummary),
-    );
-
-    return {
-      document: mapDocumentDetail(failedDocument),
-      summary: {
-        status: "failed",
-        source: null,
-        error: summaryError,
-      },
-    };
-  }
+  return {
+    document: mapDocumentDetail(document),
+    summary: {
+      status: "not_requested",
+      source: null,
+      error: null,
+    },
+  };
 }
 
 export function parseDocumentListQuery(searchParams: URLSearchParams): DocumentListQuery {
@@ -236,25 +198,4 @@ function parseDocumentSort(value: string | null): DocumentListSort {
   }
 
   throw new RouteError("INVALID_QUERY", 400, `Sort "${value}" is invalid.`);
-}
-
-function toGenerateAiSummaryError(error: unknown): GenerateAiSummaryError {
-  if (error instanceof RouteError) {
-    return {
-      code: error.code,
-      message: error.message,
-    };
-  }
-
-  if (error instanceof Error && error.message) {
-    return {
-      code: "AI_SUMMARY_FAILED",
-      message: error.message,
-    };
-  }
-
-  return {
-    code: "AI_SUMMARY_FAILED",
-    message: "AI summary generation failed.",
-  };
 }

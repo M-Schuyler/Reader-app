@@ -2,6 +2,7 @@ import { IngestionJobKind, IngestionJobStatus, IngestionStatus } from "@prisma/c
 import { RouteError } from "@/server/api/response";
 import { prisma } from "@/server/db/client";
 import { extractWebPage } from "@/server/extractors/web/extract-web-page";
+import { queueAutomaticDocumentAiSummary } from "@/server/modules/documents/document-ai-summary-jobs.service";
 import { mapDocumentDetail } from "@/server/modules/documents/document.mapper";
 import {
   createWebDocument,
@@ -91,14 +92,16 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
       extractedAt: new Date(),
     });
 
+    const enrichedDocument = await queueAutomaticSummaryIfPossible(document);
+
     await prisma.ingestionJob.update({
       where: { id: job.id },
       data: {
         status: IngestionJobStatus.SUCCEEDED,
-        documentId: document.id,
+        documentId: enrichedDocument.id,
         payloadJson: {
           deduped: false,
-          canonicalUrl: document.canonicalUrl,
+          canonicalUrl: enrichedDocument.canonicalUrl,
           finalUrl: extracted.finalUrl,
         },
         finishedAt: new Date(),
@@ -106,7 +109,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
     });
 
     return {
-      document: mapDocumentDetail(document),
+      document: mapDocumentDetail(enrichedDocument),
       deduped: false,
       jobId: job.id,
       ingestion: {
@@ -247,6 +250,19 @@ async function findLatestCaptureError(document: DocumentDetailRecord): Promise<C
   }
 
   return null;
+}
+
+async function queueAutomaticSummaryIfPossible(document: DocumentDetailRecord) {
+  try {
+    return await queueAutomaticDocumentAiSummary(document);
+  } catch (error) {
+    console.error("Failed to queue automatic AI summary job.", {
+      documentId: document.id,
+      error,
+    });
+
+    return document;
+  }
 }
 
 function extractCaptureErrorFromPayload(payload: unknown): CaptureIngestionError | null {

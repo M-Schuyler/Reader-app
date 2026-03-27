@@ -4,11 +4,7 @@ import Link from "next/link";
 import { IngestionStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/panel";
-import {
-  FavoriteSummaryBadge,
-  FavoriteToggleButton,
-  useDocumentFavoriteController,
-} from "@/components/documents/favorite-control";
+import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
 import { ReaderRichContent } from "@/components/reader/reader-rich-content";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 
@@ -27,13 +23,6 @@ export function DocumentReader({ document }: DocumentReaderProps) {
   const paragraphs = isReadable ? plainText.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0) : [];
   const leadText = resolveLeadText(document);
   const showIngestionBadge = document.ingestionStatus !== IngestionStatus.READY;
-  const showSummaryBadge = favorite.isFavorite && favorite.summaryState !== "not_favorite";
-  const summarySupportText =
-    favorite.summaryState === "ready"
-      ? "Summary available."
-      : favorite.summaryState === "generating"
-        ? "Summary generation is still in progress."
-        : null;
 
   return (
     <section className="space-y-10 lg:space-y-12">
@@ -141,6 +130,9 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                   Back to library
                 </Link>
               </div>
+              {favorite.actionError ? (
+                <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{favorite.actionError}</p>
+              ) : null}
             </div>
 
             <div className="space-y-3">
@@ -158,15 +150,14 @@ export function DocumentReader({ document }: DocumentReaderProps) {
               </dl>
             </div>
 
-            {showSummaryBadge || summarySupportText ? (
-              <div className="space-y-3 rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
+            {favorite.isFavorite ? (
+              <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
                 <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                  Saved state
+                  Collection
                 </p>
-                {showSummaryBadge ? <FavoriteSummaryBadge state={favorite.summaryState} /> : null}
-                {summarySupportText ? (
-                  <p className="text-sm leading-6 text-[color:var(--text-secondary)]">{summarySupportText}</p>
-                ) : null}
+                <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">
+                  This document is saved for quick return in your library.
+                </p>
               </div>
             ) : null}
           </Panel>
