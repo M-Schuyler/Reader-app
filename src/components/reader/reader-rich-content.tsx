@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { resolveReaderImageUrl } from "@/lib/content/image-proxy";
 
 type ReaderRichContentProps = {
   contentHtml: string;
@@ -33,6 +34,23 @@ export function ReaderRichContent({ contentHtml, fallbackText, sourceUrl }: Read
   }
 
   return <div className="reader-prose reader-rich-content">{content}</div>;
+}
+
+function resolveUrl(value: string | null, sourceUrl: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const resolved = sourceUrl ? new URL(value, sourceUrl) : new URL(value);
+    if (!["http:", "https:"].includes(resolved.protocol)) {
+      return null;
+    }
+
+    return resolved.toString();
+  } catch {
+    return null;
+  }
 }
 
 function renderStructuredContent(contentHtml: string, sourceUrl: string | null) {
@@ -204,7 +222,7 @@ function renderNode(node: Node, key: string, sourceUrl: string | null): ReactNod
       );
 
     case "img": {
-      const src = resolveUrl(element.getAttribute("src"), sourceUrl);
+      const src = resolveReaderImageUrl(element.getAttribute("src"), sourceUrl);
       if (!src) {
         return null;
       }
@@ -217,6 +235,7 @@ function renderNode(node: Node, key: string, sourceUrl: string | null): ReactNod
           className="w-full rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)]"
           key={key}
           loading="lazy"
+          referrerPolicy="no-referrer"
           src={src}
         />
       );
@@ -224,21 +243,5 @@ function renderNode(node: Node, key: string, sourceUrl: string | null): ReactNod
 
     default:
       return children.length > 0 ? <Fragment key={key}>{children}</Fragment> : null;
-  }
-}
-
-function resolveUrl(value: string | null, sourceUrl: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const resolved = sourceUrl ? new URL(value, sourceUrl) : new URL(value);
-    if (!["http:", "https:"].includes(resolved.protocol)) {
-      return null;
-    }
-    return resolved.toString();
-  } catch {
-    return null;
   }
 }
