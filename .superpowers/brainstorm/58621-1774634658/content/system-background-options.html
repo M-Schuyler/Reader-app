@@ -1,0 +1,67 @@
+<h2>系统背景切换，哪条路更对？</h2>
+<p class="subtitle">先只比较背景策略，不讨论按钮、标签或正文排版。请点一个最顺眼的方向。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A · 只切画布</div>
+        <div class="mockup-body" style="background:#161311;padding:16px;border-radius:18px;">
+          <div style="background:rgba(255,252,247,0.72);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px 16px;">
+            <div style="font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#a39a8d;">Library</div>
+            <div style="margin-top:10px;font-size:28px;font-weight:600;color:#f7f1e7;">Kai's Reader</div>
+            <div style="margin-top:14px;font-size:15px;line-height:1.75;color:#645d51;">
+              表面层几乎不变，只让最外层背景跟随系统变暗。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>只切背景</h3>
+      <p>改动最小，但夜间容易出现“底很暗、卡片还太亮”的割裂感。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B · 背景与表面层同步</div>
+        <div class="mockup-body" style="background:#161311;padding:16px;border-radius:18px;">
+          <div style="background:rgba(34,29,25,0.84);border:1px solid rgba(241,230,214,0.08);border-radius:16px;padding:14px 16px;box-shadow:0 10px 24px rgba(0,0,0,0.24);">
+            <div style="font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#9a9183;">Library</div>
+            <div style="margin-top:10px;font-size:28px;font-weight:600;color:#f1e6d6;">Kai's Reader</div>
+            <div style="margin-top:14px;font-size:15px;line-height:1.75;color:#c0b5a6;">
+              画布、卡片、文字层级一起过渡，夜间更稳，也更像真正的产品主题系统。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>同步切换</h3>
+      <p>我推荐这个。成本不高，但整体性最好，Reader 的气质也最容易保住。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C · 更深的夜间版</div>
+        <div class="mockup-body" style="background:#0c0a09;padding:16px;border-radius:18px;">
+          <div style="background:#171311;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:14px 16px;box-shadow:0 14px 30px rgba(0,0,0,0.34);">
+            <div style="font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#8c8478;">Library</div>
+            <div style="margin-top:10px;font-size:28px;font-weight:600;color:#fbf4e8;">Kai's Reader</div>
+            <div style="margin-top:14px;font-size:15px;line-height:1.75;color:#c9bfb1;">
+              更强调夜间对比和沉浸感，但如果压太深，阅读器会开始偏“深色工具”而不是“安静产品”。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>深夜模式</h3>
+      <p>更强烈、更显眼，但风险也最大，容易把当前温和的阅读气质打掉。</p>
+    </div>
+  </div>
+</div>
