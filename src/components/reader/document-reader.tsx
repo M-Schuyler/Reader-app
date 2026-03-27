@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { IngestionStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
+import { ReaderHighlightsPanel, useDocumentHighlights } from "@/components/reader/reader-highlights";
 import { ReaderRichContent } from "@/components/reader/reader-rich-content";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 
@@ -21,6 +23,10 @@ export function DocumentReader({ document }: DocumentReaderProps) {
   const isReadable = !isFailed && hasExtractedContent;
   const favorite = useDocumentFavoriteController(document);
   const paragraphs = isReadable ? plainText.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0) : [];
+  const documentHighlights = useDocumentHighlights({
+    canHighlight: isReadable,
+    documentId: document.id,
+  });
   const leadText = resolveLeadText(document);
   const showIngestionBadge = document.ingestionStatus !== IngestionStatus.READY;
 
@@ -86,12 +92,74 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                 ) : null}
               </div>
             ) : contentHtml ? (
-              <ReaderRichContent contentHtml={contentHtml} fallbackText={plainText} sourceUrl={sourceUrl} />
+              <div className="space-y-4">
+                <div
+                  onKeyUp={documentHighlights.captureSelection}
+                  onMouseUp={documentHighlights.captureSelection}
+                  onTouchEnd={documentHighlights.captureSelection}
+                  ref={documentHighlights.contentRef}
+                >
+                  <ReaderRichContent
+                    contentHtml={contentHtml}
+                    fallbackText={plainText}
+                    highlights={documentHighlights.highlights}
+                    sourceUrl={sourceUrl}
+                  />
+                </div>
+                {documentHighlights.selectionDraft ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3">
+                    <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
+                      Save this passage to your reading traces.
+                    </p>
+                    <Button
+                      className="shrink-0"
+                      disabled={documentHighlights.isCreating}
+                      onClick={documentHighlights.createHighlightFromSelection}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      {documentHighlights.isCreating ? "Saving…" : "Save highlight"}
+                    </Button>
+                  </div>
+                ) : null}
+                {documentHighlights.actionError ? (
+                  <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{documentHighlights.actionError}</p>
+                ) : null}
+              </div>
             ) : paragraphs.length > 0 ? (
-              <div className="reader-prose">
-                {paragraphs.map((paragraph, index) => (
-                  <p key={`${document.id}-${index}`}>{paragraph}</p>
-                ))}
+              <div className="space-y-4">
+                <div
+                  onKeyUp={documentHighlights.captureSelection}
+                  onMouseUp={documentHighlights.captureSelection}
+                  onTouchEnd={documentHighlights.captureSelection}
+                  ref={documentHighlights.contentRef}
+                >
+                  <ReaderRichContent
+                    contentHtml=""
+                    fallbackText={plainText}
+                    highlights={documentHighlights.highlights}
+                    sourceUrl={sourceUrl}
+                  />
+                </div>
+                {documentHighlights.selectionDraft ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3">
+                    <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
+                      Save this passage to your reading traces.
+                    </p>
+                    <Button
+                      className="shrink-0"
+                      disabled={documentHighlights.isCreating}
+                      onClick={documentHighlights.createHighlightFromSelection}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      {documentHighlights.isCreating ? "Saving…" : "Save highlight"}
+                    </Button>
+                  </div>
+                ) : null}
+                {documentHighlights.actionError ? (
+                  <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{documentHighlights.actionError}</p>
+                ) : null}
               </div>
             ) : (
               <p className="text-[15px] leading-7 text-[color:var(--text-secondary)]">
@@ -160,6 +228,17 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                   This document stays close to the top of your reading orbit for a faster return later on.
                 </p>
               </div>
+            ) : null}
+
+            {isReadable ? (
+              <ReaderHighlightsPanel
+                actionError={documentHighlights.actionError}
+                highlights={documentHighlights.highlights}
+                isLoading={documentHighlights.isLoading}
+                onDelete={documentHighlights.removeHighlightById}
+                onSaveNote={documentHighlights.saveHighlightNote}
+                savingNoteId={documentHighlights.savingNoteId}
+              />
             ) : null}
           </Panel>
         </aside>

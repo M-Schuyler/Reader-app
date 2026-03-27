@@ -2,14 +2,22 @@
 
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { resolveReaderImageUrl } from "@/lib/content/image-proxy";
+import { splitTextByHighlights } from "@/lib/highlights/anchor";
+import { shouldRenderTextNode, type TextNeighborKind } from "@/lib/highlights/whitespace";
+import type { ReaderHighlight } from "@/components/reader/reader-highlights";
 
 type ReaderRichContentProps = {
   contentHtml: string;
   fallbackText: string;
+  highlights?: ReaderHighlight[];
   sourceUrl: string | null;
 };
 
-export function ReaderRichContent({ contentHtml, fallbackText, sourceUrl }: ReaderRichContentProps) {
+type CursorState = {
+  value: number;
+};
+
+export function ReaderRichContent({ contentHtml, fallbackText, highlights = [], sourceUrl }: ReaderRichContentProps) {
   const [content, setContent] = useState<ReactNode | null>(null);
 
   useEffect(() => {
@@ -17,18 +25,13 @@ export function ReaderRichContent({ contentHtml, fallbackText, sourceUrl }: Read
       return;
     }
 
-    setContent(renderStructuredContent(contentHtml, sourceUrl));
-  }, [contentHtml, sourceUrl]);
+    setContent(renderStructuredContent(contentHtml, sourceUrl, highlights));
+  }, [contentHtml, highlights, sourceUrl]);
 
   if (!content) {
     return (
       <div className="reader-prose">
-        {fallbackText
-          .split(/\n{2,}/)
-          .filter((paragraph) => paragraph.trim().length > 0)
-          .map((paragraph, index) => (
-            <p key={`fallback-${index}`}>{paragraph}</p>
-          ))}
+        {renderPlainTextFallback(fallbackText, highlights)}
       </div>
     );
   }
@@ -53,20 +56,31 @@ function resolveUrl(value: string | null, sourceUrl: string | null) {
   }
 }
 
-function renderStructuredContent(contentHtml: string, sourceUrl: string | null) {
+function renderStructuredContent(contentHtml: string, sourceUrl: string | null, highlights: ReaderHighlight[]) {
   const parser = new DOMParser();
   const parsed = parser.parseFromString(contentHtml, "text/html");
+  const cursor: CursorState = { value: 0 };
   const nodes = Array.from(parsed.body.childNodes)
-    .map((node, index) => renderNode(node, `${index}`, sourceUrl))
+    .map((node, index) => renderNode(node, `${index}`, sourceUrl, highlights, cursor))
     .filter((node): node is ReactNode => node !== null);
 
   return nodes.length > 0 ? nodes : null;
 }
 
-function renderNode(node: Node, key: string, sourceUrl: string | null): ReactNode | null {
+function renderNode(
+  node: Node,
+  key: string,
+  sourceUrl: string | null,
+  highlights: ReaderHighlight[],
+  cursor: CursorState,
+): ReactNode | null {
   if (node.nodeType === Node.TEXT_NODE) {
     const textContent = node.textContent ?? "";
-    return textContent.trim().length > 0 ? textContent : null;
+    if (!shouldRenderTextNode(textContent, resolveWhitespaceContext(node))) {
+      return null;
+    }
+
+    return renderTextWithHighlights(textContent, key, highlights, cursor);
   }
 
   if (node.nodeType !== Node.ELEMENT_NODE) {
@@ -81,7 +95,7 @@ function renderNode(node: Node, key: string, sourceUrl: string | null): ReactNod
   }
 
   const children = Array.from(element.childNodes)
-    .map((child, index) => renderNode(child, `${key}.${index}`, sourceUrl))
+    .map((child, index) => renderNode(child, `${key}.${index}`, sourceUrl, highlights, cursor))
     .filter((child): child is ReactNode => child !== null);
 
   switch (tagName) {
@@ -245,3 +259,141 @@ function renderNode(node: Node, key: string, sourceUrl: string | null): ReactNod
       return children.length > 0 ? <Fragment key={key}>{children}</Fragment> : null;
   }
 }
+
+function renderPlainTextFallback(sourceText: string, highlights: ReaderHighlight[]) {
+  if (highlights.length === 0) {
+    return sourceText
+      .split(/\n{2,}/)
+      .filter((paragraph) => paragraph.trim().length > 0)
+      .map((paragraph, index) => <p key={`fallback-${index}`}>{paragraph}</p>);
+  }
+
+  const segments = splitTextByHighlights(
+    sourceText,
+    highlights
+      .filter((highlight) => typeof highlight.startOffset === "number" && typeof highlight.endOffset === "number")
+      .map((highlight) => ({
+        id: highlight.id,
+        startOffset: highlight.startOffset,
+        endOffset: highlight.endOffset,
+        quoteText: highlight.quoteText,
+      })),
+  );
+
+  return (
+    <p className="whitespace-pre-wrap">
+      {segments.map((segment, index) =>
+        segment.type === "highlight" ? (
+          <mark className={highlightClassName} data-highlight-id={segment.id} key={`plain-highlight-${segment.id}-${index}`}>
+            {segment.text}
+          </mark>
+        ) : (
+          <Fragment key={`plain-text-${index}`}>{segment.text}</Fragment>
+        ),
+      )}
+    </p>
+  );
+}
+
+function renderTextWithHighlights(
+  textContent: string,
+  key: string,
+  highlights: ReaderHighlight[],
+  cursor: CursorState,
+): ReactNode | null {
+  const startOffset = cursor.value;
+  const endOffset = startOffset + textContent.length;
+  cursor.value = endOffset;
+
+  const overlappingHighlights = highlights
+    .filter((highlight) => typeof highlight.startOffset === "number" && typeof highlight.endOffset === "number")
+    .filter((highlight) => {
+      const highlightStart = highlight.startOffset ?? 0;
+      const highlightEnd = highlight.endOffset ?? highlightStart;
+      return highlightEnd > startOffset && highlightStart < endOffset;
+    })
+    .map((highlight) => ({
+      id: highlight.id,
+      quoteText: highlight.quoteText,
+      startOffset: Math.max(0, (highlight.startOffset ?? 0) - startOffset),
+      endOffset: Math.min(textContent.length, (highlight.endOffset ?? 0) - startOffset),
+    }));
+
+  if (overlappingHighlights.length === 0) {
+    return textContent;
+  }
+
+  const segments = splitTextByHighlights(textContent, overlappingHighlights);
+
+  return (
+    <Fragment key={key}>
+      {segments.map((segment, index) =>
+        segment.type === "highlight" ? (
+          <mark className={highlightClassName} data-highlight-id={segment.id} key={`${key}.highlight.${segment.id}.${index}`}>
+            {segment.text}
+          </mark>
+        ) : (
+          <Fragment key={`${key}.text.${index}`}>{segment.text}</Fragment>
+        ),
+      )}
+    </Fragment>
+  );
+}
+
+const highlightClassName =
+  "rounded-[0.48rem] bg-[rgba(214,186,96,0.34)] px-[0.12em] py-[0.05em] text-[color:var(--text-primary)]";
+
+function resolveWhitespaceContext(node: Node) {
+  return {
+    previous: resolveSiblingKind(node.previousSibling, "previous"),
+    next: resolveSiblingKind(node.nextSibling, "next"),
+  } satisfies {
+    previous: TextNeighborKind;
+    next: TextNeighborKind;
+  };
+}
+
+function resolveSiblingKind(node: Node | null, direction: "previous" | "next"): TextNeighborKind {
+  if (!node) {
+    return "none";
+  }
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    const textContent = node.textContent ?? "";
+
+    if (textContent.trim().length === 0) {
+      return resolveSiblingKind(direction === "previous" ? node.previousSibling : node.nextSibling, direction);
+    }
+
+    return "text";
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return resolveSiblingKind(direction === "previous" ? node.previousSibling : node.nextSibling, direction);
+  }
+
+  const tagName = (node as HTMLElement).tagName.toLowerCase();
+  return blockElementTags.has(tagName) ? "block" : "inline";
+}
+
+const blockElementTags = new Set([
+  "article",
+  "main",
+  "section",
+  "div",
+  "p",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "ul",
+  "ol",
+  "li",
+  "blockquote",
+  "hr",
+  "pre",
+  "figure",
+  "figcaption",
+]);
