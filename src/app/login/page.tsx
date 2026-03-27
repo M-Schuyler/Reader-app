@@ -26,7 +26,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <Panel className="w-full max-w-md p-8 sm:p-9" tone="default">
         <div className="space-y-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[color:var(--text-tertiary)]">Reader</p>
-          <h1 className="font-display text-[2.3rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+          <h1 className="font-ui-heading text-[2.3rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)]">
             登录你的私人阅读空间
           </h1>
           <div className="space-y-2">

@@ -28,7 +28,7 @@ export default async function ExportPage() {
             <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
               Queue
             </p>
-            <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+            <h2 className="font-ui-heading text-[2rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)]">
               这些内容已经接近可导出状态
             </h2>
           </div>
@@ -47,7 +47,7 @@ export default async function ExportPage() {
                     {candidate.highlightCount > 0 ? <span>{candidate.highlightCount} 条高亮</span> : null}
                   </div>
                   <Link
-                    className="block font-display text-[1.6rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)] transition hover:text-[color:var(--text-primary-strong)]"
+                    className="block font-ui-heading text-[1.6rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)] transition hover:text-[color:var(--text-primary-strong)]"
                     href={`/documents/${candidate.id}`}
                   >
                     {candidate.title}

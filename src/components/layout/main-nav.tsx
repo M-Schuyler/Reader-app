@@ -14,7 +14,7 @@ export function MainNav() {
       {items.map((item) => (
         <Link
           className={cx(
-            "inline-flex min-h-9 items-center rounded-full border px-3.5 transition",
+            "inline-flex min-h-9 items-center rounded-full border px-3.5 font-semibold transition",
             item.isActive
               ? "border-[color:var(--border-strong)] bg-[color:var(--bg-surface-soft)] text-[color:var(--text-primary)]"
               : "border-[color:var(--border-subtle)] bg-transparent hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-surface-soft)] hover:text-[color:var(--text-primary)]",

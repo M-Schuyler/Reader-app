@@ -19,7 +19,7 @@ export function DocumentList({ data }: DocumentListProps) {
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
             Library
           </p>
-          <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+          <h2 className="font-ui-heading text-[2rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)]">
             文档库还没有内容
           </h2>
           <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
@@ -60,7 +60,7 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
           </div>
 
           <Link className="block space-y-3" href={`/documents/${item.id}`}>
-            <h3 className="max-w-4xl font-display text-[1.75rem] leading-[1.08] tracking-[-0.03em] text-[color:var(--text-primary)] transition group-hover:text-[color:var(--text-primary-strong)]">
+            <h3 className="max-w-4xl font-ui-heading text-[1.75rem] leading-[1.08] tracking-[-0.04em] text-[color:var(--text-primary)] transition group-hover:text-[color:var(--text-primary-strong)]">
               {item.title}
             </h3>
             {previewText ? <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{previewText}</p> : null}

@@ -19,7 +19,7 @@ export function PageHeader({ actions, className, description, eyebrow, title }: 
           </p>
         ) : null}
         <div className="space-y-3">
-          <h1 className="font-display text-4xl leading-[1.02] tracking-[-0.03em] text-[color:var(--text-primary)] sm:text-[3.25rem]">
+          <h1 className="font-ui-heading text-4xl leading-[1.02] tracking-[-0.04em] text-[color:var(--text-primary)] sm:text-[3.25rem]">
             {title}
           </h1>
           {description ? (

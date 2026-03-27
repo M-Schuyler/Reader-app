@@ -34,7 +34,7 @@ export default async function HighlightsPage() {
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
             Recent
           </p>
-          <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+          <h2 className="font-ui-heading text-[2rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)]">
             最近高亮，适合快速回看
           </h2>
         </div>

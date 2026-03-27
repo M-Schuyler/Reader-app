@@ -32,7 +32,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       <PageHeader
         description="Collect first, decide depth later. A calm queue keeps signal visible before you commit real reading time."
         eyebrow="Library"
-        title="把值得读的内容放进一个安静队列"
+        title="Kai's Reader"
       />
 
       <div className="flex flex-wrap gap-2">

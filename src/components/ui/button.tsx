@@ -33,7 +33,7 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center border font-medium transition disabled:cursor-not-allowed disabled:opacity-55",
+        "inline-flex items-center justify-center border font-semibold transition disabled:cursor-not-allowed disabled:opacity-55",
         sizeClassName[size],
         variantClassName[variant],
         className,

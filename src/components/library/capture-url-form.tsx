@@ -67,7 +67,7 @@ export function CaptureUrlForm() {
         <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
           Capture
         </p>
-        <h2 className="font-display text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
+        <h2 className="font-ui-heading text-[1.6rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
           保存网页链接
         </h2>
         <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
