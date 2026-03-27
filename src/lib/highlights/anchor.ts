@@ -5,7 +5,7 @@ type HighlightRange = {
   quoteText: string;
 };
 
-type HighlightSegment =
+export type HighlightSegment =
   | {
       type: "text";
       text: string;

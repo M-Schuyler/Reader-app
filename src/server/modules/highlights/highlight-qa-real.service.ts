@@ -9,6 +9,7 @@ import {
   parseQaRealDocumentId,
   parseQaRealHighlightId,
 } from "@/lib/highlights/qa-real-document";
+import { pickQaRealDocumentCandidate } from "@/lib/highlights/qa-real-selection";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 import type {
   CreateHighlightInput,
@@ -110,34 +111,8 @@ async function resolveQaRealDocumentId(requestedId?: string) {
     return isQaRealDocumentId(requestedId) ? parseQaRealDocumentId(requestedId) : requestedId;
   }
 
-  const withoutHighlights = await prisma.document.findFirst({
-    where: {
-      type: DocumentType.WEB_PAGE,
-      ingestionStatus: IngestionStatus.READY,
-      content: {
-        is: {
-          plainText: {
-            not: "",
-          },
-        },
-      },
-      highlights: {
-        none: {},
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (withoutHighlights?.id) {
-    return withoutHighlights.id;
-  }
-
-  const fallback = await prisma.document.findFirst({
+  const withoutHighlights = await prisma.document.findMany({
+    take: 200,
     where: {
       type: DocumentType.WEB_PAGE,
       ingestionStatus: IngestionStatus.READY,
@@ -154,10 +129,20 @@ async function resolveQaRealDocumentId(requestedId?: string) {
     },
     select: {
       id: true,
+      _count: {
+        select: {
+          highlights: true,
+        },
+      },
     },
   });
 
-  return fallback?.id ?? null;
+  return pickQaRealDocumentCandidate(
+    withoutHighlights.map((candidate) => ({
+      id: candidate.id,
+      highlightCount: candidate._count.highlights,
+    })),
+  );
 }
 
 function parseRealDocumentAlias(documentId: string) {

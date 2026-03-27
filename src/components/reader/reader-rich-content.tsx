@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { resolveReaderImageUrl } from "@/lib/content/image-proxy";
 import { splitTextByHighlights } from "@/lib/highlights/anchor";
+import { splitPlainTextIntoHighlightedParagraphs } from "@/lib/highlights/plain-text";
 import { shouldRenderTextNode, type TextNeighborKind } from "@/lib/highlights/whitespace";
 import type { ReaderHighlight } from "@/components/reader/reader-highlights";
 
@@ -261,14 +262,7 @@ function renderNode(
 }
 
 function renderPlainTextFallback(sourceText: string, highlights: ReaderHighlight[]) {
-  if (highlights.length === 0) {
-    return sourceText
-      .split(/\n{2,}/)
-      .filter((paragraph) => paragraph.trim().length > 0)
-      .map((paragraph, index) => <p key={`fallback-${index}`}>{paragraph}</p>);
-  }
-
-  const segments = splitTextByHighlights(
+  const paragraphs = splitPlainTextIntoHighlightedParagraphs(
     sourceText,
     highlights
       .filter((highlight) => typeof highlight.startOffset === "number" && typeof highlight.endOffset === "number")
@@ -280,19 +274,23 @@ function renderPlainTextFallback(sourceText: string, highlights: ReaderHighlight
       })),
   );
 
-  return (
-    <p className="whitespace-pre-wrap">
-      {segments.map((segment, index) =>
+  return paragraphs.map((paragraph) => (
+    <p className="whitespace-pre-wrap" key={`fallback-${paragraph.index}`}>
+      {paragraph.segments.map((segment, index) =>
         segment.type === "highlight" ? (
-          <mark className={highlightClassName} data-highlight-id={segment.id} key={`plain-highlight-${segment.id}-${index}`}>
+          <mark
+            className={highlightClassName}
+            data-highlight-id={segment.id}
+            key={`plain-highlight-${paragraph.index}-${segment.id}-${index}`}
+          >
             {segment.text}
           </mark>
         ) : (
-          <Fragment key={`plain-text-${index}`}>{segment.text}</Fragment>
+          <Fragment key={`plain-text-${paragraph.index}-${index}`}>{segment.text}</Fragment>
         ),
       )}
     </p>
-  );
+  ));
 }
 
 function renderTextWithHighlights(
