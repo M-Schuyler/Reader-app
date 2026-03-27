@@ -148,3 +148,10 @@ export type RunDocumentAiSummaryJobsResponseData = {
     error: GenerateAiSummaryError | null;
   }>;
 };
+
+export type BackfillDocumentAiSummaryJobsResponseData = {
+  scanned: number;
+  queued: number;
+  skipped: number;
+  documentIds: string[];
+};

@@ -1,5 +1,6 @@
 import {
   AiSummaryStatus,
+  DocumentType,
   IngestionJobKind,
   IngestionJobStatus,
   IngestionStatus,
@@ -17,6 +18,7 @@ import {
   updateDocumentAiSummaryState,
 } from "./document.repository";
 import type {
+  BackfillDocumentAiSummaryJobsResponseData,
   GenerateAiSummaryError,
   RunDocumentAiSummaryJobsResponseData,
 } from "./document.types";
@@ -49,8 +51,8 @@ export function getSummaryRuntimeIssues(options?: { requireInternalApiSecret?: b
     issues.push("OPENAI_API_KEY is not configured.");
   }
 
-  if (requireInternalApiSecret && !process.env.INTERNAL_API_SECRET?.trim()) {
-    issues.push("INTERNAL_API_SECRET is not configured.");
+  if (requireInternalApiSecret && !hasAnyInternalAutomationSecret()) {
+    issues.push("Neither INTERNAL_API_SECRET nor CRON_SECRET is configured.");
   }
 
   return issues;
@@ -68,8 +70,30 @@ export function shouldEnqueueAutomaticAiSummary(document: AutoAiSummaryCandidate
   return Boolean(normalizeSummarySourceText(document.content?.plainText) || normalizeSummarySourceText(document.excerpt));
 }
 
-export async function queueAutomaticDocumentAiSummary(document: DocumentDetailRecord) {
-  if (!shouldEnqueueAutomaticAiSummary(document)) {
+export function shouldBackfillAutomaticAiSummary(document: AutoAiSummaryCandidate) {
+  if (document.ingestionStatus !== IngestionStatus.READY) {
+    return false;
+  }
+
+  if (document.aiSummary) {
+    return false;
+  }
+
+  if (document.aiSummaryStatus === AiSummaryStatus.PENDING) {
+    return false;
+  }
+
+  return Boolean(normalizeSummarySourceText(document.content?.plainText) || normalizeSummarySourceText(document.excerpt));
+}
+
+export async function queueAutomaticDocumentAiSummary(
+  document: DocumentDetailRecord,
+  options?: { allowRetry?: boolean },
+) {
+  const allowRetry = options?.allowRetry ?? false;
+  const shouldQueue = allowRetry ? shouldBackfillAutomaticAiSummary(document) : shouldEnqueueAutomaticAiSummary(document);
+
+  if (!shouldQueue) {
     return document;
   }
 
@@ -134,6 +158,51 @@ export async function queueAndRunAutomaticDocumentAiSummary(document: DocumentDe
   return (await runPendingDocumentAiSummaryForDocument(queuedDocument.id)) ?? queuedDocument;
 }
 
+export async function backfillAutomaticDocumentAiSummaryJobs(
+  limitInput?: number,
+): Promise<BackfillDocumentAiSummaryJobsResponseData> {
+  const documents = await prisma.document.findMany({
+    where: {
+      type: DocumentType.WEB_PAGE,
+      ingestionStatus: IngestionStatus.READY,
+      aiSummary: null,
+      OR: [{ aiSummaryStatus: null }, { aiSummaryStatus: AiSummaryStatus.FAILED }],
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    take: normalizeSummaryJobBatchLimit(limitInput),
+    ...documentDetailArgs,
+  });
+
+  let queued = 0;
+  let skipped = 0;
+  const documentIds: string[] = [];
+
+  for (const document of documents) {
+    if (!shouldBackfillAutomaticAiSummary(document)) {
+      skipped += 1;
+      continue;
+    }
+
+    const queuedDocument = await queueAutomaticDocumentAiSummary(document, { allowRetry: true });
+    if (queuedDocument.aiSummaryStatus === AiSummaryStatus.PENDING) {
+      queued += 1;
+      documentIds.push(queuedDocument.id);
+      continue;
+    }
+
+    skipped += 1;
+  }
+
+  return {
+    scanned: documents.length,
+    queued,
+    skipped,
+    documentIds,
+  };
+}
+
 export async function runPendingDocumentAiSummaryJobs(limitInput?: number): Promise<RunDocumentAiSummaryJobsResponseData> {
   const jobs = await prisma.ingestionJob.findMany({
     where: {
@@ -181,6 +250,10 @@ function normalizeAiProvider(value: string | undefined) {
   }
 
   return null;
+}
+
+function hasAnyInternalAutomationSecret() {
+  return Boolean(process.env.INTERNAL_API_SECRET?.trim() || process.env.CRON_SECRET?.trim());
 }
 
 async function processSummaryJob(job: Prisma.IngestionJobGetPayload<Record<string, never>>): Promise<SummaryJobResult> {

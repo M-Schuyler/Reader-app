@@ -4,13 +4,20 @@ import { RouteError } from "@/server/api/response";
 const BEARER_PREFIX = "Bearer ";
 
 export function requireInternalApiAccess(request: Request) {
-  const configuredSecret = process.env.INTERNAL_API_SECRET?.trim();
-  if (!configuredSecret) {
-    throw new RouteError("INTERNAL_API_SECRET_NOT_CONFIGURED", 500, "INTERNAL_API_SECRET is not configured.");
+  const configuredSecrets = [process.env.INTERNAL_API_SECRET?.trim(), process.env.CRON_SECRET?.trim()].filter(
+    (value): value is string => Boolean(value),
+  );
+
+  if (configuredSecrets.length === 0) {
+    throw new RouteError(
+      "INTERNAL_API_SECRET_NOT_CONFIGURED",
+      500,
+      "Neither INTERNAL_API_SECRET nor CRON_SECRET is configured.",
+    );
   }
 
   const token = extractBearerToken(request.headers.get("authorization"));
-  if (!token || !safeEqual(token, configuredSecret)) {
+  if (!token || !configuredSecrets.some((secret) => safeEqual(token, secret))) {
     throw new RouteError("UNAUTHORIZED", 401, "Internal API authentication failed.");
   }
 }

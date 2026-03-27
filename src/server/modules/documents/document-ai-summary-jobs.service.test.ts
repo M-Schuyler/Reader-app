@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AiSummaryStatus, IngestionStatus } from "@prisma/client";
-import { getSummaryRuntimeIssues, shouldEnqueueAutomaticAiSummary } from "@/server/modules/documents/document-ai-summary-jobs.service";
+import {
+  getSummaryRuntimeIssues,
+  shouldBackfillAutomaticAiSummary,
+  shouldEnqueueAutomaticAiSummary,
+} from "@/server/modules/documents/document-ai-summary-jobs.service";
 
 test("queues auto summary for ready documents with extracted body text", () => {
   assert.equal(
@@ -94,6 +98,77 @@ test("does not queue auto summary when both plain text and excerpt are missing",
       excerpt: null,
       content: {
         plainText: "   ",
+      },
+    }),
+    false,
+  );
+});
+
+test("backfill includes ready unsummarized documents with summary source text", () => {
+  assert.equal(
+    shouldBackfillAutomaticAiSummary({
+      ingestionStatus: IngestionStatus.READY,
+      aiSummary: null,
+      aiSummaryStatus: null,
+      excerpt: "A short excerpt.",
+      content: {
+        plainText: "A full body of text that can be summarized.",
+      },
+    }),
+    true,
+  );
+});
+
+test("backfill includes previously failed summaries when the document is still eligible", () => {
+  assert.equal(
+    shouldBackfillAutomaticAiSummary({
+      ingestionStatus: IngestionStatus.READY,
+      aiSummary: null,
+      aiSummaryStatus: AiSummaryStatus.FAILED,
+      excerpt: "A short excerpt.",
+      content: {
+        plainText: "A full body of text that can be summarized.",
+      },
+    }),
+    true,
+  );
+});
+
+test("backfill excludes pending, failed-ingestion, or already summarized documents", () => {
+  assert.equal(
+    shouldBackfillAutomaticAiSummary({
+      ingestionStatus: IngestionStatus.READY,
+      aiSummary: null,
+      aiSummaryStatus: AiSummaryStatus.PENDING,
+      excerpt: "A short excerpt.",
+      content: {
+        plainText: "A full body of text that can be summarized.",
+      },
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldBackfillAutomaticAiSummary({
+      ingestionStatus: IngestionStatus.FAILED,
+      aiSummary: null,
+      aiSummaryStatus: AiSummaryStatus.FAILED,
+      excerpt: "A short excerpt.",
+      content: {
+        plainText: "A full body of text that can be summarized.",
+      },
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldBackfillAutomaticAiSummary({
+      ingestionStatus: IngestionStatus.READY,
+      aiSummary: "Already summarized.",
+      aiSummaryStatus: AiSummaryStatus.READY,
+      excerpt: "A short excerpt.",
+      content: {
+        plainText: "A full body of text that can be summarized.",
       },
     }),
     false,

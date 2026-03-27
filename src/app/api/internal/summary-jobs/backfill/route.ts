@@ -1,21 +1,13 @@
 import { handleRouteError, ok, RouteError } from "@/server/api/response";
 import { requireInternalApiAccess } from "@/server/auth/internal";
-import { runPendingDocumentAiSummaryJobs } from "@/server/modules/documents/document-ai-summary-jobs.service";
+import { backfillAutomaticDocumentAiSummaryJobs } from "@/server/modules/documents/document-ai-summary-jobs.service";
 
 export async function POST(request: Request) {
-  return handleRunRequest(request);
-}
-
-export async function GET(request: Request) {
-  return handleRunRequest(request);
-}
-
-async function handleRunRequest(request: Request) {
   try {
     requireInternalApiAccess(request);
 
     const limit = parseLimit(new URL(request.url).searchParams.get("limit"));
-    const data = await runPendingDocumentAiSummaryJobs(limit);
+    const data = await backfillAutomaticDocumentAiSummaryJobs(limit);
     return ok(data);
   } catch (error) {
     return handleRouteError(error);

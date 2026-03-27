@@ -27,7 +27,10 @@ Production target for v1:
 - `AUTH_GITHUB_ID`
 - `AUTH_GITHUB_SECRET`
 - `INTERNAL_API_SECRET`
+- `CRON_SECRET`
 - `ALLOWED_EMAILS`
+- `AI_PROVIDER`
+- `GEMINI_API_KEY` or `OPENAI_API_KEY`
 
 `ALLOWED_EMAILS` is a comma-separated whitelist. If it is empty, all sign-ins are denied.
 
@@ -64,7 +67,7 @@ Generate `AUTH_SECRET` with a strong random value, for example:
 3. In Vercel, create a new project from the GitHub repo.
 4. Set `main` as the production branch.
 5. Add the Vercel environment variables:
-   `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `INTERNAL_API_SECRET`, `ALLOWED_EMAILS`
+   `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `INTERNAL_API_SECRET`, `CRON_SECRET`, `ALLOWED_EMAILS`, `AI_PROVIDER`, and the matching AI provider key
 6. In GitHub repository secrets, add `DATABASE_URL` for the migration workflow.
 7. Merge migration files into `main`; the workflow at [.github/workflows/prisma-migrate-deploy.yml](/Users/chenshukai/Documents/Projects/reader-app/.github/workflows/prisma-migrate-deploy.yml) applies them with `prisma migrate deploy`.
 8. Deploy the app on Vercel.
@@ -81,13 +84,19 @@ Generate `AUTH_SECRET` with a strong random value, for example:
 ### AI Summary Worker
 
 - Web imports now enqueue AI summary generation after the document is captured successfully.
-- Summary work runs separately from the capture request so importing stays fast even if the provider is slow or unavailable.
-- The internal worker endpoint is:
-  `POST /api/internal/summary-jobs/run`
-- Authenticate it with:
+- When `AI_PROVIDER` and the matching API key are configured, new imports will try to generate the summary immediately after capture.
+- The worker route remains the safety net for pending jobs and the main drain path for historical backfills.
+- The internal worker endpoints are:
+  - `GET /api/internal/summary-jobs/run`
+  - `POST /api/internal/summary-jobs/run`
+  - `POST /api/internal/summary-jobs/backfill`
+- Authenticate manual calls with:
   `Authorization: Bearer YOUR_INTERNAL_API_SECRET`
-- Typical deployment pattern:
-  trigger this route every minute from your scheduler or platform cron.
+- Vercel cron calls may authenticate with `CRON_SECRET`.
+- The repository includes `vercel.json`, which schedules `/api/internal/summary-jobs/run` once per day for Hobby-compatible deployments.
+- To backfill older documents that are still missing summaries:
+  1. Call `POST /api/internal/summary-jobs/backfill?limit=20`
+  2. Then call `POST /api/internal/summary-jobs/run?limit=20` until the queued backlog is drained
 
 ### Docker Deployment
 
