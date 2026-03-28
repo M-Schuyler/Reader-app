@@ -1,49 +1,44 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ReadState } from "@prisma/client";
-import { buildLibraryViewHref, getMainNavItems, resolveLibraryView } from "./product-shell";
+import { buildReadingViewHref, getMainNavItems, resolveReadingView } from "./product-shell";
 
-test("marks 文档库 as active for library and document routes", () => {
-  const libraryItems = getMainNavItems("/library");
+test("marks 来源库 and Reading as primary surfaces", () => {
+  const sourceItems = getMainNavItems("/sources");
+  const readingItems = getMainNavItems("/reading");
   const documentItems = getMainNavItems("/documents/doc-123");
 
-  assert.equal(libraryItems[0]?.label, "文档库");
-  assert.equal(libraryItems[0]?.isActive, true);
-  assert.equal(documentItems[0]?.isActive, true);
-});
-
-test("marks highlights and export as distinct primary surfaces", () => {
-  const highlightItems = getMainNavItems("/highlights");
-  const exportItems = getMainNavItems("/export");
-
   assert.deepEqual(
-    highlightItems.map((item) => [item.label, item.isActive]),
+    sourceItems.map((item) => [item.label, item.isActive]),
     [
-      ["文档库", false],
-      ["高亮", true],
+      ["来源库", true],
+      ["Reading", false],
+      ["高亮", false],
       ["导出", false],
     ],
   );
 
   assert.deepEqual(
-    exportItems.map((item) => [item.label, item.isActive]),
+    readingItems.map((item) => [item.label, item.isActive]),
     [
-      ["文档库", false],
+      ["来源库", false],
+      ["Reading", true],
       ["高亮", false],
-      ["导出", true],
+      ["导出", false],
     ],
   );
+
+  assert.equal(documentItems[1]?.isActive, true);
 });
 
-test("resolves the default library view as inbox and promotes explicit queue filters", () => {
-  assert.equal(resolveLibraryView({}), "inbox");
-  assert.equal(resolveLibraryView({ isLater: true }), "later");
-  assert.equal(resolveLibraryView({ isFavorite: true }), "starred");
-  assert.equal(resolveLibraryView({ readState: ReadState.READ }), "archive");
+test("resolves reading views without later semantics", () => {
+  assert.equal(resolveReadingView({}), "queue");
+  assert.equal(resolveReadingView({ isFavorite: true }), "starred");
+  assert.equal(resolveReadingView({ readState: ReadState.READ }), "archive");
 });
 
-test("builds view hrefs without leaking stale queue filters", () => {
-  const href = buildLibraryViewHref("starred", new URLSearchParams("q=claude&sort=published&page=3&isLater=true"));
+test("builds reading view hrefs without stale view filters", () => {
+  const href = buildReadingViewHref("archive", new URLSearchParams("q=claude&sort=latest&page=2&isFavorite=true"));
 
-  assert.equal(href, "/library?q=claude&sort=published&isFavorite=true");
+  assert.equal(href, "/reading?q=claude&sort=latest&readState=READ");
 });

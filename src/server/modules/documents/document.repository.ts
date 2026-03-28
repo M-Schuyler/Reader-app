@@ -1,4 +1,4 @@
-import { AiSummaryStatus, DocumentType, IngestionStatus, Prisma } from "@prisma/client";
+import { AiSummaryStatus, DocumentType, IngestionStatus, Prisma, PublishedAtKind, ReadState } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import type { DocumentListQuery, DocumentListSort } from "./document.types";
 
@@ -52,7 +52,7 @@ export type DocumentDetailRecord = Prisma.DocumentGetPayload<typeof documentDeta
 
 export async function listDocuments(query: DocumentListQuery) {
   const where = buildDocumentWhere(query);
-  const orderBy = buildDocumentOrderBy(query.sort);
+  const orderBy = buildDocumentOrderBy(query.sort, query.surface);
 
   const [total, items] = await prisma.$transaction([
     prisma.document.count({ where }),
@@ -72,6 +72,18 @@ export async function getDocumentById(id: string) {
   return prisma.document.findUnique({
     where: { id },
     ...documentDetailArgs,
+  });
+}
+
+export async function markDocumentEnteredReading(id: string) {
+  return prisma.document.updateMany({
+    where: {
+      id,
+      enteredReadingAt: null,
+    },
+    data: {
+      enteredReadingAt: new Date(),
+    },
   });
 }
 
@@ -118,6 +130,7 @@ type CreateWebDocumentInput = {
   excerpt: string;
   author: string | null;
   publishedAt: Date | null;
+  publishedAtKind: PublishedAtKind;
   ingestionStatus: IngestionStatus;
   contentHtml: string | null;
   plainText: string;
@@ -138,6 +151,7 @@ export async function createWebDocument(input: CreateWebDocumentInput) {
       excerpt: input.excerpt,
       author: input.author,
       publishedAt: input.publishedAt,
+      publishedAtKind: input.publishedAtKind,
       ingestionStatus: input.ingestionStatus,
       content: {
         create: {
@@ -168,9 +182,73 @@ export async function createWebDocumentPlaceholder(input: CreateWebDocumentPlace
       title: input.title,
       sourceUrl: input.sourceUrl,
       canonicalUrl: input.canonicalUrl,
+      publishedAtKind: PublishedAtKind.UNKNOWN,
       ingestionStatus: input.ingestionStatus,
     },
     ...documentDetailArgs,
+  });
+}
+
+export async function updateDocumentPublishedAtMetadata(
+  id: string,
+  input: {
+    publishedAt: Date | null;
+    publishedAtKind: PublishedAtKind;
+  },
+) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      publishedAt: input.publishedAt,
+      publishedAtKind: input.publishedAtKind,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function backfillHostnamePublishedAtUpperBound(input: {
+  hostname: string;
+  anchorCreatedAt: Date;
+  upperBoundPublishedAt: Date;
+}) {
+  const orClauses = [
+    { canonicalUrl: { startsWith: `https://${input.hostname}` } },
+    { canonicalUrl: { startsWith: `http://${input.hostname}` } },
+    { sourceUrl: { startsWith: `https://${input.hostname}` } },
+    { sourceUrl: { startsWith: `http://${input.hostname}` } },
+  ];
+
+  return prisma.document.updateMany({
+    where: {
+      createdAt: {
+        lt: input.anchorCreatedAt,
+      },
+      ingestionStatus: {
+        not: IngestionStatus.FAILED,
+      },
+      publishedAtKind: PublishedAtKind.UNKNOWN,
+      publishedAt: null,
+      OR: orClauses,
+    },
+    data: {
+      publishedAt: input.upperBoundPublishedAt,
+      publishedAtKind: PublishedAtKind.BEFORE,
+    },
+  });
+}
+
+export async function listQuickSearchDocuments(query: string, limit = 6) {
+  return prisma.document.findMany({
+    ...documentListArgs,
+    where: buildDocumentWhere({
+      surface: "source",
+      q: query,
+      page: 1,
+      pageSize: limit,
+      sort: "latest",
+    }),
+    orderBy: buildDocumentOrderBy("latest", "source"),
+    take: limit,
   });
 }
 
@@ -291,8 +369,20 @@ function buildDocumentWhere(query: DocumentListQuery): Prisma.DocumentWhereInput
     clauses.push({ isFavorite: query.isFavorite });
   }
 
-  if (typeof query.isLater === "boolean") {
-    clauses.push({ isLater: query.isLater });
+  if (query.surface === "reading") {
+    clauses.push({
+      enteredReadingAt: {
+        not: null,
+      },
+    });
+
+    if (!query.readState) {
+      clauses.push({
+        readState: {
+          not: ReadState.READ,
+        },
+      });
+    }
   }
 
   if (query.tag) {
@@ -325,14 +415,18 @@ function buildDocumentWhere(query: DocumentListQuery): Prisma.DocumentWhereInput
   return clauses.length > 0 ? { AND: clauses } : {};
 }
 
-function buildDocumentOrderBy(sort: DocumentListSort): Prisma.DocumentOrderByWithRelationInput[] {
+function buildDocumentOrderBy(sort: DocumentListSort, surface: DocumentListQuery["surface"]): Prisma.DocumentOrderByWithRelationInput[] {
   switch (sort) {
-    case "oldest":
-      return [{ createdAt: "asc" }];
-    case "published":
-      return [{ publishedAt: "desc" }, { createdAt: "desc" }];
-    case "newest":
+    case "earliest":
+      return [
+        { publishedAt: { sort: "asc", nulls: "last" } },
+        surface === "reading" ? { enteredReadingAt: "asc" } : { createdAt: "asc" },
+      ];
+    case "latest":
     default:
-      return [{ createdAt: "desc" }];
+      return [
+        { publishedAt: { sort: "desc", nulls: "last" } },
+        surface === "reading" ? { enteredReadingAt: "desc" } : { createdAt: "desc" },
+      ];
   }
 }

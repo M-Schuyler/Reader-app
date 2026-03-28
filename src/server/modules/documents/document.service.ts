@@ -3,15 +3,19 @@ import { RouteError } from "@/server/api/response";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
 import {
   getDocumentById,
+  listQuickSearchDocuments,
   listDocuments,
+  markDocumentEnteredReading,
   updateDocumentFavorite,
 } from "./document.repository";
 import type {
   DocumentListQuery,
   DocumentListSort,
+  DocumentSurface,
   GenerateAiSummaryError,
   GetDocumentResponseData,
   GetDocumentsResponseData,
+  QuickSearchResponseData,
   UpdateDocumentFavoriteInput,
   UpdateDocumentFavoriteResponseData,
 } from "./document.types";
@@ -32,11 +36,11 @@ export async function getDocuments(query: DocumentListQuery): Promise<GetDocumen
       totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
     },
     filters: {
+      surface: query.surface,
       q: query.q,
       type: query.type,
       readState: query.readState,
       isFavorite: query.isFavorite,
-      isLater: query.isLater,
       tag: query.tag,
       sort: query.sort,
     },
@@ -52,6 +56,57 @@ export async function getDocument(id: string): Promise<GetDocumentResponseData |
 
   return {
     document: mapDocumentDetail(document),
+  };
+}
+
+export async function openDocument(id: string): Promise<GetDocumentResponseData | null> {
+  const existing = await getDocumentById(id);
+
+  if (!existing) {
+    return null;
+  }
+
+  if (!existing.enteredReadingAt) {
+    await markDocumentEnteredReading(id).catch(() => undefined);
+  }
+
+  const document = await getDocumentById(id);
+
+  if (!document) {
+    return null;
+  }
+
+  return {
+    document: mapDocumentDetail(document),
+  };
+}
+
+export async function getQuickSearchResults(query: string): Promise<QuickSearchResponseData> {
+  const q = query.trim();
+
+  if (!q) {
+    return {
+      q: "",
+      items: [],
+    };
+  }
+
+  const items = await listQuickSearchDocuments(q);
+
+  return {
+    q,
+    items: items.map(mapDocumentListItem).map((item) => ({
+      id: item.id,
+      title: item.title,
+      sourceUrl: item.sourceUrl,
+      canonicalUrl: item.canonicalUrl,
+      aiSummary: item.aiSummary,
+      excerpt: item.excerpt,
+      publishedAt: item.publishedAt,
+      publishedAtKind: item.publishedAtKind,
+      readState: item.readState,
+      ingestionStatus: item.ingestionStatus,
+    })),
   };
 }
 
@@ -91,11 +146,11 @@ export async function updateDocumentFavoriteStatus(
 
 export function parseDocumentListQuery(searchParams: URLSearchParams): DocumentListQuery {
   return {
+    surface: parseDocumentSurface(searchParams.get("surface")),
     q: parseOptionalString(searchParams.get("q")),
     type: parseDocumentType(searchParams.get("type")),
     readState: parseReadState(searchParams.get("readState")),
     isFavorite: parseOptionalBoolean(searchParams.get("isFavorite")),
-    isLater: parseOptionalBoolean(searchParams.get("isLater")),
     tag: parseOptionalString(searchParams.get("tag")),
     page: parsePositiveInt(searchParams.get("page"), DEFAULT_PAGE),
     pageSize: parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
@@ -190,12 +245,32 @@ function parseReadState(value: string | null) {
 
 function parseDocumentSort(value: string | null): DocumentListSort {
   if (!value) {
-    return "newest";
+    return "latest";
   }
 
-  if (value === "newest" || value === "oldest" || value === "published") {
+  if (value === "newest" || value === "published") {
+    return "latest";
+  }
+
+  if (value === "oldest") {
+    return "earliest";
+  }
+
+  if (value === "latest" || value === "earliest") {
     return value;
   }
 
   throw new RouteError("INVALID_QUERY", 400, `Sort "${value}" is invalid.`);
+}
+
+function parseDocumentSurface(value: string | null): DocumentSurface {
+  if (!value) {
+    return "source";
+  }
+
+  if (value === "source" || value === "reading") {
+    return value;
+  }
+
+  throw new RouteError("INVALID_QUERY", 400, `Surface "${value}" is invalid.`);
 }

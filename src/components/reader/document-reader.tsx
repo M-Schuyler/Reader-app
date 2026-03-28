@@ -10,6 +10,7 @@ import { ReaderRichContent } from "@/components/reader/reader-rich-content";
 import { ReaderAutoHighlightFeedback, ReaderSelectionActions } from "@/components/reader/reader-selection-actions";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/panel";
+import { formatPublishedAtLabel } from "@/lib/documents/published-at";
 import {
   HIGHLIGHT_SAVE_MODE_STORAGE_KEY,
   normalizeHighlightSaveMode,
@@ -262,8 +263,8 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
     <section className="space-y-9 lg:space-y-10">
       <header className="mx-auto max-w-[var(--content-measure)] space-y-4">
         <div className="flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-          <Link className="transition hover:text-[color:var(--text-primary)]" href="/library">
-            文档库
+          <Link className="transition hover:text-[color:var(--text-primary)]" href="/reading">
+            Reading
           </Link>
           <span>/</span>
           <span>{formatDocumentType(readerDocument.type)}</span>
@@ -282,7 +283,7 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-[color:var(--text-tertiary)]">
-          <span>{formatDate(readerDocument.publishedAt ?? readerDocument.createdAt)}</span>
+          <span>{formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind)}</span>
           {readerDocument.lang ? <span>{readerDocument.lang}</span> : null}
           {isReadable && readerDocument.content?.wordCount ? <span>{formatWordCount(readerDocument.content.wordCount)}</span> : null}
         </div>
@@ -386,9 +387,9 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
                 ) : null}
                 <Link
                   className="inline-flex min-h-10 items-center rounded-[18px] border border-transparent px-1 text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
-                  href="/library"
+                  href="/reading"
                 >
-                  返回文档库
+                  返回 Reading
                 </Link>
               </div>
               {favorite.actionError ? (
@@ -402,7 +403,7 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
               </p>
               <dl className="space-y-3 text-sm">
                 <MetaRow label="状态" value={formatIngestionStatus(readerDocument.ingestionStatus)} />
-                <MetaRow label="收录时间" value={formatDate(readerDocument.createdAt)} />
+                <MetaRow label="发布时间" value={formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind)} />
                 {readerDocument.lang ? <MetaRow label="语言" value={readerDocument.lang} /> : null}
                 {isReadable && readerDocument.content?.wordCount ? (
                   <MetaRow label="字数" value={formatWordCount(readerDocument.content.wordCount)} />
@@ -470,14 +471,6 @@ function MetaRow({ label, value }: { label: string; value: string }) {
       </dd>
     </div>
   );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(value));
 }
 
 function formatIngestionStatus(status: IngestionStatus) {

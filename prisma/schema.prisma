@@ -32,6 +32,12 @@ enum AiSummaryStatus {
   FAILED
 }
 
+enum PublishedAtKind {
+  EXACT
+  BEFORE
+  UNKNOWN
+}
+
 enum IngestionJobKind {
   FETCH_WEB_PAGE
   IMPORT_FEED_ITEM
@@ -82,9 +88,10 @@ model Document {
   excerpt         String?
   author          String?
   publishedAt     DateTime?
+  publishedAtKind PublishedAtKind  @default(UNKNOWN)
+  enteredReadingAt DateTime?
   readState       ReadState        @default(UNREAD)
   isFavorite      Boolean          @default(false)
-  isLater         Boolean          @default(false)
   ingestionStatus IngestionStatus  @default(PENDING)
 
   feedId          String?
@@ -103,8 +110,9 @@ model Document {
   @@index([type, createdAt])
   @@index([readState, createdAt])
   @@index([isFavorite, createdAt])
-  @@index([isLater, createdAt])
+  @@index([enteredReadingAt])
   @@index([feedId, publishedAt])
+  @@index([publishedAtKind, publishedAt])
   @@index([canonicalUrl])
   @@index([sourceUrl])
 }
