@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/ui/panel";
-import { captureSelectionDraft, type SelectionDraft } from "@/lib/highlights/selection";
+import { captureSelection, type CapturedSelection, type SelectionDraft } from "@/lib/highlights/selection";
 import type { HighlightRecord } from "@/server/modules/highlights/highlight.types";
 
 type HighlightsApiResponse =
@@ -41,6 +40,13 @@ export type ReaderHighlight = Pick<
   "id" | "quoteText" | "note" | "color" | "startOffset" | "endOffset" | "selectorJson"
 >;
 
+type ReadSelectionOptions = {
+  point?: {
+    x: number;
+    y: number;
+  };
+};
+
 type UseDocumentHighlightsInput = {
   canHighlight: boolean;
   documentId: string;
@@ -49,13 +55,21 @@ type UseDocumentHighlightsInput = {
 export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentHighlightsInput) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [focusedHighlightId, setFocusedHighlightId] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<ReaderHighlight[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectionDraft, setSelectionDraft] = useState<SelectionDraft | null>(null);
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!canHighlight) {
+      setActionError(null);
+      setFocusedHighlightId(null);
+      setHighlights([]);
+      setIsLoading(false);
+      return;
+    }
+
     let isCancelled = false;
 
     async function loadHighlights() {
@@ -94,24 +108,34 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
     return () => {
       isCancelled = true;
     };
-  }, [documentId]);
+  }, [canHighlight, documentId]);
 
-  const captureSelection = () => {
+  function readSelection(options?: ReadSelectionOptions): CapturedSelection | null {
     if (!canHighlight || !contentRef.current || typeof window === "undefined") {
-      return;
+      return null;
     }
 
     try {
-      setSelectionDraft(captureSelectionDraft(contentRef.current));
       setActionError(null);
+      return captureSelection(contentRef.current, options);
     } catch {
-      setSelectionDraft(null);
+      return null;
     }
-  };
+  }
 
-  async function createHighlightFromSelection() {
-    if (!selectionDraft) {
-      return;
+  function requestHighlightNoteFocus(id: string) {
+    setFocusedHighlightId(id);
+  }
+
+  function clearFocusedHighlight() {
+    setFocusedHighlightId(null);
+  }
+
+  async function createHighlightFromSelection(selectionDraft?: SelectionDraft | null) {
+    const nextSelectionDraft = selectionDraft ?? readSelection()?.draft;
+
+    if (!nextSelectionDraft) {
+      return null;
     }
 
     setIsCreating(true);
@@ -123,21 +147,22 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify(selectionDraft),
+        body: JSON.stringify(nextSelectionDraft),
       });
 
       const payload = (await response.json()) as HighlightMutationApiResponse;
 
       if (!payload.ok) {
         setActionError("保存高亮失败，请稍后再试。");
-        return;
+        return null;
       }
 
       setHighlights((current) => sortHighlights([...current, payload.data.highlight]));
-      setSelectionDraft(null);
       window.getSelection()?.removeAllRanges();
+      return payload.data.highlight;
     } catch {
       setActionError("保存高亮失败，请稍后再试。");
+      return null;
     } finally {
       setIsCreating(false);
     }
@@ -166,6 +191,7 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
       setHighlights((current) =>
         sortHighlights(current.map((highlight) => (highlight.id === id ? payload.data.highlight : highlight))),
       );
+      setActionError(null);
     } catch {
       setActionError("更新批注失败，请稍后再试。");
     } finally {
@@ -187,6 +213,10 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
         return;
       }
 
+      if (focusedHighlightId === id) {
+        setFocusedHighlightId(null);
+      }
+
       setHighlights((current) => current.filter((highlight) => highlight.id !== id));
     } catch {
       setActionError("删除高亮失败，请稍后再试。");
@@ -195,38 +225,63 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
 
   return {
     actionError,
-    captureSelection,
+    clearFocusedHighlight,
     contentRef,
     createHighlightFromSelection,
+    focusedHighlightId,
     highlights,
     isCreating,
     isLoading,
+    readSelection,
     removeHighlightById,
+    requestHighlightNoteFocus,
     saveHighlightNote,
     savingNoteId,
-    selectionDraft,
   };
 }
 
 type ReaderHighlightsPanelProps = {
   actionError: string | null;
+  focusedHighlightId: string | null;
   highlights: ReaderHighlight[];
   isLoading: boolean;
   onDelete: (id: string) => Promise<void>;
+  onFocusedHighlightHandled: () => void;
   onSaveNote: (id: string, note: string) => Promise<void>;
   savingNoteId: string | null;
 };
 
 export function ReaderHighlightsPanel({
   actionError,
+  focusedHighlightId,
   highlights,
   isLoading,
   onDelete,
+  onFocusedHighlightHandled,
   onSaveNote,
   savingNoteId,
 }: ReaderHighlightsPanelProps) {
+  const noteRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
+  useEffect(() => {
+    if (!focusedHighlightId) {
+      return;
+    }
+
+    const noteTarget = noteRefs.current[focusedHighlightId];
+
+    if (!noteTarget) {
+      return;
+    }
+
+    noteTarget.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    noteTarget.focus();
+    noteTarget.setSelectionRange(noteTarget.value.length, noteTarget.value.length);
+    onFocusedHighlightHandled();
+  }, [focusedHighlightId, highlights, onFocusedHighlightHandled]);
+
   return (
-    <Panel className="space-y-4" tone="muted">
+    <section className="space-y-4 border-t border-[color:var(--border-subtle)] pt-5">
       <div className="space-y-2">
         <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
           Highlights
@@ -248,16 +303,20 @@ export function ReaderHighlightsPanel({
         <div className="space-y-4">
           {highlights.map((highlight) => (
             <HighlightCard
+              autoFocusNote={highlight.id === focusedHighlightId}
               highlight={highlight}
               isSaving={savingNoteId === highlight.id}
               key={highlight.id}
+              noteRef={(element) => {
+                noteRefs.current[highlight.id] = element;
+              }}
               onDelete={onDelete}
               onSaveNote={onSaveNote}
             />
           ))}
         </div>
       )}
-    </Panel>
+    </section>
   );
 }
 
@@ -275,17 +334,26 @@ function sortHighlights(highlights: ReaderHighlight[]) {
 }
 
 function HighlightCard({
+  autoFocusNote,
   highlight,
   isSaving,
+  noteRef,
   onDelete,
   onSaveNote,
 }: {
+  autoFocusNote: boolean;
   highlight: ReaderHighlight;
   isSaving: boolean;
+  noteRef: (element: HTMLTextAreaElement | null) => void;
   onDelete: (id: string) => Promise<void>;
   onSaveNote: (id: string, note: string) => Promise<void>;
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  function handleTextareaRef(element: HTMLTextAreaElement | null) {
+    textareaRef.current = element;
+    noteRef(element);
+  }
 
   function handleSaveNote() {
     const nextNote = textareaRef.current?.value ?? highlight.note ?? "";
@@ -299,9 +367,10 @@ function HighlightCard({
       </blockquote>
       <textarea
         className="min-h-24 w-full rounded-[16px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-field)] px-3.5 py-3 text-sm leading-6 text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--border-strong)] focus:bg-[color:var(--bg-field-focus)]"
+        data-note-focus-target={autoFocusNote ? "true" : undefined}
         defaultValue={highlight.note ?? ""}
         placeholder="写一句批注"
-        ref={textareaRef}
+        ref={handleTextareaRef}
       />
       <div className="flex items-center justify-between gap-3">
         <Button

@@ -204,9 +204,11 @@ export function HighlightsPlayground() {
 
           <ReaderHighlightsPanel
             actionError={actionError}
+            focusedHighlightId={null}
             highlights={highlights}
             isLoading={!isHydrated}
             onDelete={deleteHighlight}
+            onFocusedHighlightHandled={() => {}}
             onSaveNote={saveNote}
             savingNoteId={savingNoteId}
           />

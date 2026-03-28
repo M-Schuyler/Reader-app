@@ -1,68 +1,272 @@
 "use client";
 
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { IngestionStatus } from "@prisma/client";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/ui/panel";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
+import { HighlightSaveModeToggle } from "@/components/reader/highlight-save-mode-toggle";
 import { ReaderHighlightsPanel, useDocumentHighlights } from "@/components/reader/reader-highlights";
 import { ReaderRichContent } from "@/components/reader/reader-rich-content";
+import { ReaderAutoHighlightFeedback, ReaderSelectionActions } from "@/components/reader/reader-selection-actions";
+import { Badge } from "@/components/ui/badge";
+import { Panel } from "@/components/ui/panel";
+import {
+  HIGHLIGHT_SAVE_MODE_STORAGE_KEY,
+  normalizeHighlightSaveMode,
+  type HighlightSaveMode,
+} from "@/lib/highlights/preferences";
+import type { CapturedSelection, SelectionAnchor } from "@/lib/highlights/selection";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 
 type DocumentReaderProps = {
   document: DocumentDetail;
 };
 
-export function DocumentReader({ document }: DocumentReaderProps) {
-  const sourceUrl = document.sourceUrl ?? document.canonicalUrl;
-  const contentHtml = document.content?.contentHtml?.trim() ?? null;
-  const plainText = document.content?.plainText ?? "";
+type SelectionTrigger = "contextmenu" | "keyboard" | "mouse" | "touch";
+
+type ReaderSelectionState = CapturedSelection & {
+  trigger: SelectionTrigger;
+};
+
+type AutoHighlightFeedback = {
+  anchor: SelectionAnchor;
+  highlightId: string;
+};
+
+export function DocumentReader({ document: readerDocument }: DocumentReaderProps) {
+  const selectionActionsRef = useRef<HTMLDivElement>(null);
+  const sourceUrl = readerDocument.sourceUrl ?? readerDocument.canonicalUrl;
+  const contentHtml = readerDocument.content?.contentHtml?.trim() ?? null;
+  const plainText = readerDocument.content?.plainText ?? "";
   const hasExtractedContent = Boolean(contentHtml || plainText.trim());
-  const isFailed = document.ingestionStatus === IngestionStatus.FAILED;
+  const isFailed = readerDocument.ingestionStatus === IngestionStatus.FAILED;
   const isReadable = !isFailed && hasExtractedContent;
-  const favorite = useDocumentFavoriteController(document);
-  const paragraphs = isReadable ? plainText.split(/\n{2,}/).filter((paragraph) => paragraph.trim().length > 0) : [];
+  const favorite = useDocumentFavoriteController(readerDocument);
+  const [autoHighlightFeedback, setAutoHighlightFeedback] = useState<AutoHighlightFeedback | null>(null);
+  const [highlightSaveMode, setHighlightSaveMode] = useState<HighlightSaveMode>("manual");
+  const [selectionState, setSelectionState] = useState<ReaderSelectionState | null>(null);
   const documentHighlights = useDocumentHighlights({
     canHighlight: isReadable,
-    documentId: document.id,
+    documentId: readerDocument.id,
   });
-  const leadText = resolveLeadText(document);
-  const showIngestionBadge = document.ingestionStatus !== IngestionStatus.READY;
+  const leadText = resolveLeadText(readerDocument);
+  const showIngestionBadge = readerDocument.ingestionStatus !== IngestionStatus.READY;
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setHighlightSaveMode(normalizeHighlightSaveMode(window.localStorage.getItem(HIGHLIGHT_SAVE_MODE_STORAGE_KEY)));
+  }, []);
+
+  useEffect(() => {
+    if (!isReadable) {
+      setAutoHighlightFeedback(null);
+      setSelectionState(null);
+    }
+  }, [isReadable]);
+
+  useEffect(() => {
+    if (!selectionState) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (target instanceof Node && selectionActionsRef.current?.contains(target)) {
+        return;
+      }
+
+      setSelectionState(null);
+    }
+
+    function handleViewportChange() {
+      setSelectionState(null);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [selectionState]);
+
+  useEffect(() => {
+    if (!autoHighlightFeedback) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setAutoHighlightFeedback(null);
+    }, 2600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [autoHighlightFeedback]);
+
+  function persistHighlightSaveMode(nextMode: HighlightSaveMode) {
+    setHighlightSaveMode(nextMode);
+    setSelectionState(null);
+    setAutoHighlightFeedback(null);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(HIGHLIGHT_SAVE_MODE_STORAGE_KEY, nextMode);
+  }
+
+  function readSelectionState(trigger: SelectionTrigger, point?: { x: number; y: number }): ReaderSelectionState | null {
+    const nextSelection = documentHighlights.readSelection(point ? { point } : undefined);
+
+    if (!nextSelection) {
+      return null;
+    }
+
+    return {
+      ...nextSelection,
+      trigger,
+    };
+  }
+
+  function handleSelectionCapture(trigger: Exclude<SelectionTrigger, "contextmenu">) {
+    const nextSelection = readSelectionState(trigger);
+
+    if (!nextSelection) {
+      setSelectionState(null);
+      return;
+    }
+
+    setAutoHighlightFeedback(null);
+
+    if (highlightSaveMode === "auto" && trigger !== "keyboard") {
+      setSelectionState(null);
+      void handleAutoHighlight(nextSelection);
+      return;
+    }
+
+    if (trigger === "mouse") {
+      setSelectionState(null);
+      return;
+    }
+
+    setSelectionState(nextSelection);
+  }
+
+  function handleSelectionContextMenu(event: MouseEvent<HTMLDivElement>) {
+    if (!isReadable || highlightSaveMode === "auto") {
+      return;
+    }
+
+    const nextSelection = readSelectionState("contextmenu", {
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    if (!nextSelection) {
+      return;
+    }
+
+    event.preventDefault();
+    setAutoHighlightFeedback(null);
+    setSelectionState(nextSelection);
+  }
+
+  async function handleAutoHighlight(nextSelection: ReaderSelectionState) {
+    const createdHighlight = await documentHighlights.createHighlightFromSelection(nextSelection.draft);
+
+    if (!createdHighlight) {
+      return;
+    }
+
+    setAutoHighlightFeedback({
+      anchor: nextSelection.anchor,
+      highlightId: createdHighlight.id,
+    });
+  }
+
+  async function handleCreateHighlight() {
+    if (!selectionState) {
+      return;
+    }
+
+    const createdHighlight = await documentHighlights.createHighlightFromSelection(selectionState.draft);
+
+    if (!createdHighlight) {
+      return;
+    }
+
+    setSelectionState(null);
+  }
+
+  async function handleCreateHighlightNote() {
+    if (!selectionState) {
+      return;
+    }
+
+    const createdHighlight = await documentHighlights.createHighlightFromSelection(selectionState.draft);
+
+    if (!createdHighlight) {
+      return;
+    }
+
+    setSelectionState(null);
+    documentHighlights.requestHighlightNoteFocus(createdHighlight.id);
+  }
+
+  function handleAutoHighlightNote() {
+    if (!autoHighlightFeedback) {
+      return;
+    }
+
+    documentHighlights.requestHighlightNoteFocus(autoHighlightFeedback.highlightId);
+    setAutoHighlightFeedback(null);
+  }
 
   return (
-    <section className="space-y-10 lg:space-y-12">
-      <header className="mx-auto max-w-[var(--content-measure)] space-y-5">
-        <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+    <section className="space-y-9 lg:space-y-10">
+      <header className="mx-auto max-w-[var(--content-measure)] space-y-4">
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
           <Link className="transition hover:text-[color:var(--text-primary)]" href="/library">
             文档库
           </Link>
           <span>/</span>
-          <span>{formatDocumentType(document.type)}</span>
+          <span>{formatDocumentType(readerDocument.type)}</span>
           {showIngestionBadge ? (
-            <Badge tone={statusTone(document.ingestionStatus)}>{formatIngestionStatus(document.ingestionStatus)}</Badge>
+            <Badge tone={statusTone(readerDocument.ingestionStatus)}>{formatIngestionStatus(readerDocument.ingestionStatus)}</Badge>
           ) : null}
         </div>
 
-        <div className="space-y-4">
-          <h1 className="font-display text-[2.85rem] leading-[0.98] tracking-[-0.045em] text-[color:var(--text-primary)] sm:text-[4.2rem]">
-            {document.title}
+        <div className="space-y-3">
+          <h1 className="font-display text-[2.85rem] leading-[1.02] tracking-[-0.045em] text-[color:var(--text-primary)] sm:text-[4.1rem]">
+            {readerDocument.title}
           </h1>
           {leadText ? (
-            <p className="max-w-[38rem] text-[1.05rem] leading-8 text-[color:var(--text-secondary)]">{leadText}</p>
+            <p className="max-w-[38rem] text-[1.02rem] leading-8 text-[color:var(--text-secondary)]">{leadText}</p>
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[color:var(--text-secondary)]">
-          <span>{formatDate(document.publishedAt ?? document.createdAt)}</span>
-          {document.lang ? <span>{document.lang}</span> : null}
-          {isReadable && document.content?.wordCount ? <span>{formatWordCount(document.content.wordCount)}</span> : null}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-[color:var(--text-tertiary)]">
+          <span>{formatDate(readerDocument.publishedAt ?? readerDocument.createdAt)}</span>
+          {readerDocument.lang ? <span>{readerDocument.lang}</span> : null}
+          {isReadable && readerDocument.content?.wordCount ? <span>{formatWordCount(readerDocument.content.wordCount)}</span> : null}
         </div>
       </header>
 
       <div className="mx-auto grid max-w-[72rem] gap-8 lg:grid-cols-[minmax(0,var(--content-measure))_17rem] lg:justify-center">
-        <Panel className="overflow-hidden" padding="none">
-          <div className="px-7 py-8 sm:px-10 sm:py-10">
+        <Panel
+          className="overflow-hidden border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] shadow-[var(--shadow-surface-muted)]"
+          padding="none"
+          tone="transparent"
+        >
+          <div className="px-7 py-9 sm:px-11 sm:py-11">
             {isFailed ? (
               <div className="space-y-6">
                 <div className="space-y-3">
@@ -90,72 +294,23 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                   </div>
                 ) : null}
               </div>
-            ) : contentHtml ? (
+            ) : isReadable ? (
               <div className="space-y-4">
                 <div
-                  onKeyUp={documentHighlights.captureSelection}
-                  onMouseUp={documentHighlights.captureSelection}
-                  onTouchEnd={documentHighlights.captureSelection}
+                  onContextMenu={handleSelectionContextMenu}
+                  onKeyUp={() => handleSelectionCapture("keyboard")}
+                  onMouseUp={() => handleSelectionCapture("mouse")}
+                  onTouchEnd={() => handleSelectionCapture("touch")}
                   ref={documentHighlights.contentRef}
                 >
                   <ReaderRichContent
-                    contentHtml={contentHtml}
+                    contentHtml={contentHtml ?? ""}
                     fallbackText={plainText}
                     highlights={documentHighlights.highlights}
                     sourceUrl={sourceUrl}
                   />
                 </div>
-                {documentHighlights.selectionDraft ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3">
-                    <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-                      把这段文字保存为高亮，方便稍后回看。
-                    </p>
-                    <Button
-                      className="shrink-0"
-                      disabled={documentHighlights.isCreating}
-                      onClick={documentHighlights.createHighlightFromSelection}
-                      size="sm"
-                      variant="secondary"
-                    >
-                      {documentHighlights.isCreating ? "保存中…" : "保存高亮"}
-                    </Button>
-                  </div>
-                ) : null}
-                {documentHighlights.actionError ? (
-                  <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{documentHighlights.actionError}</p>
-                ) : null}
-              </div>
-            ) : paragraphs.length > 0 ? (
-              <div className="space-y-4">
-                <div
-                  onKeyUp={documentHighlights.captureSelection}
-                  onMouseUp={documentHighlights.captureSelection}
-                  onTouchEnd={documentHighlights.captureSelection}
-                  ref={documentHighlights.contentRef}
-                >
-                  <ReaderRichContent
-                    contentHtml=""
-                    fallbackText={plainText}
-                    highlights={documentHighlights.highlights}
-                    sourceUrl={sourceUrl}
-                  />
-                </div>
-                {documentHighlights.selectionDraft ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3">
-                    <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-                      把这段文字保存为高亮，方便稍后回看。
-                    </p>
-                    <Button
-                      className="shrink-0"
-                      disabled={documentHighlights.isCreating}
-                      onClick={documentHighlights.createHighlightFromSelection}
-                      size="sm"
-                      variant="secondary"
-                    >
-                      {documentHighlights.isCreating ? "保存中…" : "保存高亮"}
-                    </Button>
-                  </div>
-                ) : null}
+
                 {documentHighlights.actionError ? (
                   <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{documentHighlights.actionError}</p>
                 ) : null}
@@ -168,9 +323,12 @@ export function DocumentReader({ document }: DocumentReaderProps) {
           </div>
         </Panel>
 
-        <aside className="lg:pt-2">
-          <Panel className="space-y-6 lg:sticky lg:top-24" tone="muted">
-            <div className="space-y-3">
+        <aside className="lg:pt-3">
+          <Panel
+            className="space-y-6 border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] shadow-none lg:sticky lg:top-24"
+            tone="transparent"
+          >
+            <div className="space-y-4">
               <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
                 操作
               </p>
@@ -181,6 +339,12 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                 isSubmitting={favorite.isSubmitting}
                 onClick={favorite.toggleFavorite}
               />
+              {isReadable ? (
+                <HighlightSaveModeToggle
+                  onChange={persistHighlightSaveMode}
+                  value={highlightSaveMode}
+                />
+              ) : null}
               <div className="flex flex-col gap-2">
                 {sourceUrl ? (
                   <Link
@@ -208,11 +372,11 @@ export function DocumentReader({ document }: DocumentReaderProps) {
                 文档信息
               </p>
               <dl className="space-y-3 text-sm">
-                <MetaRow label="状态" value={formatIngestionStatus(document.ingestionStatus)} />
-                <MetaRow label="收录时间" value={formatDate(document.createdAt)} />
-                {document.lang ? <MetaRow label="语言" value={document.lang} /> : null}
-                {isReadable && document.content?.wordCount ? (
-                  <MetaRow label="字数" value={formatWordCount(document.content.wordCount)} />
+                <MetaRow label="状态" value={formatIngestionStatus(readerDocument.ingestionStatus)} />
+                <MetaRow label="收录时间" value={formatDate(readerDocument.createdAt)} />
+                {readerDocument.lang ? <MetaRow label="语言" value={readerDocument.lang} /> : null}
+                {isReadable && readerDocument.content?.wordCount ? (
+                  <MetaRow label="字数" value={formatWordCount(readerDocument.content.wordCount)} />
                 ) : null}
                 {sourceUrl ? <MetaRow label="来源" value={truncateUrl(sourceUrl)} /> : null}
               </dl>
@@ -232,9 +396,11 @@ export function DocumentReader({ document }: DocumentReaderProps) {
             {isReadable ? (
               <ReaderHighlightsPanel
                 actionError={documentHighlights.actionError}
+                focusedHighlightId={documentHighlights.focusedHighlightId}
                 highlights={documentHighlights.highlights}
                 isLoading={documentHighlights.isLoading}
                 onDelete={documentHighlights.removeHighlightById}
+                onFocusedHighlightHandled={documentHighlights.clearFocusedHighlight}
                 onSaveNote={documentHighlights.saveHighlightNote}
                 savingNoteId={documentHighlights.savingNoteId}
               />
@@ -242,6 +408,24 @@ export function DocumentReader({ document }: DocumentReaderProps) {
           </Panel>
         </aside>
       </div>
+
+      {selectionState ? (
+        <ReaderSelectionActions
+          actionsRef={selectionActionsRef}
+          anchor={selectionState.anchor}
+          isSaving={documentHighlights.isCreating}
+          onHighlight={() => void handleCreateHighlight()}
+          onNote={() => void handleCreateHighlightNote()}
+          variant={selectionState.trigger === "contextmenu" ? "contextmenu" : "floating"}
+        />
+      ) : null}
+
+      {autoHighlightFeedback ? (
+        <ReaderAutoHighlightFeedback
+          anchor={autoHighlightFeedback.anchor}
+          onNote={handleAutoHighlightNote}
+        />
+      ) : null}
     </section>
   );
 }
@@ -323,7 +507,7 @@ function resolveLeadText(document: DocumentDetail) {
 function truncateUrl(value: string) {
   try {
     const url = new URL(value);
-    return `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`;
+    return `${url.hostname}${url.pathname}`.replace(/\/$/, "");
   } catch {
     return value;
   }
