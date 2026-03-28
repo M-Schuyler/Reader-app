@@ -26,5 +26,8 @@ test("source library toolbar and shelves expose the new bookroom structure", () 
   assert.match(sourceLibrary, /近七天/);
   assert.match(sourceLibrary, /更早/);
   assert.match(sourceLibrary, /SourceLibraryShelf/);
-  assert.match(sourceLibrary, /SourceLibraryCard/);
+  assert.match(sourceLibrary, /SourceLibrarySourceGroup/);
+  assert.match(sourceLibrary, /SourceLibraryItemCard/);
+  assert.match(sourceLibrary, /SourceLibraryCover/);
+  assert.match(sourceLibrary, /w-\[8\.75rem\]/);
 });

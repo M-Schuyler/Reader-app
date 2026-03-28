@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { archiveLocalBuildArtifacts, formatArchivedBuildArtifacts } from "./archive-build-artifacts.mjs";
 
 const [mode, ...restArgs] = process.argv.slice(2);
 
@@ -55,11 +56,7 @@ async function main() {
           env: process.env,
           stdio: "inherit",
         })
-      : spawn("sh", ["-lc", "npx prisma generate && npx next build"], {
-          cwd,
-          env: process.env,
-          stdio: "inherit",
-        });
+      : await spawnBuild(cwd);
 
   child.on("exit", (code, signal) => {
     if (signal) {
@@ -68,5 +65,20 @@ async function main() {
     }
 
     process.exit(code ?? 0);
+  });
+}
+
+async function spawnBuild(cwd) {
+  const archivedArtifacts = await archiveLocalBuildArtifacts({ cwd });
+  const archivedMessage = formatArchivedBuildArtifacts(archivedArtifacts);
+
+  if (archivedMessage) {
+    console.warn(archivedMessage);
+  }
+
+  return spawn("sh", ["-lc", "npx prisma generate && npx next build"], {
+    cwd,
+    env: process.env,
+    stdio: "inherit",
   });
 }

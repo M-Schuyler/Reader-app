@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { archiveLocalBuildArtifacts, formatArchivedBuildArtifacts } from "./archive-build-artifacts.mjs";
 import { loadWorktreeEnv } from "./worktree-env.mjs";
 
 const [mode, ...restArgs] = process.argv.slice(2);
@@ -14,6 +15,15 @@ const env = await loadWorktreeEnv({
   cwd,
   baseEnv: process.env,
 });
+
+if (mode === "build") {
+  const archivedArtifacts = await archiveLocalBuildArtifacts({ cwd });
+  const archivedMessage = formatArchivedBuildArtifacts(archivedArtifacts);
+
+  if (archivedMessage) {
+    console.warn(archivedMessage);
+  }
+}
 
 const args = mode === "dev" ? ["next", "dev", ...restArgs] : ["sh", "-lc", "npx prisma generate && npx next build"];
 
@@ -31,4 +41,3 @@ child.on("exit", (code, signal) => {
 
   process.exit(code ?? 0);
 });
-

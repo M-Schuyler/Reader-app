@@ -5,7 +5,12 @@ import { IngestionStatus, type DocumentType } from "@prisma/client";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/panel";
-import { buildSourceShelfSections, resolveSourceLibraryPreviewText, type SourceShelfSection } from "@/lib/documents/source-library";
+import {
+  buildSourceShelfSections,
+  resolveSourceLibraryPreviewText,
+  type SourceLibrarySourceGroup,
+  type SourceShelfSection,
+} from "@/lib/documents/source-library";
 import type { DocumentListItem, GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 import { cx } from "@/utils/cx";
 
@@ -15,19 +20,19 @@ type SourceLibraryProps = {
 
 const SOURCE_SPINE_TONES = [
   {
-    panel: "border-[#d8c7af]/80 bg-[#efe4d3]",
+    cover: "border-[#d8c7af]/80 bg-[#efe4d3]",
     spine: "bg-[#b68b5d]",
   },
   {
-    panel: "border-[#c7d0d6]/80 bg-[#e4eaee]",
+    cover: "border-[#c7d0d6]/80 bg-[#e4eaee]",
     spine: "bg-[#7f92a0]",
   },
   {
-    panel: "border-[#d5cec3]/80 bg-[#eee7dd]",
+    cover: "border-[#d5cec3]/80 bg-[#eee7dd]",
     spine: "bg-[#9b8064]",
   },
   {
-    panel: "border-[#d2d6c7]/80 bg-[#edf0e5]",
+    cover: "border-[#d2d6c7]/80 bg-[#edf0e5]",
     spine: "bg-[#7b8d6a]",
   },
 ] as const;
@@ -63,6 +68,8 @@ export function SourceLibrary({ data }: SourceLibraryProps) {
 }
 
 function SourceLibraryShelf({ section }: { section: SourceShelfSection }) {
+  const totalItems = section.groups.reduce((count, group) => count + group.items.length, 0);
+
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-2 border-b border-[color:var(--border-subtle)] pb-3 sm:flex-row sm:items-end sm:justify-between">
@@ -77,64 +84,85 @@ function SourceLibraryShelf({ section }: { section: SourceShelfSection }) {
           </div>
           <p className="text-sm text-[color:var(--text-secondary)]">
             {section.label === "最近收进来"
-              ? "过去 24 小时内新收进来的内容。"
+              ? "过去 24 小时内新收进来的内容，会先按来源并排收好。"
               : section.label === "近七天"
-                ? "先把这一周的来源排成一列，方便回看和挑选。"
-                : "更早收入库的内容，仍然保留在书架里。"}
+                ? "这一周的内容先按来源收成一摞，再从里面挑值得读的。"
+                : "更早收入库的内容仍然保留在架上，只是退到后排。"}
           </p>
         </div>
 
         <p className="text-sm text-[color:var(--text-tertiary)]">
-          {section.items.length} 篇
+          {section.groups.length} 个来源 · {totalItems} 篇
         </p>
       </div>
 
       <div className="space-y-4">
-        {section.items.map((item, index) => (
-          <SourceLibraryCard item={item} key={item.id} shelfIndex={index} />
+        {section.groups.map((group, groupIndex) => (
+          <SourceLibrarySourceGroup group={group} groupIndex={groupIndex} key={group.id} />
         ))}
       </div>
     </section>
   );
 }
 
-function SourceLibraryCard({
-  item,
-  shelfIndex,
+function SourceLibrarySourceGroup({
+  group,
+  groupIndex,
 }: {
-  item: DocumentListItem;
-  shelfIndex: number;
+  group: SourceLibrarySourceGroup;
+  groupIndex: number;
 }) {
-  const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
-  const favorite = useDocumentFavoriteController(item);
-  const previewText = resolveSourceLibraryPreviewText(item);
-  const tone = SOURCE_SPINE_TONES[shelfIndex % SOURCE_SPINE_TONES.length];
-  const shouldShowStatusBadge = item.ingestionStatus !== IngestionStatus.READY;
-  const urlLabel = truncateUrl(item.canonicalUrl ?? item.sourceUrl);
-  const sourceLabel = item.feed?.title ?? urlLabel;
+  const tone = SOURCE_SPINE_TONES[groupIndex % SOURCE_SPINE_TONES.length];
+  const latestLabel = group.latestCreatedAt ? formatCollectedAt(group.latestCreatedAt) : null;
 
   return (
-    <article className="rounded-[30px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-5 py-5 shadow-[var(--shadow-surface-muted)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-field)] sm:px-6">
+    <article className="rounded-[32px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-4 shadow-[var(--shadow-surface-muted)] sm:px-5">
+      <div className="flex flex-col gap-3 border-b border-[color:var(--border-subtle)] pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-ui-heading text-[1.18rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+              {group.label}
+            </h3>
+            <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+              {group.sourceKind === "feed" ? "Feed" : group.sourceKind === "domain" ? "Source" : "Collected"}
+            </span>
+          </div>
+          <p className="text-sm text-[color:var(--text-secondary)]">
+            {group.host && group.host !== group.label ? group.host : "统一来源"} · {group.meta}
+          </p>
+        </div>
+
+        {latestLabel ? <p className="text-sm text-[color:var(--text-tertiary)]">最近 {latestLabel}</p> : null}
+      </div>
+
+      <div className="space-y-3 pt-4">
+        {group.items.map((item) => (
+          <SourceLibraryItemCard item={item} key={item.id} tone={tone} />
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function SourceLibraryItemCard({
+  item,
+  tone,
+}: {
+  item: DocumentListItem;
+  tone: (typeof SOURCE_SPINE_TONES)[number];
+}) {
+  const favorite = useDocumentFavoriteController(item);
+  const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
+  const previewText = resolveSourceLibraryPreviewText(item);
+  const shouldShowStatusBadge = item.ingestionStatus !== IngestionStatus.READY;
+  const sourcePath = truncateUrl(item.canonicalUrl ?? item.sourceUrl);
+
+  return (
+    <article className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-field)] sm:px-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <Link className="block min-w-0 flex-1" href={`/documents/${item.id}`}>
-          <div className="grid gap-4 sm:grid-cols-[7rem_minmax(0,1fr)] sm:gap-5">
-            <div
-              className={cx(
-                "relative hidden min-h-[11rem] overflow-hidden rounded-[24px] border p-4 sm:flex sm:flex-col sm:justify-end",
-                tone.panel,
-              )}
-            >
-              <span className="absolute inset-y-4 left-3 w-[3px] rounded-full bg-white/55" />
-              <span className={cx("absolute inset-y-4 left-[18px] w-[6px] rounded-full opacity-85", tone.spine)} />
-              <div className="relative z-10 space-y-3 pl-6">
-                <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-black/45">
-                  {formatDocumentType(item.type)}
-                </p>
-                <p className="font-ui-heading text-lg leading-tight tracking-[-0.03em] text-black/70">
-                  {formatSpineTitle(item.title)}
-                </p>
-              </div>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-[8.75rem_minmax(0,1fr)] sm:gap-5">
+            <SourceLibraryCover item={item} tone={tone} />
 
             <div className="min-w-0 space-y-4">
               <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
@@ -146,16 +174,16 @@ function SourceLibraryCard({
               </div>
 
               <div className="space-y-2.5">
-                <h3 className="max-w-4xl font-ui-heading text-[1.6rem] leading-[1.08] tracking-[-0.04em] text-[color:var(--text-primary)]">
+                <h4 className="max-w-4xl font-ui-heading text-[1.45rem] leading-[1.1] tracking-[-0.04em] text-[color:var(--text-primary)]">
                   {item.title}
-                </h3>
+                </h4>
                 {previewText ? (
                   <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{previewText}</p>
                 ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-[color:var(--text-tertiary)]">
-                {sourceLabel ? <span className="truncate">{sourceLabel}</span> : null}
+                {sourcePath ? <span className="truncate">{sourcePath}</span> : null}
                 {!isFailed && item.wordCount ? <span>{formatWordCount(item.wordCount)}</span> : null}
                 {item.lang ? <span>{item.lang}</span> : null}
               </div>
@@ -175,6 +203,35 @@ function SourceLibraryCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function SourceLibraryCover({
+  item,
+  tone,
+}: {
+  item: DocumentListItem;
+  tone: (typeof SOURCE_SPINE_TONES)[number];
+}) {
+  return (
+    <div
+      className={cx(
+        "relative flex min-h-[11.5rem] w-[8.75rem] min-w-[8.75rem] overflow-hidden rounded-[24px] border p-4",
+        tone.cover,
+      )}
+    >
+      <span className="absolute inset-y-4 left-3 w-[3px] rounded-full bg-white/55" />
+      <span className={cx("absolute inset-y-4 left-[18px] w-[6px] rounded-full opacity-85", tone.spine)} />
+
+      <div className="relative z-10 flex h-full flex-col justify-between pl-7">
+        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-black/45">
+          {formatDocumentType(item.type)}
+        </p>
+        <p className="font-ui-heading text-[0.96rem] leading-[1.16] tracking-[-0.03em] text-black/72">
+          {formatSpineTitle(item.title)}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -244,5 +301,5 @@ function truncateUrl(value: string | null) {
 }
 
 function formatSpineTitle(value: string) {
-  return value.length > 28 ? `${value.slice(0, 28)}…` : value;
+  return value.length > 34 ? `${value.slice(0, 34)}…` : value;
 }
