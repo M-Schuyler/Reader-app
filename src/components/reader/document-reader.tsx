@@ -35,6 +35,7 @@ type AutoHighlightFeedback = {
 
 export function DocumentReader({ document: readerDocument }: DocumentReaderProps) {
   const selectionActionsRef = useRef<HTMLDivElement>(null);
+  const suppressNativeContextMenuRef = useRef(false);
   const sourceUrl = readerDocument.sourceUrl ?? readerDocument.canonicalUrl;
   const contentHtml = readerDocument.content?.contentHtml?.trim() ?? null;
   const plainText = readerDocument.content?.plainText ?? "";
@@ -160,7 +161,34 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
     setSelectionState(nextSelection);
   }
 
+  function handleSelectionMouseDown(event: MouseEvent<HTMLDivElement>) {
+    if (event.button !== 2 || !isReadable || highlightSaveMode === "auto") {
+      return;
+    }
+
+    const nextSelection = readSelectionState("contextmenu", {
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    if (!nextSelection) {
+      suppressNativeContextMenuRef.current = false;
+      return;
+    }
+
+    event.preventDefault();
+    suppressNativeContextMenuRef.current = true;
+    setAutoHighlightFeedback(null);
+    setSelectionState(nextSelection);
+  }
+
   function handleSelectionContextMenu(event: MouseEvent<HTMLDivElement>) {
+    if (suppressNativeContextMenuRef.current) {
+      event.preventDefault();
+      suppressNativeContextMenuRef.current = false;
+      return;
+    }
+
     if (!isReadable || highlightSaveMode === "auto") {
       return;
     }
@@ -299,6 +327,7 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
                 <div
                   onContextMenu={handleSelectionContextMenu}
                   onKeyUp={() => handleSelectionCapture("keyboard")}
+                  onMouseDown={handleSelectionMouseDown}
                   onMouseUp={() => handleSelectionCapture("mouse")}
                   onTouchEnd={() => handleSelectionCapture("touch")}
                   ref={documentHighlights.contentRef}

@@ -11,7 +11,10 @@ test("reader swaps the old save banner for mode-aware selection actions", () => 
 
   assert.doesNotMatch(documentReader, /把这段文字保存为高亮，方便稍后回看/);
   assert.match(documentReader, /HighlightSaveModeToggle/);
+  assert.match(documentReader, /onMouseDown=\{handleSelectionMouseDown\}/);
   assert.match(documentReader, /onContextMenu=\{handleSelectionContextMenu\}/);
+  assert.match(documentReader, /event\.button !== 2/);
+  assert.match(documentReader, /suppressNativeContextMenuRef/);
   assert.match(documentReader, /highlightSaveMode === "auto"/);
   assert.match(documentReader, /handleCreateHighlightNote/);
 });
