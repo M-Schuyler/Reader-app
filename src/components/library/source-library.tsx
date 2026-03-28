@@ -161,7 +161,7 @@ function SourceLibraryItemCard({
     <article className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-field)] sm:px-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <Link className="block min-w-0 flex-1" href={`/documents/${item.id}`}>
-          <div className="grid gap-4 sm:grid-cols-[8.75rem_minmax(0,1fr)] sm:gap-5">
+          <div className="grid gap-4 sm:grid-cols-[8.75rem_minmax(0,1fr)] sm:items-start sm:gap-5">
             <SourceLibraryCover item={item} tone={tone} />
 
             <div className="min-w-0 space-y-4">
@@ -216,7 +216,7 @@ function SourceLibraryCover({
   return (
     <div
       className={cx(
-        "relative flex min-h-[11.5rem] w-[8.75rem] min-w-[8.75rem] overflow-hidden rounded-[24px] border p-4",
+        "relative flex h-[11.5rem] w-[8.75rem] min-w-[8.75rem] self-start overflow-hidden rounded-[24px] border p-4",
         tone.cover,
       )}
     >
@@ -227,7 +227,7 @@ function SourceLibraryCover({
         <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-black/45">
           {formatDocumentType(item.type)}
         </p>
-        <p className="font-ui-heading text-[0.96rem] leading-[1.16] tracking-[-0.03em] text-black/72">
+        <p className="line-clamp-6 font-ui-heading text-[0.96rem] leading-[1.16] tracking-[-0.03em] text-black/72">
           {formatSpineTitle(item.title)}
         </p>
       </div>

@@ -30,4 +30,7 @@ test("source library toolbar and shelves expose the new bookroom structure", () 
   assert.match(sourceLibrary, /SourceLibraryItemCard/);
   assert.match(sourceLibrary, /SourceLibraryCover/);
   assert.match(sourceLibrary, /w-\[8\.75rem\]/);
+  assert.match(sourceLibrary, /h-\[11\.5rem\]/);
+  assert.match(sourceLibrary, /sm:items-start/);
+  assert.match(sourceLibrary, /line-clamp-6/);
 });
