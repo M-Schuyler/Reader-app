@@ -1,0 +1,112 @@
+
+<h2>来源库想做成哪一种“书库感”？</h2>
+<p class="subtitle">我把现在过于像筛选列表的问题拆成 3 个方向。它们都比现状更像产品，但气质完全不同。</p>
+
+<div class="cards">
+  <div class="card" data-choice="gallery" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A · 藏书墙 / Gallery Shelf</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
+            <div style="height:170px;border-radius:18px;background:#d8c9aa;"></div>
+            <div style="height:210px;border-radius:18px;background:#b8a07e;"></div>
+            <div style="height:184px;border-radius:18px;background:#d1c2a4;"></div>
+            <div style="height:204px;border-radius:18px;background:#a98c66;"></div>
+            <div style="height:178px;border-radius:18px;background:#e1d5be;"></div>
+            <div style="height:198px;border-radius:18px;background:#c4b08d;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>像书墙一样浏览</h3>
+      <p>强调封面感和收藏感，第一眼更像个人书房，但会弱化筛选与来源元信息。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="study" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B · 阅览室 / Study Shelf</div>
+        <div class="mockup-body">
+          <div style="display:grid;gap:14px;">
+            <div style="display:grid;grid-template-columns:140px 1fr;gap:16px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.08);">
+              <div style="height:92px;border-radius:16px;background:#ccb592;"></div>
+              <div style="display:grid;gap:8px;">
+                <div style="height:14px;width:72%;border-radius:999px;background:#bca27d;"></div>
+                <div style="height:10px;width:92%;border-radius:999px;background:#ddd0b7;"></div>
+                <div style="height:10px;width:76%;border-radius:999px;background:#ddd0b7;"></div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:140px 1fr;gap:16px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.08);">
+              <div style="height:92px;border-radius:16px;background:#b79a73;"></div>
+              <div style="display:grid;gap:8px;">
+                <div style="height:14px;width:64%;border-radius:999px;background:#9f8058;"></div>
+                <div style="height:10px;width:88%;border-radius:999px;background:#ddd0b7;"></div>
+                <div style="height:10px;width:70%;border-radius:999px;background:#ddd0b7;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>像安静的阅览室书架</h3>
+      <p>保留书感与浏览节奏，也保留必要摘要和来源信息。我推荐这个，它最稳，不会做成样子货。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="catalog" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C · 索引书目 / Catalog Cabinet</div>
+        <div class="mockup-body">
+          <div style="display:grid;gap:10px;">
+            <div style="display:grid;grid-template-columns:10px 1fr auto;gap:14px;align-items:start;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.08);">
+              <div style="height:60px;border-radius:999px;background:#9e7b52;"></div>
+              <div style="display:grid;gap:8px;">
+                <div style="height:12px;width:68%;border-radius:999px;background:#8e6e48;"></div>
+                <div style="height:9px;width:90%;border-radius:999px;background:#d8ccb6;"></div>
+              </div>
+              <div style="height:18px;width:52px;border-radius:999px;background:#efe5d4;"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:10px 1fr auto;gap:14px;align-items:start;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.08);">
+              <div style="height:60px;border-radius:999px;background:#c8ad83;"></div>
+              <div style="display:grid;gap:8px;">
+                <div style="height:12px;width:75%;border-radius:999px;background:#a48359;"></div>
+                <div style="height:9px;width:84%;border-radius:999px;background:#d8ccb6;"></div>
+              </div>
+              <div style="height:18px;width:46px;border-radius:999px;background:#efe5d4;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>像图书目录卡片柜</h3>
+      <p>信息效率最高，最适合重度检索，但书感偏弱，容易又滑回“高级列表页”。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:28px;">
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>我建议先选 B</h4>
+      <ul>
+        <li>最容易把来源库和 Reading 区分开</li>
+        <li>比现在更像书库，但不会丢掉可读摘要</li>
+        <li>可以在不大改数据结构的前提下落地</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>现状的问题</h4>
+      <ul>
+        <li>左侧筛选太像后台侧栏</li>
+        <li>右侧列表是一维信息流，不像藏书浏览</li>
+        <li>来源库和 Reading 的气质差异还不够大</li>
+      </ul>
+    </div>
+  </div>
+</div>

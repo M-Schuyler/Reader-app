@@ -1,11 +1,10 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Field, SelectInput } from "@/components/ui/form-controls";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
-import { CaptureUrlForm } from "@/components/library/capture-url-form";
-import { DocumentList } from "@/components/library/document-list";
-import { getDocuments, parseDocumentListQuery } from "@/server/modules/documents/document.service";
+import { SourceLibrary } from "@/components/library/source-library";
+import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
+import { parseSourceLibraryQuery } from "@/lib/documents/source-library-query";
+import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
+import { getDocuments } from "@/server/modules/documents/document.service";
 
 export const dynamic = "force-dynamic";
 
@@ -15,99 +14,51 @@ type SourcesPageProps = {
 
 export default async function SourcesPage({ searchParams }: SourcesPageProps) {
   const resolvedSearchParams = await toUrlSearchParams(searchParams);
-  const parsedQuery = parseDocumentListQuery(resolvedSearchParams);
+  const parsedQuery = parseSourceLibraryQuery(resolvedSearchParams);
   const data = await getDocuments({
     ...parsedQuery,
     surface: "source",
   });
   const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.sort !== "latest");
+  const clearHref = data.filters.q ? `/sources?q=${encodeURIComponent(data.filters.q)}` : "/sources";
+  const contextChips = buildSourceContextChips(data.filters);
 
   return (
-    <section className="space-y-10">
+    <section className="space-y-8 md:space-y-10">
       <PageHeader
-        description="Everything you import or collect lands here first. Start reading only when a piece proves it deserves attention."
-        eyebrow="Sources"
+        className="gap-6"
+        description="所有新收进来的内容先停在这里。它们不需要立刻进入 Reading，先安静排上书架就好。"
+        eyebrow="Source Library"
         title="来源库"
       />
 
-      <div className="grid gap-8 xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start">
-        <aside className="space-y-6 xl:sticky xl:top-24">
-          <Panel className="overflow-hidden" padding="none">
-            <div className="border-b border-[color:var(--border-subtle)] px-6 py-6">
-              <CaptureUrlForm />
-            </div>
+      <SourceLibraryToolbar clearHref={clearHref} filters={data.filters} hasActiveFilters={hasActiveFilters} />
 
-            <form className="space-y-5 px-6 py-6" method="GET">
-              {data.filters.q ? <input name="q" type="hidden" value={data.filters.q} /> : null}
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                  Source filters
-                </p>
-                <h2 className="font-ui-heading text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
-                  只在来源库里继续筛选
-                </h2>
-              </div>
-
-              <Field label="文档类型">
-                <SelectInput defaultValue={data.filters.type ?? ""} name="type">
-                  <option value="">全部类型</option>
-                  <option value="WEB_PAGE">网页</option>
-                  <option value="RSS_ITEM">RSS</option>
-                  <option value="PDF">PDF</option>
-                </SelectInput>
-              </Field>
-
-              <Field label="排序">
-                <SelectInput defaultValue={data.filters.sort} name="sort">
-                  <option value="latest">最新发布</option>
-                  <option value="earliest">最早发布</option>
-                </SelectInput>
-              </Field>
-
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Button className="flex-1" type="submit" variant="primary">
-                  应用筛选
-                </Button>
-                {hasActiveFilters ? (
-                  <Link
-                    className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
-                    href={data.filters.q ? `/sources?q=${encodeURIComponent(data.filters.q)}` : "/sources"}
-                  >
-                    清空
-                  </Link>
-                ) : null}
-              </div>
-            </form>
-          </Panel>
-        </aside>
-
-        <div className="space-y-5">
-          <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-[color:var(--text-secondary)]">
-                当前共有 <span className="font-medium text-[color:var(--text-primary)]">{data.pagination.total}</span> 篇来源文章
-              </p>
-              {data.filters.q ? (
-                <p className="text-sm text-[color:var(--text-secondary)]">
-                  搜索 <span className="font-medium text-[color:var(--text-primary)]">&quot;{data.filters.q}&quot;</span>
-                </p>
-              ) : null}
-            </div>
-            <p className="max-w-xl text-sm text-[color:var(--text-tertiary)]">
-              这是全量来源面。它保存所有输入，不要求你立刻进入阅读。
-            </p>
-          </div>
-
-          <DocumentList
-            data={data}
-            emptyState={{
-              eyebrow: "Sources",
-              title: "来源库还没有内容",
-              description: "先导入网页、自动收集文章，再从中挑真正值得开始阅读的内容。",
-            }}
-          />
+      <Panel className="flex flex-col gap-3 rounded-[28px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between" tone="muted">
+        <div className="space-y-1">
+          <p className="text-sm text-[color:var(--text-secondary)]">
+            当前共有 <span className="font-medium text-[color:var(--text-primary)]">{data.pagination.total}</span> 篇内容停在来源库里
+          </p>
+          <p className="text-sm text-[color:var(--text-tertiary)]">
+            它们先按收入库的时间排成书架，等你判断哪些值得真正开始读。
+          </p>
         </div>
-      </div>
+
+        {contextChips.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {contextChips.map((chip) => (
+              <span
+                className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
+                key={chip}
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </Panel>
+
+      <SourceLibrary data={data} />
     </section>
   );
 }
@@ -134,4 +85,35 @@ async function toUrlSearchParams(
   }
 
   return searchParams;
+}
+
+function buildSourceContextChips(filters: GetDocumentsResponseData["filters"]) {
+  const chips: string[] = [];
+
+  if (filters.q) {
+    chips.push(`搜索 “${filters.q}”`);
+  }
+
+  if (filters.type) {
+    chips.push(`类型 ${formatDocumentType(filters.type)}`);
+  }
+
+  if (filters.sort === "earliest") {
+    chips.push("最早收进来优先");
+  }
+
+  return chips;
+}
+
+function formatDocumentType(value: string) {
+  switch (value) {
+    case "WEB_PAGE":
+      return "网页";
+    case "RSS_ITEM":
+      return "RSS";
+    case "PDF":
+      return "PDF";
+    default:
+      return value;
+  }
 }
