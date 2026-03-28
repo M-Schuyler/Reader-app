@@ -103,8 +103,26 @@ export function FavoriteToggleButton(props: {
       disabled={props.isSubmitting}
       onClick={props.onClick}
     >
-      {props.buttonLabel}
+      <FavoriteStarIcon isFilled={props.isFavorite} />
+      <span>{props.buttonLabel}</span>
     </Button>
+  );
+}
+
+function FavoriteStarIcon({ isFilled }: { isFilled: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="mr-1.5 h-4 w-4 shrink-0"
+      fill={isFilled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.7"
+      viewBox="0 0 20 20"
+    >
+      <path d="M10 2.4 12.35 7.16l5.25.77-3.8 3.71.9 5.24L10 14.42l-4.7 2.46.9-5.24-3.8-3.71 5.25-.77Z" />
+    </svg>
   );
 }
 
