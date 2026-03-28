@@ -51,7 +51,7 @@ export function CaptureUrlForm() {
       }
 
       startTransition(() => {
-        router.push(`/documents/${payload.data.document.id}`);
+        router.push("/sources");
         router.refresh();
       });
     } catch {
@@ -71,7 +71,7 @@ export function CaptureUrlForm() {
           保存网页链接
         </h2>
         <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-          先把链接收进文档库，再决定它值不值得深读。
+          新内容先进入来源库，真正开始读的时候再进入 Reading。
         </p>
       </div>
 

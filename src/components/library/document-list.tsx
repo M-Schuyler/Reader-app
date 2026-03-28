@@ -5,25 +5,37 @@ import { IngestionStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
 import { Panel } from "@/components/ui/panel";
+import { formatPublishedAtLabel } from "@/lib/documents/published-at";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 
 type DocumentListProps = {
   data: GetDocumentsResponseData;
+  emptyState?: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
 };
 
-export function DocumentList({ data }: DocumentListProps) {
+const DEFAULT_EMPTY_STATE = {
+  eyebrow: "Reader",
+  title: "这里还没有内容",
+  description: "导入一篇文章，库里就会开始形成稳定的阅读流。",
+};
+
+export function DocumentList({ data, emptyState = DEFAULT_EMPTY_STATE }: DocumentListProps) {
   if (data.items.length === 0) {
     return (
       <Panel className="px-8 py-10 text-center" tone="muted">
         <div className="mx-auto max-w-md space-y-3">
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-            Library
+            {emptyState.eyebrow}
           </p>
           <h2 className="font-ui-heading text-[2rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)]">
-            文档库还没有内容
+            {emptyState.title}
           </h2>
           <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-            Start with one saved link, then let the queue grow quietly.
+            {emptyState.description}
           </p>
         </div>
       </Panel>
@@ -53,7 +65,7 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
         <div className="min-w-0 flex-1 space-y-4">
           <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
             <span>{formatDocumentType(item.type)}</span>
-            <span>{formatDate(item.createdAt)}</span>
+            <span>{formatPublishedAtLabel(item.publishedAt, item.publishedAtKind)}</span>
             {shouldShowStatusBadge ? (
               <Badge tone={statusTone(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</Badge>
             ) : null}
@@ -89,14 +101,6 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
       </div>
     </article>
   );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(value));
 }
 
 function formatIngestionStatus(status: IngestionStatus) {

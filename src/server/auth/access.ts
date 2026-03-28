@@ -52,7 +52,7 @@ export function getAuthenticatedUserFromSession(session: Session | null | undefi
 
 export function sanitizeCallbackUrl(value: string | null | undefined) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/library";
+    return "/sources";
   }
 
   return value;

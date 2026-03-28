@@ -1,13 +1,14 @@
-import type { AiSummaryStatus, DocumentType, IngestionStatus, ReadState } from "@prisma/client";
+import type { AiSummaryStatus, DocumentType, IngestionStatus, PublishedAtKind, ReadState } from "@prisma/client";
 
-export type DocumentListSort = "newest" | "oldest" | "published";
+export type DocumentListSort = "latest" | "earliest";
+export type DocumentSurface = "source" | "reading";
 
 export type DocumentListQuery = {
+  surface: DocumentSurface;
   q?: string;
   type?: DocumentType;
   readState?: ReadState;
   isFavorite?: boolean;
-  isLater?: boolean;
   tag?: string;
   page: number;
   pageSize: number;
@@ -26,9 +27,10 @@ export type DocumentListItem = {
   excerpt: string | null;
   lang: string | null;
   publishedAt: string | null;
+  publishedAtKind: PublishedAtKind;
+  enteredReadingAt: string | null;
   readState: ReadState;
   isFavorite: boolean;
-  isLater: boolean;
   ingestionStatus: IngestionStatus;
   createdAt: string;
   updatedAt: string;
@@ -48,11 +50,11 @@ export type GetDocumentsResponseData = {
     totalPages: number;
   };
   filters: {
+    surface: DocumentSurface;
     q?: string;
     type?: DocumentType;
     readState?: ReadState;
     isFavorite?: boolean;
-    isLater?: boolean;
     tag?: string;
     sort: DocumentListSort;
   };
@@ -71,9 +73,10 @@ export type DocumentDetail = {
   lang: string | null;
   author: string | null;
   publishedAt: string | null;
+  publishedAtKind: PublishedAtKind;
+  enteredReadingAt: string | null;
   readState: ReadState;
   isFavorite: boolean;
-  isLater: boolean;
   ingestionStatus: IngestionStatus;
   createdAt: string;
   updatedAt: string;
@@ -134,6 +137,24 @@ export type CaptureUrlResponseData = {
   ingestion: {
     error: CaptureIngestionError | null;
   };
+};
+
+export type QuickSearchResult = {
+  id: string;
+  title: string;
+  sourceUrl: string | null;
+  canonicalUrl: string | null;
+  aiSummary: string | null;
+  excerpt: string | null;
+  publishedAt: string | null;
+  publishedAtKind: PublishedAtKind;
+  readState: ReadState;
+  ingestionStatus: IngestionStatus;
+};
+
+export type QuickSearchResponseData = {
+  q: string;
+  items: QuickSearchResult[];
 };
 
 export type RunDocumentAiSummaryJobsResponseData = {

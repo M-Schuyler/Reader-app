@@ -7,12 +7,13 @@ export type MainNavItem = {
   isActive: boolean;
 };
 
-export type LibraryViewId = "inbox" | "later" | "starred" | "archive";
+export type ReadingViewId = "queue" | "starred" | "archive";
 
-type LibraryViewState = Pick<DocumentListQuery, "isFavorite" | "isLater" | "readState">;
+type ReadingViewState = Pick<DocumentListQuery, "isFavorite" | "readState">;
 
 const MAIN_NAV_ITEMS = [
-  { href: "/library", label: "文档库" },
+  { href: "/sources", label: "来源库" },
+  { href: "/reading", label: "Reading" },
   { href: "/highlights", label: "高亮" },
   { href: "/export", label: "导出" },
 ] as const;
@@ -24,11 +25,7 @@ export function getMainNavItems(pathname: string): MainNavItem[] {
   }));
 }
 
-export function resolveLibraryView(state: Partial<LibraryViewState>): LibraryViewId {
-  if (state.isLater) {
-    return "later";
-  }
-
+export function resolveReadingView(state: Partial<ReadingViewState>): ReadingViewId {
   if (state.isFavorite) {
     return "starred";
   }
@@ -37,39 +34,35 @@ export function resolveLibraryView(state: Partial<LibraryViewState>): LibraryVie
     return "archive";
   }
 
-  return "inbox";
+  return "queue";
 }
 
-export function buildLibraryViewHref(view: LibraryViewId, baseParams: URLSearchParams) {
+export function buildReadingViewHref(view: ReadingViewId, baseParams: URLSearchParams) {
   const params = new URLSearchParams(baseParams);
 
   params.delete("page");
-  params.delete("isLater");
   params.delete("isFavorite");
   params.delete("readState");
 
   switch (view) {
-    case "later":
-      params.set("isLater", "true");
-      break;
     case "starred":
       params.set("isFavorite", "true");
       break;
     case "archive":
       params.set("readState", ReadState.READ);
       break;
-    case "inbox":
+    case "queue":
     default:
       break;
   }
 
   const query = params.toString();
-  return query ? `/library?${query}` : "/library";
+  return query ? `/reading?${query}` : "/reading";
 }
 
 function isNavItemActive(pathname: string, href: string) {
-  if (href === "/library") {
-    return pathname === "/library" || pathname.startsWith("/documents/");
+  if (href === "/reading") {
+    return pathname === "/reading" || pathname.startsWith("/documents/");
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

@@ -1,10 +1,11 @@
-import { IngestionJobKind, IngestionJobStatus, IngestionStatus } from "@prisma/client";
+import { IngestionJobKind, IngestionJobStatus, IngestionStatus, PublishedAtKind } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
 import { prisma } from "@/server/db/client";
 import { extractWebPage } from "@/server/extractors/web/extract-web-page";
 import { queueAndRunAutomaticDocumentAiSummary } from "@/server/modules/documents/document-ai-summary-jobs.service";
 import { mapDocumentDetail } from "@/server/modules/documents/document.mapper";
 import {
+  backfillHostnamePublishedAtUpperBound,
   createWebDocument,
   createWebDocumentPlaceholder,
   findWebDocumentByUrlCandidates,
@@ -47,6 +48,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
     });
 
     const extracted = await extractWebPage(normalizedUrl);
+    const sourceHostname = resolveSourceHostname(extracted.canonicalUrl ?? extracted.finalUrl ?? normalizedUrl);
     const urlCandidates = Array.from(
       new Set([normalizedUrl, extracted.finalUrl, extracted.canonicalUrl].filter((value): value is string => Boolean(value))),
     );
@@ -87,6 +89,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
       excerpt: extracted.excerpt,
       author: extracted.author,
       publishedAt: extracted.publishedAt,
+      publishedAtKind: extracted.publishedAt ? PublishedAtKind.EXACT : PublishedAtKind.UNKNOWN,
       ingestionStatus: IngestionStatus.READY,
       contentHtml: extracted.contentHtml,
       plainText: extracted.plainText,
@@ -95,6 +98,14 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
       wordCount: extracted.wordCount,
       extractedAt: new Date(),
     });
+
+    if (extracted.publishedAt && sourceHostname) {
+      await backfillHostnamePublishedAtUpperBound({
+        hostname: sourceHostname,
+        anchorCreatedAt: document.createdAt,
+        upperBoundPublishedAt: extracted.publishedAt,
+      });
+    }
 
     const enrichedDocument = await hydrateAutomaticSummaryIfPossible(document);
 
@@ -195,6 +206,18 @@ async function getOrCreateFailedWebDocument(sourceUrl: string) {
 
 function buildPlaceholderTitle(sourceUrl: string) {
   return new URL(sourceUrl).hostname;
+}
+
+function resolveSourceHostname(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return null;
+  }
 }
 
 function toCaptureIngestionError(error: unknown): CaptureIngestionError {
