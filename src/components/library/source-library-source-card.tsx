@@ -43,6 +43,19 @@ export function getSourceLibraryTone(index: number) {
   return SOURCE_LIBRARY_TONES[index % SOURCE_LIBRARY_TONES.length];
 }
 
+export function getSourceLibraryToneForSeed(seed: string | null | undefined) {
+  if (!seed) {
+    return getSourceLibraryTone(0);
+  }
+
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  return getSourceLibraryTone(hash);
+}
+
 export function SourceLibrarySourceCard({
   label,
   host,
@@ -72,13 +85,17 @@ export function SourceLibrarySourceCard({
           <div className="space-y-2">
             <h3
               className={cx(
-                "font-ui-heading tracking-[-0.045em] text-black/80",
-                isHero ? "text-[2.4rem] leading-[0.95]" : "line-clamp-5 text-[1.95rem] leading-[0.98]",
+                "max-w-full font-ui-heading tracking-[-0.045em] text-black/80 [overflow-wrap:anywhere]",
+                isHero
+                  ? "line-clamp-4 text-[clamp(2rem,4.3vw,2.7rem)] leading-[0.95]"
+                  : "line-clamp-5 text-[clamp(1.75rem,3vw,1.95rem)] leading-[0.98]",
               )}
             >
               {label}
             </h3>
-            <p className="text-sm leading-6 text-black/48">{host && host !== label ? host : "统一来源"}</p>
+            <p className="max-w-full text-sm leading-6 text-black/48 [overflow-wrap:anywhere]">
+              {host && host !== label ? host : "统一来源"}
+            </p>
           </div>
         </div>
 

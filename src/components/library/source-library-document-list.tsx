@@ -7,15 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { resolveSourceLibraryPreviewText } from "@/lib/documents/source-library";
 import type { DocumentListItem } from "@/server/modules/documents/document.types";
 import { cx } from "@/utils/cx";
-import { getSourceLibraryTone, type SourceLibraryTone } from "./source-library-source-card";
+import { getSourceLibraryToneForSeed, type SourceLibraryTone } from "./source-library-source-card";
 
 type SourceLibraryDocumentListProps = {
   items: DocumentListItem[];
-  toneIndex?: number;
+  toneSeed?: string;
 };
 
-export function SourceLibraryDocumentList({ items, toneIndex = 0 }: SourceLibraryDocumentListProps) {
-  const tone = getSourceLibraryTone(toneIndex);
+export function SourceLibraryDocumentList({ items, toneSeed }: SourceLibraryDocumentListProps) {
+  const tone = getSourceLibraryToneForSeed(toneSeed);
 
   return (
     <div className="overflow-hidden rounded-[28px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)]">

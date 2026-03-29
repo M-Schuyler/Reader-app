@@ -162,6 +162,72 @@ test("source shelf groups prefer feed title and fall back to hostname", () => {
   );
 });
 
+test("source shelf keeps one top-level cover per source based on the latest arrival", () => {
+  const now = new Date("2026-03-28T12:00:00.000Z");
+  const sections = buildSourceShelfSections(
+    [
+      createListItem({
+        id: "recent-feed",
+        createdAt: "2026-03-28T10:10:00.000Z",
+        feed: {
+          id: "feed-1",
+          title: "Kai Dispatch",
+        },
+        canonicalUrl: "https://mp.weixin.qq.com/s/story-1",
+        sourceUrl: "https://mp.weixin.qq.com/s/story-1",
+      }),
+      createListItem({
+        id: "week-feed",
+        createdAt: "2026-03-24T10:10:00.000Z",
+        feed: {
+          id: "feed-1",
+          title: "Kai Dispatch",
+        },
+        canonicalUrl: "https://mp.weixin.qq.com/s/story-2",
+        sourceUrl: "https://mp.weixin.qq.com/s/story-2",
+      }),
+      createListItem({
+        id: "week-domain",
+        createdAt: "2026-03-24T09:10:00.000Z",
+        feed: null,
+        canonicalUrl: "https://sspai.com/post/123",
+        sourceUrl: "https://sspai.com/post/123",
+      }),
+    ],
+    now,
+  );
+
+  assert.deepEqual(
+    sections.map((section) => ({
+      groups: section.groups.map((group) => ({
+        id: group.id,
+        ids: group.items.map((item) => item.id),
+      })),
+      label: section.label,
+    })),
+    [
+      {
+        groups: [
+          {
+            id: "source:feed:feed-1",
+            ids: ["recent-feed", "week-feed"],
+          },
+        ],
+        label: "最近收进来",
+      },
+      {
+        groups: [
+          {
+            id: "source:domain:sspai.com",
+            ids: ["week-domain"],
+          },
+        ],
+        label: "近七天",
+      },
+    ],
+  );
+});
+
 test("unknown sources stay grouped but do not generate detail links", () => {
   const [recentSection] = buildSourceShelfSections(
     [

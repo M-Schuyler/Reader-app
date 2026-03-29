@@ -62,43 +62,51 @@ export function buildSourceShelfSections(
   items: DocumentListItem[],
   now: Date = new Date(),
 ): SourceShelfSection[] {
-  const sections: Record<
-    SourceShelfSection["key"],
-    Map<string, Omit<SourceLibrarySourceGroup, "meta" | "latestCreatedAt" | "items"> & { items: DocumentListItem[] }>
-  > = {
-    recent: new Map(),
-    week: new Map(),
-    older: new Map(),
-  };
-
   const sortedItems = [...items].sort((left, right) => {
     return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
   });
 
+  const groupedBySource = new Map<
+    string,
+    Omit<SourceLibrarySourceGroup, "meta" | "latestCreatedAt" | "items"> & { items: DocumentListItem[] }
+  >();
+
   for (const item of sortedItems) {
-    const sectionKey = resolveShelfKey(item.createdAt, now);
     const identity = resolveSourceLibrarySourceIdentity(item);
-    const group = sections[sectionKey].get(identity.id);
+    const group = groupedBySource.get(identity.id);
 
     if (group) {
       group.items.push(item);
       continue;
     }
 
-    sections[sectionKey].set(identity.id, {
+    groupedBySource.set(identity.id, {
       ...identity,
       items: [item],
+    });
+  }
+
+  const sections: Record<SourceShelfSection["key"], SourceLibrarySourceGroup[]> = {
+    recent: [],
+    week: [],
+    older: [],
+  };
+
+  for (const group of groupedBySource.values()) {
+    const latestCreatedAt = group.items[0]?.createdAt ?? "";
+    const sectionKey = resolveShelfKey(latestCreatedAt, now);
+
+    sections[sectionKey].push({
+      ...group,
+      latestCreatedAt,
+      meta: `${group.items.length} 篇文章`,
     });
   }
 
   return (Object.keys(SOURCE_SHELF_META) as Array<SourceShelfSection["key"]>)
     .map((key) => ({
       ...SOURCE_SHELF_META[key],
-      groups: Array.from(sections[key].values()).map((group) => ({
-        ...group,
-        latestCreatedAt: group.items[0]?.createdAt ?? "",
-        meta: `${group.items.length} 篇文章`,
-      })),
+      groups: sections[key],
     }))
     .filter((section) => section.groups.length > 0);
 }

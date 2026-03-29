@@ -7,7 +7,7 @@ import {
   type SourceShelfSection,
 } from "@/lib/documents/source-library";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
-import { getSourceLibraryTone, SourceLibrarySourceCard } from "./source-library-source-card";
+import { getSourceLibraryToneForSeed, SourceLibrarySourceCard } from "./source-library-source-card";
 
 type SourceLibraryIndexProps = {
   data: GetDocumentsResponseData;
@@ -73,21 +73,15 @@ function SourceLibraryShelf({ section }: { section: SourceShelfSection }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]">
-        {section.groups.map((group, groupIndex) => (
-          <SourceLibraryIndexCard group={group} groupIndex={groupIndex} key={group.id} />
+        {section.groups.map((group) => (
+          <SourceLibraryIndexCard group={group} key={group.id} />
         ))}
       </div>
     </section>
   );
 }
 
-function SourceLibraryIndexCard({
-  group,
-  groupIndex,
-}: {
-  group: SourceLibrarySourceGroup;
-  groupIndex: number;
-}) {
+function SourceLibraryIndexCard({ group }: { group: SourceLibrarySourceGroup }) {
   return (
     <SourceLibrarySourceCard
       host={group.host}
@@ -96,7 +90,7 @@ function SourceLibraryIndexCard({
       label={group.label}
       latestLabel={group.latestCreatedAt ? formatCollectedAt(group.latestCreatedAt) : null}
       meta={group.meta}
-      tone={getSourceLibraryTone(groupIndex)}
+      tone={getSourceLibraryToneForSeed(group.id)}
       variant="index"
     />
   );

@@ -5,7 +5,7 @@ import { Panel } from "@/components/ui/panel";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 import type { SourceLibrarySourceContext } from "@/lib/documents/source-library";
 import { SourceLibraryDocumentList } from "./source-library-document-list";
-import { getSourceLibraryTone, SourceLibrarySourceCard } from "./source-library-source-card";
+import { getSourceLibraryToneForSeed, SourceLibrarySourceCard } from "./source-library-source-card";
 
 type SourceLibraryDetailProps = {
   data: GetDocumentsResponseData;
@@ -15,6 +15,7 @@ type SourceLibraryDetailProps = {
 export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) {
   const latestLabel = formatCollectedAt(source.latestCreatedAt);
   const visibleTotal = data.pagination.total;
+  const tone = getSourceLibraryToneForSeed(source.id);
 
   return (
     <section className="space-y-6">
@@ -34,7 +35,7 @@ export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) 
           label={source.label}
           latestLabel={latestLabel}
           meta={source.meta}
-          tone={getSourceLibraryTone(0)}
+          tone={tone}
           variant="hero"
         />
 
@@ -42,7 +43,7 @@ export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) 
           <div className="space-y-3">
             <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">Source detail</p>
             <div className="space-y-2">
-              <h2 className="font-ui-heading text-[2.4rem] leading-[0.96] tracking-[-0.05em] text-[color:var(--text-primary)]">
+              <h2 className="max-w-full font-ui-heading text-[clamp(2rem,4.4vw,3.1rem)] leading-[0.96] tracking-[-0.05em] text-[color:var(--text-primary)] [overflow-wrap:anywhere]">
                 {source.label}
               </h2>
               <p className="max-w-2xl text-[15px] leading-7 text-[color:var(--text-secondary)]">
@@ -60,7 +61,7 @@ export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) 
       </div>
 
       {data.items.length > 0 ? (
-        <SourceLibraryDocumentList items={data.items} toneIndex={0} />
+        <SourceLibraryDocumentList items={data.items} toneSeed={source.id} />
       ) : (
         <Panel className="px-8 py-12 text-center" tone="muted">
           <div className="mx-auto max-w-lg space-y-3">

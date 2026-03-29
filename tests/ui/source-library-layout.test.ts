@@ -29,10 +29,12 @@ test("source library index uses large clickable source cards instead of inline a
   assert.match(sourceLibrary, /SourceLibraryIndex/);
   assert.match(sourceLibrary, /SourceLibraryIndexCard/);
   assert.match(sourceLibrary, /href=\{group\.href/);
+  assert.match(sourceLibrary, /getSourceLibraryToneForSeed\(group\.id\)/);
   assert.match(sourceLibrary, /grid-cols-\[repeat\(auto-fit,minmax\(15rem,1fr\)\)\]/);
   assert.doesNotMatch(sourceLibrary, /SourceLibraryItemCard/);
   assert.doesNotMatch(sourceLibrary, /divide-y divide-\[color:var\(--border-subtle\)\]/);
   assert.match(sourceCard, /h-\[17\.5rem\]/);
+  assert.match(sourceCard, /\[overflow-wrap:anywhere\]/);
   assert.match(sourceCard, /group-hover:shadow-\[var\(--shadow-surface\)\]/);
 });
 
@@ -40,6 +42,7 @@ test("source detail routes use a dedicated detail surface", () => {
   const feedPage = readWorkspaceFile("src/app/(main)/sources/feed/[feedId]/page.tsx");
   const domainPage = readWorkspaceFile("src/app/(main)/sources/domain/[hostname]/page.tsx");
   const detailComponent = readWorkspaceFile("src/components/library/source-library-detail.tsx");
+  const documentList = readWorkspaceFile("src/components/library/source-library-document-list.tsx");
   const detailPage = readWorkspaceFile("src/app/(main)/sources/source-detail-page.tsx");
 
   assert.match(feedPage, /SourceDetailPage/);
@@ -49,6 +52,11 @@ test("source detail routes use a dedicated detail surface", () => {
   assert.match(detailPage, /SourceLibraryDetail/);
   assert.match(detailPage, /getDocuments/);
   assert.match(detailComponent, /SourceLibraryDocumentList/);
+  assert.match(detailComponent, /getSourceLibraryToneForSeed\(source\.id\)/);
+  assert.match(detailComponent, /toneSeed=\{source\.id\}/);
+  assert.match(detailComponent, /\[overflow-wrap:anywhere\]/);
+  assert.match(documentList, /toneSeed\?: string/);
+  assert.match(documentList, /getSourceLibraryToneForSeed\(toneSeed\)/);
   assert.match(detailComponent, /返回来源库/);
   assert.match(detailComponent, /Source detail/);
 });

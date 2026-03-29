@@ -1,15 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, TextInput } from "@/components/ui/form-controls";
+import {
+  resolveCaptureUrlSubmitSuccess,
+  type CaptureUrlSubmitSuccess,
+} from "@/lib/capture/capture-url-submit-result";
 import { cx } from "@/utils/cx";
 
 type CaptureUrlApiResponse =
   | {
       ok: true;
       data: {
+        deduped: boolean;
         document: {
           id: string;
         };
@@ -31,6 +37,7 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<CaptureUrlSubmitSuccess | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPending, startTransition] = useTransition();
   const isCompact = variant === "compact";
@@ -38,6 +45,7 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSuccess(null);
     setIsSubmitting(true);
 
     try {
@@ -56,8 +64,15 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
         return;
       }
 
+      const submitResult = resolveCaptureUrlSubmitSuccess(payload.data);
+      if (submitResult.kind === "deduped") {
+        setSuccess(submitResult);
+        setUrl("");
+        return;
+      }
+
       startTransition(() => {
-        router.push("/sources");
+        router.push(submitResult.href);
         router.refresh();
       });
     } catch {
@@ -88,7 +103,12 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
         <Field className={cx(isCompact ? "min-w-0 flex-1" : undefined)} label="网页链接">
           <TextInput
             className={cx(isCompact ? "min-h-10 rounded-[16px]" : undefined)}
-            onChange={(event) => setUrl(event.target.value)}
+            onChange={(event) => {
+              setUrl(event.target.value);
+              if (success) {
+                setSuccess(null);
+              }
+            }}
             placeholder="https://example.com/article"
             type="url"
             value={url}
@@ -110,6 +130,20 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
         <p className="rounded-[18px] border border-[color:var(--badge-danger-bg)] bg-[color:var(--badge-danger-bg)] px-4 py-3 text-sm text-[color:var(--badge-danger-text)]">
           {error}
         </p>
+      ) : null}
+
+      {success?.kind === "deduped" ? (
+        <div className="rounded-[18px] border border-[color:var(--badge-success-bg)] bg-[color:var(--badge-success-bg)] px-4 py-3 text-sm text-[color:var(--badge-success-text)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p>{success.message}</p>
+            <Link
+              className="inline-flex min-h-9 items-center justify-center rounded-[16px] border border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] px-3.5 text-sm font-semibold text-[color:var(--text-primary)] transition hover:border-[color:var(--text-primary)] hover:bg-[color:var(--button-secondary-hover-bg)]"
+              href={success.actionHref}
+            >
+              {success.actionLabel}
+            </Link>
+          </div>
+        </div>
       ) : null}
     </form>
   );
