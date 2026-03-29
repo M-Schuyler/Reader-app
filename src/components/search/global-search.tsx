@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { TextInput } from "@/components/ui/form-controls";
+import { resolveGlobalSearchPanelState } from "@/lib/search/global-search-panel";
 import { cx } from "@/utils/cx";
 import type { ApiError, ApiSuccess } from "@/server/api/response";
 import type { QuickSearchResponseData } from "@/server/modules/documents/document.types";
@@ -24,10 +25,18 @@ export function GlobalSearch() {
   const [error, setError] = useState<string | null>(null);
   const inputId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const trimmedQuery = query.trim();
-  const showResults = open && Boolean(trimmedQuery) && (isLoading || results.length > 0 || Boolean(error));
   const viewAllHref = trimmedQuery ? `/sources?q=${encodeURIComponent(trimmedQuery)}` : "/sources";
+  const panelState = resolveGlobalSearchPanelState({
+    error,
+    isLoading,
+    open,
+    query,
+    resultsCount: results.length,
+  });
+  const showPanel = panelState.kind !== "closed";
 
   useEffect(() => {
     setOpen(false);
@@ -100,6 +109,11 @@ export function GlobalSearch() {
 
   const activeResult = useMemo(() => results[activeIndex] ?? null, [activeIndex, results]);
 
+  function focusSearch() {
+    setOpen(true);
+    inputRef.current?.focus();
+  }
+
   function navigateToDocument(id: string) {
     setOpen(false);
     setQuery("");
@@ -124,23 +138,28 @@ export function GlobalSearch() {
         <label className="sr-only" htmlFor={inputId}>
           全局搜索
         </label>
+        <button
+          aria-label="打开搜索"
+          className="absolute left-2 top-1/2 z-10 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[color:var(--text-tertiary)] transition hover:bg-[color:var(--bg-surface-soft)] hover:text-[color:var(--text-primary)]"
+          onClick={focusSearch}
+          type="button"
+        >
+          <SearchIcon />
+        </button>
         <TextInput
           autoComplete="off"
-          className="min-h-10 rounded-full bg-[color:var(--bg-surface)] pl-10 pr-4"
+          className="min-h-10 rounded-full bg-[color:var(--bg-surface)] pl-11 pr-4 lg:min-w-[15rem]"
           id={inputId}
+          ref={inputRef}
           onChange={(event) => setQuery(event.target.value)}
-          onFocus={() => {
-            if (trimmedQuery) {
-              setOpen(true);
-            }
-          }}
+          onFocus={() => setOpen(true)}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               setOpen(false);
               return;
             }
 
-            if (!showResults || results.length === 0) {
+            if (panelState.kind !== "results" || results.length === 0) {
               return;
             }
 
@@ -158,18 +177,22 @@ export function GlobalSearch() {
           type="search"
           value={query}
         />
-        <SearchIcon />
       </form>
 
-      {showResults ? (
+      {showPanel ? (
         <div className="absolute inset-x-0 top-[calc(100%+0.55rem)] z-40 overflow-hidden rounded-[24px] border border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] shadow-[var(--shadow-surface)]">
           <div className="max-h-[26rem] overflow-y-auto p-2">
-            {isLoading ? (
+            {panelState.kind === "idle" ? (
+              <div className="px-4 py-4">
+                <p className="text-sm font-medium text-[color:var(--text-primary)]">{panelState.title}</p>
+                <p className="mt-1.5 text-sm leading-6 text-[color:var(--text-secondary)]">{panelState.description}</p>
+              </div>
+            ) : panelState.kind === "loading" ? (
               <div className="px-4 py-4 text-sm text-[color:var(--text-secondary)]">搜索中…</div>
-            ) : error ? (
-              <div className="px-4 py-4 text-sm text-[color:var(--badge-danger-text)]">{error}</div>
-            ) : results.length === 0 ? (
-              <div className="px-4 py-4 text-sm text-[color:var(--text-secondary)]">没有匹配结果。</div>
+            ) : panelState.kind === "error" ? (
+              <div className="px-4 py-4 text-sm text-[color:var(--badge-danger-text)]">{panelState.message}</div>
+            ) : panelState.kind === "empty" ? (
+              <div className="px-4 py-4 text-sm text-[color:var(--text-secondary)]">{panelState.message}</div>
             ) : (
               results.map((item, index) => (
                 <button
@@ -221,7 +244,7 @@ function SearchIcon() {
   return (
     <svg
       aria-hidden="true"
-      className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[color:var(--text-tertiary)]"
+      className="h-4.5 w-4.5"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
