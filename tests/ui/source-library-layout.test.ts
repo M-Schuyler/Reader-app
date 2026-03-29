@@ -27,8 +27,10 @@ test("source library toolbar and shelves expose the new bookroom structure", () 
   assert.match(sourceLibrary, /更早/);
   assert.match(sourceLibrary, /SourceLibraryShelf/);
   assert.match(sourceLibrary, /SourceLibrarySourceGroup/);
+  assert.match(sourceLibrary, /SourceLibrarySourceRail/);
   assert.match(sourceLibrary, /SourceLibraryItemCard/);
   assert.match(sourceLibrary, /SourceLibraryCover/);
+  assert.match(sourceLibrary, /xl:grid-cols-\[15rem_minmax\(0,1fr\)\]/);
   assert.match(sourceLibrary, /w-\[8\.75rem\]/);
   assert.match(sourceLibrary, /h-\[11\.5rem\]/);
   assert.match(sourceLibrary, /sm:items-start/);

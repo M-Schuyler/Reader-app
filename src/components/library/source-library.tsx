@@ -116,32 +116,58 @@ function SourceLibrarySourceGroup({
   const latestLabel = group.latestCreatedAt ? formatCollectedAt(group.latestCreatedAt) : null;
 
   return (
-    <article className="rounded-[32px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-4 shadow-[var(--shadow-surface-muted)] sm:px-5">
-      <div className="grid gap-3 border-b border-[color:var(--border-subtle)] pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h3 className="font-ui-heading text-[1.18rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+    <article className="rounded-[32px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-4 shadow-[var(--shadow-surface-muted)] sm:p-5">
+      <div className="grid gap-4 xl:grid-cols-[15rem_minmax(0,1fr)] xl:items-stretch">
+        <SourceLibrarySourceRail group={group} latestLabel={latestLabel} />
+        <SourceLibrarySourceItems group={group} tone={tone} />
+      </div>
+    </article>
+  );
+}
+
+function SourceLibrarySourceRail({
+  group,
+  latestLabel,
+}: {
+  group: SourceLibrarySourceGroup;
+  latestLabel: string | null;
+}) {
+  return (
+    <aside className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.42)]">
+      <div className="flex h-full flex-col gap-4">
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+            {group.sourceKind === "feed" ? "Feed Source" : group.sourceKind === "domain" ? "Web Source" : "Collected"}
+          </p>
+          <div className="space-y-1.5">
+            <h3 className="font-ui-heading text-[1.3rem] leading-[1.08] tracking-[-0.035em] text-[color:var(--text-primary)]">
               {group.label}
             </h3>
-            <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-              {group.sourceKind === "feed" ? "Feed" : group.sourceKind === "domain" ? "Source" : "Collected"}
-            </span>
+            <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
+              {group.host && group.host !== group.label ? group.host : "统一来源"}
+            </p>
           </div>
-          <p className="text-sm text-[color:var(--text-secondary)]">
-            {group.host && group.host !== group.label ? group.host : "统一来源"}
-          </p>
         </div>
 
-        <div className="flex items-center gap-3 text-sm text-[color:var(--text-tertiary)] sm:justify-end">
-          {latestLabel ? <span>最近 {latestLabel}</span> : null}
-          <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-[13px] text-[color:var(--text-secondary)]">
-            {group.meta}
-          </span>
+        <div className="grid gap-3 border-y border-[color:var(--border-subtle)] py-3">
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[color:var(--text-tertiary)]">规模</p>
+            <p className="font-ui-heading text-[1.05rem] leading-none tracking-[-0.03em] text-[color:var(--text-primary)]">
+              {group.meta}
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[color:var(--text-tertiary)]">最近收入库</p>
+            <p className="text-sm text-[color:var(--text-secondary)]">{latestLabel ?? "时间未知"}</p>
+          </div>
         </div>
+
+        <p className="mt-auto text-sm leading-6 text-[color:var(--text-secondary)]">
+          这个来源下的内容先排成一列，再从里面挑你真正想读的。
+        </p>
       </div>
-
-      <SourceLibrarySourceItems group={group} tone={tone} />
-    </article>
+    </aside>
   );
 }
 
@@ -153,7 +179,7 @@ function SourceLibrarySourceItems({
   tone: (typeof SOURCE_SPINE_TONES)[number];
 }) {
   return (
-    <div className="pt-4">
+    <div className="min-w-0">
       <div className="overflow-hidden rounded-[24px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)]">
         <div className="divide-y divide-[color:var(--border-subtle)]">
           {group.items.map((item) => (
