@@ -24,7 +24,7 @@ test("archiveLocalBuildArtifacts moves stale Next artifacts out of the workspace
   assert.equal(await pathExists(path.join(workspaceDir, "src")), true);
 
   for (const entry of archived) {
-    assert.equal(entry.archivedPath.startsWith(path.join(sandboxRoot, ".reader-build-trash", "reader-app")), true);
+    assert.equal(entry.archivedPath.startsWith(path.join(workspaceDir, ".reader-build-trash")), true);
     assert.equal(await pathExists(entry.archivedPath), true);
   }
 });

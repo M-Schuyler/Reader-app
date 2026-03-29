@@ -12,5 +12,6 @@ prisma/dev.db
 .env*.local
 .worktrees
 .qa-artifacts
+.reader-build-trash
 test-results
 tsconfig.tsbuildinfo

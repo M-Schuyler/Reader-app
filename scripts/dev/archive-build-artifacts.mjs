@@ -16,7 +16,7 @@ export async function archiveLocalBuildArtifacts({ cwd }) {
     return [];
   }
 
-  const trashRoot = path.join(path.dirname(cwd), BUILD_TRASH_DIRECTORY, path.basename(cwd));
+  const trashRoot = path.join(cwd, BUILD_TRASH_DIRECTORY);
   await fs.mkdir(trashRoot, { recursive: true });
 
   const stamp = Date.now();
