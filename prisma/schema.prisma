@@ -38,6 +38,11 @@ enum PublishedAtKind {
   UNKNOWN
 }
 
+enum SourceAliasKind {
+  FEED
+  DOMAIN
+}
+
 enum IngestionJobKind {
   FETCH_WEB_PAGE
   IMPORT_FEED_ITEM
@@ -70,6 +75,19 @@ model Feed {
   @@unique([feedUrl])
   @@index([isActive])
   @@index([lastSyncedAt])
+}
+
+model SourceAlias {
+  id        String          @id @default(cuid())
+  kind      SourceAliasKind
+  value     String
+  name      String
+
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([kind, value])
+  @@index([kind, name])
 }
 
 model Document {

@@ -2,8 +2,9 @@ import type { AiSummaryStatus, DocumentType, IngestionStatus, PublishedAtKind, R
 
 export type DocumentListSort = "latest" | "earliest";
 export type DocumentSurface = "source" | "reading";
+export type SourceAliasTargetKind = "feed" | "domain";
 export type DocumentSourceFilter = {
-  kind: "feed" | "domain";
+  kind: SourceAliasTargetKind;
   value: string;
 };
 
@@ -126,6 +127,12 @@ export type UpdateDocumentFavoriteInput = {
   regenerateAiSummary?: boolean;
 };
 
+export type UpdateSourceAliasInput = {
+  kind: SourceAliasTargetKind;
+  value: string;
+  name: string | null;
+};
+
 export type UpdateDocumentFavoriteResponseData = {
   document: DocumentDetail;
   summary: {
@@ -133,6 +140,18 @@ export type UpdateDocumentFavoriteResponseData = {
     source: AiSummarySource | null;
     error: GenerateAiSummaryError | null;
   };
+};
+
+export type UpdateSourceAliasResponseData = {
+  alias: {
+    kind: SourceAliasTargetKind;
+    value: string;
+    name: string;
+  } | null;
+};
+
+export type DeleteDocumentResponseData = {
+  id: string;
 };
 
 export type CaptureUrlResponseData = {

@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { TextInput } from "@/components/ui/form-controls";
 import { Panel } from "@/components/ui/panel";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 import type { SourceLibrarySourceContext } from "@/lib/documents/source-library";
@@ -43,9 +47,18 @@ export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) 
           <div className="space-y-3">
             <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">Source detail</p>
             <div className="space-y-2">
-              <h2 className="max-w-full font-ui-heading text-[clamp(2rem,4.4vw,3.1rem)] leading-[0.96] tracking-[-0.05em] text-[color:var(--text-primary)] [overflow-wrap:anywhere]">
-                {source.label}
-              </h2>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-2">
+                  <h2 className="max-w-full font-ui-heading text-[clamp(2rem,4.4vw,3.1rem)] leading-[0.96] tracking-[-0.05em] text-[color:var(--text-primary)] [overflow-wrap:anywhere]">
+                    {source.label}
+                  </h2>
+                  {source.customLabel ? (
+                    <p className="text-sm text-[color:var(--text-tertiary)] [overflow-wrap:anywhere]">{source.defaultLabel}</p>
+                  ) : null}
+                </div>
+
+                <SourceAliasEditor source={source} />
+              </div>
               <p className="max-w-2xl text-[15px] leading-7 text-[color:var(--text-secondary)]">
                 这个来源下共有 {source.totalItems} 篇内容。当前筛选下能看到 {visibleTotal} 篇，保留同一来源的阅读脉络，不再被总书架打散。
               </p>
@@ -61,7 +74,7 @@ export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) 
       </div>
 
       {data.items.length > 0 ? (
-        <SourceLibraryDocumentList items={data.items} toneSeed={source.id} />
+        <SourceLibraryDocumentList emptyRedirectHref="/sources" items={data.items} sourceTotalItems={source.totalItems} toneSeed={source.id} />
       ) : (
         <Panel className="px-8 py-12 text-center" tone="muted">
           <div className="mx-auto max-w-lg space-y-3">
@@ -76,6 +89,101 @@ export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) 
         </Panel>
       )}
     </section>
+  );
+}
+
+function SourceAliasEditor({ source }: { source: SourceLibrarySourceContext }) {
+  const router = useRouter();
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(source.customLabel ?? source.label);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  if (source.kind === "unknown" || !source.value) {
+    return null;
+  }
+
+  async function submitAlias(nextName: string | null) {
+    setError(null);
+
+    try {
+      const response = await fetch("/api/sources/alias", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          kind: source.kind,
+          value: source.value,
+          name: nextName,
+        }),
+      });
+
+      const payload = (await response.json()) as
+        | { ok: true }
+        | {
+            ok: false;
+            error: {
+              message: string;
+            };
+          };
+
+      if (!payload.ok) {
+        setError(payload.error.message);
+        return;
+      }
+
+      setIsEditing(false);
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch {
+      setError("保存书架名称失败，请稍后再试。");
+    }
+  }
+
+  return (
+    <div className="space-y-2 lg:max-w-[17rem]">
+      {isEditing ? (
+        <>
+          <TextInput
+            className="min-h-10 rounded-[16px]"
+            onChange={(event) => setValue(event.target.value)}
+            value={value}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={isPending} onClick={() => submitAlias(value)} size="sm" variant="primary">
+              {isPending ? "保存中…" : "保存名称"}
+            </Button>
+            {source.customLabel ? (
+              <Button disabled={isPending} onClick={() => submitAlias(null)} size="sm" variant="secondary">
+                恢复默认
+              </Button>
+            ) : null}
+            <Button
+              disabled={isPending}
+              onClick={() => {
+                setError(null);
+                setIsEditing(false);
+                setValue(source.customLabel ?? source.label);
+              }}
+              size="sm"
+              variant="quiet"
+            >
+              取消
+            </Button>
+          </div>
+          {error ? <p className="text-sm text-[color:var(--badge-danger-text)]">{error}</p> : null}
+        </>
+      ) : (
+        <div className="space-y-2">
+          <Button onClick={() => setIsEditing(true)} size="sm" variant="secondary">
+            {source.customLabel ? "重命名书架" : "自定义命名"}
+          </Button>
+          <p className="text-xs leading-6 text-[color:var(--text-tertiary)]">可以给这个一级书架起一个你更容易识别的名字。</p>
+        </div>
+      )}
+    </div>
   );
 }
 

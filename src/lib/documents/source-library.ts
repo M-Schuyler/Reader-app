@@ -5,10 +5,20 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
 
 export type SourceLibrarySourceKind = "feed" | "domain" | "unknown";
+export type SourceAliasLookup = {
+  kind: Exclude<SourceLibrarySourceKind, "unknown">;
+  value: string;
+};
+export type SourceAliasRecord = SourceAliasLookup & {
+  name: string;
+};
+export type SourceAliasMap = Record<string, string>;
 
 export type SourceLibrarySourceIdentity = {
   id: string;
   label: string;
+  defaultLabel: string;
+  customLabel: string | null;
   host: string | null;
   kind: SourceLibrarySourceKind;
   value: string | null;
@@ -18,6 +28,8 @@ export type SourceLibrarySourceIdentity = {
 export type SourceLibrarySourceGroup = {
   id: SourceLibrarySourceIdentity["id"];
   label: SourceLibrarySourceIdentity["label"];
+  defaultLabel: SourceLibrarySourceIdentity["defaultLabel"];
+  customLabel: SourceLibrarySourceIdentity["customLabel"];
   meta: string;
   host: SourceLibrarySourceIdentity["host"];
   latestCreatedAt: string;
@@ -61,6 +73,7 @@ const SOURCE_SHELF_META: Record<SourceShelfSection["key"], Omit<SourceShelfSecti
 export function buildSourceShelfSections(
   items: DocumentListItem[],
   now: Date = new Date(),
+  aliasMap: SourceAliasMap = {},
 ): SourceShelfSection[] {
   const sortedItems = [...items].sort((left, right) => {
     return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
@@ -72,7 +85,7 @@ export function buildSourceShelfSections(
   >();
 
   for (const item of sortedItems) {
-    const identity = resolveSourceLibrarySourceIdentity(item);
+    const identity = resolveSourceLibrarySourceIdentity(item, aliasMap);
     const group = groupedBySource.get(identity.id);
 
     if (group) {
@@ -122,8 +135,9 @@ export function resolveSourceLibraryPreviewText(item: DocumentListItem) {
 export function buildSourceLibrarySourceContext(
   item: DocumentListItem,
   totalItems: number,
+  aliasMap: SourceAliasMap = {},
 ): SourceLibrarySourceContext {
-  const identity = resolveSourceLibrarySourceIdentity(item);
+  const identity = resolveSourceLibrarySourceIdentity(item, aliasMap);
 
   return {
     ...identity,
@@ -131,6 +145,42 @@ export function buildSourceLibrarySourceContext(
     meta: `${totalItems} 篇文章`,
     totalItems,
   };
+}
+
+export function buildSourceAliasMap(aliases: SourceAliasRecord[]): SourceAliasMap {
+  return Object.fromEntries(aliases.map((alias) => [buildSourceAliasKey(alias.kind, alias.value), alias.name]));
+}
+
+export function collectSourceAliasLookups(items: DocumentListItem[]): SourceAliasLookup[] {
+  const unique = new Map<string, SourceAliasLookup>();
+
+  for (const item of items) {
+    if (item.feed?.id) {
+      const lookup = {
+        kind: "feed" as const,
+        value: item.feed.id,
+      };
+      unique.set(buildSourceAliasKey(lookup.kind, lookup.value), lookup);
+      continue;
+    }
+
+    const host = resolveSourceHost(item);
+    if (!host) {
+      continue;
+    }
+
+    const lookup = {
+      kind: "domain" as const,
+      value: host,
+    };
+    unique.set(buildSourceAliasKey(lookup.kind, lookup.value), lookup);
+  }
+
+  return [...unique.values()];
+}
+
+export function buildSourceAliasKey(kind: SourceAliasLookup["kind"], value: string) {
+  return `${kind}:${value}`;
 }
 
 function resolveShelfKey(createdAt: string, now: Date): SourceShelfSection["key"] {
@@ -157,11 +207,18 @@ function normalizePreviewText(value: string | null) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function resolveSourceLibrarySourceIdentity(item: DocumentListItem): SourceLibrarySourceIdentity {
+export function resolveSourceLibrarySourceIdentity(
+  item: DocumentListItem,
+  aliasMap: SourceAliasMap = {},
+): SourceLibrarySourceIdentity {
   if (item.feed?.title) {
+    const defaultLabel = item.feed.title;
+    const customLabel = aliasMap[buildSourceAliasKey("feed", item.feed.id)] ?? null;
     return {
       id: `source:feed:${item.feed.id}`,
-      label: item.feed.title,
+      label: customLabel ?? defaultLabel,
+      defaultLabel,
+      customLabel,
       host: resolveSourceHost(item),
       kind: "feed",
       value: item.feed.id,
@@ -171,9 +228,12 @@ export function resolveSourceLibrarySourceIdentity(item: DocumentListItem): Sour
 
   const host = resolveSourceHost(item);
   if (host) {
+    const customLabel = aliasMap[buildSourceAliasKey("domain", host)] ?? null;
     return {
       id: `source:domain:${host}`,
-      label: host,
+      label: customLabel ?? host,
+      defaultLabel: host,
+      customLabel,
       host,
       kind: "domain",
       value: host,
@@ -186,6 +246,8 @@ export function resolveSourceLibrarySourceIdentity(item: DocumentListItem): Sour
   return {
     id: `source:url:${fallbackSource}`,
     label: "未知来源",
+    defaultLabel: "未知来源",
+    customLabel: null,
     host: null,
     kind: "unknown",
     value: null,

@@ -1,6 +1,14 @@
-import { AiSummaryStatus, DocumentType, IngestionStatus, Prisma, PublishedAtKind, ReadState } from "@prisma/client";
+import {
+  AiSummaryStatus,
+  DocumentType,
+  IngestionStatus,
+  Prisma,
+  PublishedAtKind,
+  ReadState,
+  SourceAliasKind,
+} from "@prisma/client";
 import { prisma } from "@/server/db/client";
-import type { DocumentListQuery, DocumentListSort } from "./document.types";
+import type { DocumentListQuery, DocumentListSort, SourceAliasTargetKind } from "./document.types";
 
 export const documentListArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
   include: {
@@ -75,6 +83,15 @@ export async function getDocumentById(id: string) {
   });
 }
 
+export async function deleteDocumentById(id: string) {
+  return prisma.document.delete({
+    where: { id },
+    select: {
+      id: true,
+    },
+  });
+}
+
 export async function markDocumentEnteredReading(id: string) {
   return prisma.document.updateMany({
     where: {
@@ -94,6 +111,49 @@ export async function updateDocumentFavorite(id: string, isFavorite: boolean) {
       isFavorite,
     },
     ...documentDetailArgs,
+  });
+}
+
+export async function listSourceAliases(inputs: Array<{ kind: SourceAliasTargetKind; value: string }>) {
+  if (inputs.length === 0) {
+    return [];
+  }
+
+  return prisma.sourceAlias.findMany({
+    where: {
+      OR: inputs.map((input) => ({
+        kind: toSourceAliasKind(input.kind),
+        value: input.value,
+      })),
+    },
+  });
+}
+
+export async function upsertSourceAlias(input: { kind: SourceAliasTargetKind; value: string; name: string }) {
+  return prisma.sourceAlias.upsert({
+    where: {
+      kind_value: {
+        kind: toSourceAliasKind(input.kind),
+        value: input.value,
+      },
+    },
+    create: {
+      kind: toSourceAliasKind(input.kind),
+      value: input.value,
+      name: input.name,
+    },
+    update: {
+      name: input.name,
+    },
+  });
+}
+
+export async function deleteSourceAlias(input: { kind: SourceAliasTargetKind; value: string }) {
+  return prisma.sourceAlias.deleteMany({
+    where: {
+      kind: toSourceAliasKind(input.kind),
+      value: input.value,
+    },
   });
 }
 
@@ -417,6 +477,16 @@ function buildDocumentWhere(query: DocumentListQuery): Prisma.DocumentWhereInput
   }
 
   return clauses.length > 0 ? { AND: clauses } : {};
+}
+
+function toSourceAliasKind(kind: SourceAliasTargetKind) {
+  switch (kind) {
+    case "feed":
+      return SourceAliasKind.FEED;
+    case "domain":
+    default:
+      return SourceAliasKind.DOMAIN;
+  }
 }
 
 function buildDocumentSourceWhere(source: NonNullable<DocumentListQuery["source"]>): Prisma.DocumentWhereInput {

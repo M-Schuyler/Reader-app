@@ -2,6 +2,7 @@
 
 import { Panel } from "@/components/ui/panel";
 import {
+  type SourceAliasMap,
   buildSourceShelfSections,
   type SourceLibrarySourceGroup,
   type SourceShelfSection,
@@ -11,10 +12,11 @@ import { getSourceLibraryToneForSeed, SourceLibrarySourceCard } from "./source-l
 
 type SourceLibraryIndexProps = {
   data: GetDocumentsResponseData;
+  aliasMap?: SourceAliasMap;
 };
 
-export function SourceLibraryIndex({ data }: SourceLibraryIndexProps) {
-  const sections = buildSourceShelfSections(data.items);
+export function SourceLibraryIndex({ data, aliasMap }: SourceLibraryIndexProps) {
+  const sections = buildSourceShelfSections(data.items, new Date(), aliasMap);
 
   if (sections.length === 0) {
     return (

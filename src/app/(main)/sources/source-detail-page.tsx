@@ -11,7 +11,7 @@ import {
   resolveSourceSearchParams,
 } from "@/lib/documents/source-library-query";
 import type { DocumentSourceFilter } from "@/server/modules/documents/document.types";
-import { getDocuments } from "@/server/modules/documents/document.service";
+import { getDocuments, getSourceAliasMapForSources } from "@/server/modules/documents/document.service";
 
 type SourceDetailPageProps = {
   basePath: string;
@@ -43,7 +43,8 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
     notFound();
   }
 
-  const sourceContext = buildSourceLibrarySourceContext(representativeItem, overviewData.pagination.total);
+  const sourceAliasMap = await getSourceAliasMapForSources([source]);
+  const sourceContext = buildSourceLibrarySourceContext(representativeItem, overviewData.pagination.total, sourceAliasMap);
   const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.sort !== "latest");
   const clearHref = buildSourceLibraryClearHref(basePath, data.filters);
   const contextChips = buildSourceContextChips(data.filters);

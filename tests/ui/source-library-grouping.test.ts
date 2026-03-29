@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AiSummaryStatus, DocumentType, IngestionStatus, PublishedAtKind, ReadState } from "@prisma/client";
 import {
+  buildSourceAliasMap,
+  buildSourceLibrarySourceContext,
   buildSourceShelfSections,
   resolveSourceLibraryPreviewText,
 } from "@/lib/documents/source-library";
@@ -160,6 +162,82 @@ test("source shelf groups prefer feed title and fall back to hostname", () => {
       },
     ],
   );
+});
+
+test("source aliases override displayed shelf names without changing source identity", () => {
+  const aliasMap = buildSourceAliasMap([
+    {
+      kind: "domain",
+      name: "微信公众号",
+      value: "mp.weixin.qq.com",
+    },
+    {
+      kind: "feed",
+      name: "凯的通讯",
+      value: "feed-1",
+    },
+  ]);
+  const now = new Date("2026-03-28T12:00:00.000Z");
+  const [recentSection] = buildSourceShelfSections(
+    [
+      createListItem({
+        id: "feed-a",
+        createdAt: "2026-03-28T10:10:00.000Z",
+        feed: {
+          id: "feed-1",
+          title: "Kai Dispatch",
+        },
+        canonicalUrl: "https://mp.weixin.qq.com/s/story-1",
+        sourceUrl: "https://mp.weixin.qq.com/s/story-1",
+      }),
+      createListItem({
+        id: "domain-a",
+        createdAt: "2026-03-28T09:10:00.000Z",
+        feed: null,
+        canonicalUrl: "https://mp.weixin.qq.com/s/story-2",
+        sourceUrl: "https://mp.weixin.qq.com/s/story-2",
+      }),
+    ],
+    now,
+    aliasMap,
+  );
+
+  assert.deepEqual(
+    recentSection.groups.map((group) => ({
+      customLabel: group.customLabel,
+      defaultLabel: group.defaultLabel,
+      id: group.id,
+      label: group.label,
+    })),
+    [
+      {
+        customLabel: "凯的通讯",
+        defaultLabel: "Kai Dispatch",
+        id: "source:feed:feed-1",
+        label: "凯的通讯",
+      },
+      {
+        customLabel: "微信公众号",
+        defaultLabel: "mp.weixin.qq.com",
+        id: "source:domain:mp.weixin.qq.com",
+        label: "微信公众号",
+      },
+    ],
+  );
+
+  const sourceContext = buildSourceLibrarySourceContext(
+    createListItem({
+      id: "domain-context",
+      canonicalUrl: "https://mp.weixin.qq.com/s/story-3",
+      sourceUrl: "https://mp.weixin.qq.com/s/story-3",
+    }),
+    3,
+    aliasMap,
+  );
+
+  assert.equal(sourceContext.label, "微信公众号");
+  assert.equal(sourceContext.defaultLabel, "mp.weixin.qq.com");
+  assert.equal(sourceContext.customLabel, "微信公众号");
 });
 
 test("source shelf keeps one top-level cover per source based on the latest arrival", () => {

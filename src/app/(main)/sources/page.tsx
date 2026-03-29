@@ -6,7 +6,8 @@ import {
   parseSourceLibraryQuery,
   resolveSourceSearchParams,
 } from "@/lib/documents/source-library-query";
-import { getDocuments } from "@/server/modules/documents/document.service";
+import { collectSourceAliasLookups } from "@/lib/documents/source-library";
+import { getDocuments, getSourceAliasMapForSources } from "@/server/modules/documents/document.service";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
     ...parsedQuery,
     surface: "source",
   });
+  const sourceAliasMap = await getSourceAliasMapForSources(collectSourceAliasLookups(data.items));
   const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.sort !== "latest");
   const clearHref = buildSourceLibraryClearHref("/sources", data.filters);
   const contextChips = buildSourceContextChips(data.filters);
@@ -51,7 +53,7 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
 
       <SourceLibraryToolbar clearHref={clearHref} filters={data.filters} hasActiveFilters={hasActiveFilters} />
 
-      <SourceLibraryIndex data={data} />
+      <SourceLibraryIndex aliasMap={sourceAliasMap} data={data} />
     </section>
   );
 }

@@ -1,21 +1,31 @@
 import { DocumentType, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
+import { buildSourceAliasMap } from "@/lib/documents/source-library";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
 import {
+  deleteDocumentById,
+  deleteSourceAlias,
   getDocumentById,
   listQuickSearchDocuments,
   listDocuments,
+  listSourceAliases,
   markDocumentEnteredReading,
+  upsertSourceAlias,
   updateDocumentFavorite,
 } from "./document.repository";
 import type {
+  DeleteDocumentResponseData,
   DocumentListQuery,
   DocumentListSort,
   DocumentSurface,
+  DocumentSourceFilter,
   GenerateAiSummaryError,
   GetDocumentResponseData,
   GetDocumentsResponseData,
   QuickSearchResponseData,
+  SourceAliasTargetKind,
+  UpdateSourceAliasInput,
+  UpdateSourceAliasResponseData,
   UpdateDocumentFavoriteInput,
   UpdateDocumentFavoriteResponseData,
 } from "./document.types";
@@ -144,6 +154,59 @@ export async function updateDocumentFavoriteStatus(
   };
 }
 
+export async function deleteDocument(id: string): Promise<DeleteDocumentResponseData | null> {
+  const existingDocument = await getDocumentById(id);
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  const deleted = await deleteDocumentById(id);
+  return deleted;
+}
+
+export async function getSourceAliasMapForSources(sources: DocumentSourceFilter[]) {
+  const normalizedSources = dedupeSourceInputs(sources);
+  if (normalizedSources.length === 0) {
+    return {};
+  }
+
+  const aliases = await listSourceAliases(normalizedSources);
+  return buildSourceAliasMap(
+    aliases.map((alias) => ({
+      kind: fromPersistedSourceAliasKind(alias.kind),
+      name: alias.name,
+      value: alias.value,
+    })),
+  );
+}
+
+export async function updateSourceAliasName(
+  input: UpdateSourceAliasInput,
+): Promise<UpdateSourceAliasResponseData> {
+  if (input.name === null) {
+    await deleteSourceAlias(input);
+
+    return {
+      alias: null,
+    };
+  }
+
+  const alias = await upsertSourceAlias({
+    kind: input.kind,
+    value: input.value,
+    name: input.name,
+  });
+
+  return {
+    alias: {
+      kind: fromPersistedSourceAliasKind(alias.kind),
+      value: alias.value,
+      name: alias.name,
+    },
+  };
+}
+
 export function parseDocumentListQuery(searchParams: URLSearchParams): DocumentListQuery {
   return {
     surface: parseDocumentSurface(searchParams.get("surface")),
@@ -177,6 +240,36 @@ export function parseUpdateDocumentFavoriteInput(body: unknown): UpdateDocumentF
   return {
     isFavorite,
     regenerateAiSummary,
+  };
+}
+
+export function parseUpdateSourceAliasInput(body: unknown): UpdateSourceAliasInput {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new RouteError("INVALID_BODY", 400, "Request body must be a JSON object.");
+  }
+
+  const kind = (body as { kind?: unknown }).kind;
+  const value = (body as { value?: unknown }).value;
+  const name = (body as { name?: unknown }).name;
+
+  if (kind !== "feed" && kind !== "domain") {
+    throw new RouteError("INVALID_BODY", 400, '"kind" must be "feed" or "domain".');
+  }
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new RouteError("INVALID_BODY", 400, '"value" must be a non-empty string.');
+  }
+
+  if (typeof name !== "string" && name !== null) {
+    throw new RouteError("INVALID_BODY", 400, '"name" must be a string or null.');
+  }
+
+  const trimmedName = typeof name === "string" ? name.trim() : null;
+
+  return {
+    kind,
+    value: value.trim(),
+    name: trimmedName && trimmedName.length > 0 ? trimmedName : null,
   };
 }
 
@@ -273,4 +366,19 @@ function parseDocumentSurface(value: string | null): DocumentSurface {
   }
 
   throw new RouteError("INVALID_QUERY", 400, `Surface "${value}" is invalid.`);
+}
+
+function dedupeSourceInputs(sources: DocumentSourceFilter[]) {
+  const unique = new Map<string, DocumentSourceFilter>();
+
+  for (const source of sources) {
+    const key = `${source.kind}:${source.value}`;
+    unique.set(key, source);
+  }
+
+  return [...unique.values()];
+}
+
+function fromPersistedSourceAliasKind(kind: "FEED" | "DOMAIN"): SourceAliasTargetKind {
+  return kind === "FEED" ? "feed" : "domain";
 }

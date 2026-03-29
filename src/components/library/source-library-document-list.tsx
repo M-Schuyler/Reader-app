@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { IngestionStatus, type DocumentType } from "@prisma/client";
+import { type ApiError, type ApiSuccess } from "@/server/api/response";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { resolveSourceLibraryPreviewText } from "@/lib/documents/source-library";
+import { useState, useTransition } from "react";
 import type { DocumentListItem } from "@/server/modules/documents/document.types";
 import { cx } from "@/utils/cx";
 import { getSourceLibraryToneForSeed, type SourceLibraryTone } from "./source-library-source-card";
@@ -12,16 +16,31 @@ import { getSourceLibraryToneForSeed, type SourceLibraryTone } from "./source-li
 type SourceLibraryDocumentListProps = {
   items: DocumentListItem[];
   toneSeed?: string;
+  sourceTotalItems?: number;
+  emptyRedirectHref?: string;
 };
 
-export function SourceLibraryDocumentList({ items, toneSeed }: SourceLibraryDocumentListProps) {
+type DeleteDocumentApiResponse = ApiSuccess<{ id: string }> | ApiError;
+
+export function SourceLibraryDocumentList({
+  emptyRedirectHref,
+  items,
+  sourceTotalItems,
+  toneSeed,
+}: SourceLibraryDocumentListProps) {
   const tone = getSourceLibraryToneForSeed(toneSeed);
 
   return (
     <div className="overflow-hidden rounded-[28px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)]">
       <div className="divide-y divide-[color:var(--border-subtle)]">
         {items.map((item) => (
-          <SourceLibraryItemCard item={item} key={item.id} tone={tone} />
+          <SourceLibraryItemCard
+            emptyRedirectHref={emptyRedirectHref}
+            item={item}
+            key={item.id}
+            sourceTotalItems={sourceTotalItems}
+            tone={tone}
+          />
         ))}
       </div>
     </div>
@@ -29,17 +48,60 @@ export function SourceLibraryDocumentList({ items, toneSeed }: SourceLibraryDocu
 }
 
 function SourceLibraryItemCard({
+  emptyRedirectHref,
   item,
+  sourceTotalItems,
   tone,
 }: {
+  emptyRedirectHref?: string;
   item: DocumentListItem;
+  sourceTotalItems?: number;
   tone: SourceLibraryTone;
 }) {
+  const router = useRouter();
   const favorite = useDocumentFavoriteController(item);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
   const previewText = resolveSourceLibraryPreviewText(item);
   const shouldShowStatusBadge = item.ingestionStatus !== IngestionStatus.READY;
   const sourcePath = truncateUrl(item.canonicalUrl ?? item.sourceUrl);
+
+  async function handleDelete() {
+    const didConfirm = window.confirm("删除后会一并移除正文、高亮和收藏状态。确认删除这篇文章吗？");
+    if (!didConfirm) {
+      return;
+    }
+
+    setDeleteError(null);
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/documents/${item.id}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json()) as DeleteDocumentApiResponse;
+
+      if (!payload.ok) {
+        setDeleteError(payload.error.message);
+        return;
+      }
+
+      startTransition(() => {
+        if (sourceTotalItems === 1 && emptyRedirectHref) {
+          router.push(emptyRedirectHref);
+          return;
+        }
+
+        router.refresh();
+      });
+    } catch {
+      setDeleteError("删除文章失败，请稍后再试。");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <article className="px-4 py-4 transition hover:bg-[color:var(--bg-field)] sm:px-5">
@@ -80,10 +142,14 @@ function SourceLibraryItemCard({
             buttonLabel={favorite.buttonLabel}
             className="shrink-0"
             isFavorite={favorite.isFavorite}
-            isSubmitting={favorite.isSubmitting}
+            isSubmitting={favorite.isSubmitting || isDeleting || isPending}
             onClick={favorite.toggleFavorite}
           />
+          <Button disabled={isDeleting || isPending} onClick={handleDelete} size="sm" variant="quiet">
+            {isDeleting || isPending ? "删除中…" : "删除"}
+          </Button>
           {favorite.actionError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{favorite.actionError}</p> : null}
+          {deleteError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{deleteError}</p> : null}
         </div>
       </div>
     </article>
