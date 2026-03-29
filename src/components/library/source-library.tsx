@@ -117,9 +117,9 @@ function SourceLibrarySourceGroup({
 
   return (
     <article className="rounded-[32px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-4 shadow-[var(--shadow-surface-muted)] sm:px-5">
-      <div className="flex flex-col gap-3 border-b border-[color:var(--border-subtle)] pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="grid gap-3 border-b border-[color:var(--border-subtle)] pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h3 className="font-ui-heading text-[1.18rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
               {group.label}
             </h3>
@@ -128,19 +128,40 @@ function SourceLibrarySourceGroup({
             </span>
           </div>
           <p className="text-sm text-[color:var(--text-secondary)]">
-            {group.host && group.host !== group.label ? group.host : "统一来源"} · {group.meta}
+            {group.host && group.host !== group.label ? group.host : "统一来源"}
           </p>
         </div>
 
-        {latestLabel ? <p className="text-sm text-[color:var(--text-tertiary)]">最近 {latestLabel}</p> : null}
+        <div className="flex items-center gap-3 text-sm text-[color:var(--text-tertiary)] sm:justify-end">
+          {latestLabel ? <span>最近 {latestLabel}</span> : null}
+          <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-[13px] text-[color:var(--text-secondary)]">
+            {group.meta}
+          </span>
+        </div>
       </div>
 
-      <div className="space-y-3 pt-4">
-        {group.items.map((item) => (
-          <SourceLibraryItemCard item={item} key={item.id} tone={tone} />
-        ))}
-      </div>
+      <SourceLibrarySourceItems group={group} tone={tone} />
     </article>
+  );
+}
+
+function SourceLibrarySourceItems({
+  group,
+  tone,
+}: {
+  group: SourceLibrarySourceGroup;
+  tone: (typeof SOURCE_SPINE_TONES)[number];
+}) {
+  return (
+    <div className="pt-4">
+      <div className="overflow-hidden rounded-[24px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)]">
+        <div className="divide-y divide-[color:var(--border-subtle)]">
+          {group.items.map((item) => (
+            <SourceLibraryItemCard item={item} key={item.id} tone={tone} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -158,7 +179,7 @@ function SourceLibraryItemCard({
   const sourcePath = truncateUrl(item.canonicalUrl ?? item.sourceUrl);
 
   return (
-    <article className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-field)] sm:px-5">
+    <article className="px-4 py-4 transition hover:bg-[color:var(--bg-field)] sm:px-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <Link className="block min-w-0 flex-1" href={`/documents/${item.id}`}>
           <div className="grid gap-4 sm:grid-cols-[8.75rem_minmax(0,1fr)] sm:items-start sm:gap-5">

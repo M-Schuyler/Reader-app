@@ -33,6 +33,8 @@ test("source library toolbar and shelves expose the new bookroom structure", () 
   assert.match(sourceLibrary, /h-\[11\.5rem\]/);
   assert.match(sourceLibrary, /sm:items-start/);
   assert.match(sourceLibrary, /line-clamp-6/);
+  assert.match(sourceLibrary, /divide-y divide-\[color:var\(--border-subtle\)\]/);
+  assert.match(sourceLibrary, /SourceLibrarySourceItems/);
 });
 
 test("qa sources page previews the real source library with dev-only fixture data", () => {
