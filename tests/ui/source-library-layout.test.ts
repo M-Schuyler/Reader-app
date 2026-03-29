@@ -34,3 +34,12 @@ test("source library toolbar and shelves expose the new bookroom structure", () 
   assert.match(sourceLibrary, /sm:items-start/);
   assert.match(sourceLibrary, /line-clamp-6/);
 });
+
+test("qa sources page previews the real source library with dev-only fixture data", () => {
+  const qaSourcesPage = readWorkspaceFile("src/app/qa/sources/page.tsx");
+
+  assert.match(qaSourcesPage, /notFound/);
+  assert.match(qaSourcesPage, /SourceLibrary/);
+  assert.match(qaSourcesPage, /getSourceLibraryQaFixture/);
+  assert.match(qaSourcesPage, /NODE_ENV === "production"/);
+});
