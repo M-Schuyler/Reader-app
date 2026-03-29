@@ -17,21 +17,20 @@ export default async function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-[color:var(--border-subtle)] bg-[color:var(--bg-header)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[78rem] flex-col gap-4 px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <div className="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
-            <div className="flex min-w-0 items-center gap-8">
-              <Link className="min-w-0" href="/sources">
-                <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-[color:var(--text-tertiary)]">
-                  Reader
-                </p>
-                <p className="mt-1 text-[15px] text-[color:var(--text-primary)]">输入先进来源库，开始阅读后再进入 Reading</p>
-              </Link>
+        <div className="mx-auto flex max-w-[78rem] flex-col gap-4 px-5 py-4 sm:px-6 lg:grid lg:grid-cols-[auto_minmax(15rem,24rem)_auto] lg:items-center lg:gap-x-6 lg:px-8">
+          <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
+            <Link className="min-w-0 shrink-0" href="/sources">
+              <p className="font-ui-heading text-[1.7rem] leading-none tracking-[-0.05em] text-[color:var(--text-primary-strong)]">
+                Reader
+              </p>
+            </Link>
 
+            <div className="min-w-0">
               <MainNav />
             </div>
-
-            <GlobalSearch />
           </div>
+
+          <GlobalSearch />
 
           <div className="flex flex-wrap items-center gap-2.5 text-sm text-[color:var(--text-secondary)]">
             <ThemeToggle />

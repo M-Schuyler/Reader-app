@@ -8,11 +8,6 @@ export type GlobalSearchPanelInput = {
 
 export type GlobalSearchPanelState =
   | { kind: "closed" }
-  | {
-      kind: "idle";
-      title: "输入关键词开始搜索";
-      description: "可搜索标题、AI 摘要、正文和来源。";
-    }
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "empty"; message: "没有匹配结果。" }
@@ -25,11 +20,7 @@ export function resolveGlobalSearchPanelState(input: GlobalSearchPanelInput): Gl
 
   const trimmedQuery = input.query.trim();
   if (!trimmedQuery) {
-    return {
-      kind: "idle",
-      title: "输入关键词开始搜索",
-      description: "可搜索标题、AI 摘要、正文和来源。",
-    };
+    return { kind: "closed" };
   }
 
   if (input.isLoading) {

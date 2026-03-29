@@ -133,7 +133,7 @@ export function GlobalSearch() {
   }
 
   return (
-    <div className="relative min-w-0 flex-1 lg:max-w-[30rem]" ref={containerRef}>
+    <div className="relative min-w-0 w-full" ref={containerRef}>
       <form onSubmit={handleSubmit}>
         <label className="sr-only" htmlFor={inputId}>
           全局搜索
@@ -148,7 +148,7 @@ export function GlobalSearch() {
         </button>
         <TextInput
           autoComplete="off"
-          className="min-h-10 rounded-full bg-[color:var(--bg-surface)] pl-11 pr-4 lg:min-w-[15rem]"
+          className="min-h-10 rounded-full bg-[color:var(--bg-surface)] pl-11 pr-4 lg:min-w-[14rem] xl:min-w-[18rem]"
           id={inputId}
           ref={inputRef}
           onChange={(event) => setQuery(event.target.value)}
@@ -173,7 +173,7 @@ export function GlobalSearch() {
               setActiveIndex((current) => (current - 1 + results.length) % results.length);
             }
           }}
-          placeholder="全局搜索标题、摘要、正文或来源"
+          placeholder=""
           type="search"
           value={query}
         />
@@ -182,12 +182,7 @@ export function GlobalSearch() {
       {showPanel ? (
         <div className="absolute inset-x-0 top-[calc(100%+0.55rem)] z-40 overflow-hidden rounded-[24px] border border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] shadow-[var(--shadow-surface)]">
           <div className="max-h-[26rem] overflow-y-auto p-2">
-            {panelState.kind === "idle" ? (
-              <div className="px-4 py-4">
-                <p className="text-sm font-medium text-[color:var(--text-primary)]">{panelState.title}</p>
-                <p className="mt-1.5 text-sm leading-6 text-[color:var(--text-secondary)]">{panelState.description}</p>
-              </div>
-            ) : panelState.kind === "loading" ? (
+            {panelState.kind === "loading" ? (
               <div className="px-4 py-4 text-sm text-[color:var(--text-secondary)]">搜索中…</div>
             ) : panelState.kind === "error" ? (
               <div className="px-4 py-4 text-sm text-[color:var(--badge-danger-text)]">{panelState.message}</div>

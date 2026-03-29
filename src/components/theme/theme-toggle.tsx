@@ -70,28 +70,23 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="hidden text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)] lg:inline">
-        外观
-      </span>
-      <div className="inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-1">
-        {themeOptions.map((option) => (
-          <button
-            aria-label={option.value === "system" ? "跟随系统" : option.label}
-            className={cx(
-              "min-h-8 rounded-full px-3 text-xs font-semibold transition",
-              preference === option.value
-                ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] shadow-[var(--shadow-surface-muted)]"
-                : "text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
-            )}
-            key={option.value}
-            onClick={() => handleThemeChange(option.value)}
-            type="button"
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+    <div className="inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-1">
+      {themeOptions.map((option) => (
+        <button
+          aria-label={option.value === "system" ? "跟随系统" : option.label}
+          className={cx(
+            "min-h-8 rounded-full px-3 text-xs font-semibold transition",
+            preference === option.value
+              ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] shadow-[var(--shadow-surface-muted)]"
+              : "text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
+          )}
+          key={option.value}
+          onClick={() => handleThemeChange(option.value)}
+          type="button"
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }

@@ -7,7 +7,7 @@ function readWorkspaceFile(path: string) {
   return readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 }
 
-test("global search opens an idle panel when focused before typing", () => {
+test("global search stays visually quiet before typing", () => {
   assert.deepEqual(
     resolveGlobalSearchPanelState({
       error: null,
@@ -16,11 +16,7 @@ test("global search opens an idle panel when focused before typing", () => {
       query: "",
       resultsCount: 0,
     }),
-    {
-      description: "可搜索标题、AI 摘要、正文和来源。",
-      kind: "idle",
-      title: "输入关键词开始搜索",
-    },
+    { kind: "closed" },
   );
 });
 
@@ -64,14 +60,13 @@ test("global search resolves loading, empty, and results states once a query exi
 
 test("global search component wires the top search button to focus and open the panel", () => {
   const component = readWorkspaceFile("src/components/search/global-search.tsx");
-  const panelState = readWorkspaceFile("src/lib/search/global-search-panel.ts");
 
   assert.match(component, /resolveGlobalSearchPanelState/);
   assert.match(component, /const inputRef = useRef<HTMLInputElement>\(null\)/);
   assert.match(component, /function focusSearch\(\)/);
-  assert.match(component, /setOpen\(true\)/);
+  assert.match(component, /inputRef\.current\?\.focus\(\)/);
   assert.match(component, /inputRef\.current\?\.focus\(\)/);
   assert.match(component, /aria-label="打开搜索"/);
-  assert.match(component, /lg:min-w-\[15rem\]/);
-  assert.match(panelState, /输入关键词开始搜索/);
+  assert.match(component, /lg:min-w-\[14rem\] xl:min-w-\[18rem\]/);
+  assert.match(component, /placeholder=""/);
 });
