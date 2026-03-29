@@ -12,25 +12,33 @@ test("sources page uses the dedicated source library components instead of the s
   assert.match(sourcesPage, /SourceLibraryToolbar/);
   assert.match(sourcesPage, /SourceLibraryIndex/);
   assert.doesNotMatch(sourcesPage, /DocumentList/);
-  assert.doesNotMatch(sourcesPage, /Source filters/);
-  assert.doesNotMatch(sourcesPage, /xl:grid-cols-\[22rem_minmax\(0,1fr\)\]/);
+  assert.doesNotMatch(sourcesPage, /PageHeader/);
+  assert.doesNotMatch(sourcesPage, /当前共有/);
+  assert.doesNotMatch(sourcesPage, /它们先按收入库的时间排成书架/);
 });
 
 test("source library index uses large clickable source cards instead of inline article lists", () => {
   const toolbar = readWorkspaceFile("src/components/library/source-library-toolbar.tsx");
   const sourceLibrary = readWorkspaceFile("src/components/library/source-library.tsx");
   const sourceCard = readWorkspaceFile("src/components/library/source-library-source-card.tsx");
+  const captureForm = readWorkspaceFile("src/components/library/capture-url-form.tsx");
 
   assert.match(toolbar, /CaptureUrlForm/);
   assert.match(toolbar, /variant="compact"/);
-  assert.match(toolbar, /最近收进来/);
-  assert.match(sourceLibrary, /近七天/);
-  assert.match(sourceLibrary, /更早/);
+  assert.doesNotMatch(toolbar, /Browse/);
+  assert.doesNotMatch(toolbar, /Shelves/);
+  assert.doesNotMatch(toolbar, /收得安静一点，找得快一点/);
+  assert.doesNotMatch(captureForm, /真正开始读的时候再进入 Reading/);
+  assert.doesNotMatch(captureForm, />\s*Capture\s*</);
   assert.match(sourceLibrary, /SourceLibraryIndex/);
   assert.match(sourceLibrary, /SourceLibraryIndexCard/);
   assert.match(sourceLibrary, /href=\{group\.href/);
   assert.match(sourceLibrary, /getSourceLibraryToneForSeed\(group\.id\)/);
   assert.match(sourceLibrary, /grid-cols-\[repeat\(auto-fit,minmax\(15rem,1fr\)\)\]/);
+  assert.doesNotMatch(sourceLibrary, /先看有哪些来源被新收进来/);
+  assert.doesNotMatch(sourceLibrary, /这一周的内容先按来源排成一级书架/);
+  assert.doesNotMatch(sourceLibrary, /更早收入库的来源退到后排/);
+  assert.doesNotMatch(sourceLibrary, /Source Library/);
   assert.doesNotMatch(sourceLibrary, /SourceLibraryItemCard/);
   assert.doesNotMatch(sourceLibrary, /divide-y divide-\[color:var\(--border-subtle\)\]/);
   assert.match(sourceCard, /h-\[17\.5rem\]/);

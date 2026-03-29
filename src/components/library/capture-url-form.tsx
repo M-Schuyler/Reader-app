@@ -85,7 +85,6 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
   return (
     <form className={cx(isCompact ? "space-y-3.5" : "space-y-5")} onSubmit={handleSubmit}>
       <div className={cx(isCompact ? "space-y-1" : "space-y-1.5")}>
-        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">Capture</p>
         <h2
           className={cx(
             "font-ui-heading leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]",
@@ -94,9 +93,6 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
         >
           保存网页链接
         </h2>
-        <p className={cx("leading-6 text-[color:var(--text-secondary)]", isCompact ? "text-[13px]" : "text-sm")}>
-          新内容先进入来源库，真正开始读的时候再进入 Reading。
-        </p>
       </div>
 
       <div className={cx(isCompact ? "flex flex-col gap-3 md:flex-row md:items-end" : "space-y-5")}>

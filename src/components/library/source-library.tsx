@@ -20,15 +20,10 @@ export function SourceLibraryIndex({ data }: SourceLibraryIndexProps) {
     return (
       <Panel className="px-8 py-12 text-center" tone="muted">
         <div className="mx-auto max-w-lg space-y-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-            Source Library
-          </p>
           <h2 className="font-ui-heading text-[2.2rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)]">
             来源库还没有内容
           </h2>
-          <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-            先把网页、RSS 或 PDF 收进来。它们会先安静停在这里，等你决定哪些值得真正开始读。
-          </p>
+          <p className="text-sm leading-7 text-[color:var(--text-secondary)]">先收进第一篇，再从这里走进具体来源。</p>
         </div>
       </Panel>
     );
@@ -49,22 +44,13 @@ function SourceLibraryShelf({ section }: { section: SourceShelfSection }) {
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-2 border-b border-[color:var(--border-subtle)] pb-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-ui-heading text-[1.45rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-              {section.label}
-            </h2>
-            <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-              {section.description}
-            </span>
-          </div>
-          <p className="text-sm text-[color:var(--text-secondary)]">
-            {section.label === "最近收进来"
-              ? "先看有哪些来源被新收进来，再决定要走进哪一架。"
-              : section.label === "近七天"
-                ? "这一周的内容先按来源排成一级书架，再点进去读同一来源下的文章。"
-                : "更早收入库的来源退到后排，但仍然保留它们各自的入口。"}
-          </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="font-ui-heading text-[1.45rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+            {section.label}
+          </h2>
+          <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+            {section.description}
+          </span>
         </div>
 
         <p className="text-sm text-[color:var(--text-tertiary)]">

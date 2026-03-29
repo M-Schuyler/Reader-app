@@ -31,12 +31,14 @@ test("theme preference normalizes invalid values and resolves against system sta
 test("theme system is wired into the app shell and global tokens", () => {
   const rootLayout = readWorkspaceFile("src/app/layout.tsx");
   const mainLayout = readWorkspaceFile("src/app/(main)/layout.tsx");
+  const accountMenu = readWorkspaceFile("src/components/layout/header-account-menu.tsx");
   const globalsCss = readWorkspaceFile("src/app/globals.css");
 
   assert.match(rootLayout, /ThemeScript/);
   assert.match(rootLayout, /data-theme="light"/);
   assert.match(rootLayout, /suppressHydrationWarning/);
-  assert.match(mainLayout, /ThemeToggle/);
+  assert.match(mainLayout, /HeaderAccountMenu/);
+  assert.match(accountMenu, /ThemeToggle/);
   assert.match(globalsCss, /:root\[data-theme="dark"\]/);
   assert.match(globalsCss, /--bg-header:/);
   assert.match(globalsCss, /--bg-field:/);

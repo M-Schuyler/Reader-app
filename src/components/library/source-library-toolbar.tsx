@@ -11,36 +11,25 @@ type SourceLibraryToolbarProps = {
   hasActiveFilters: boolean;
 };
 
-const SHELF_GUIDE = ["最近收进来", "近七天", "更早"];
-
 export function SourceLibraryToolbar({
   clearHref,
   filters,
   hasActiveFilters,
 }: SourceLibraryToolbarProps) {
   return (
-    <Panel className="space-y-5 rounded-[32px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] p-4 sm:p-5">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.95fr)]">
-        <div className="rounded-[28px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-4 sm:px-5">
+    <Panel className="rounded-[30px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-4 sm:p-5">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(19rem,0.95fr)]">
+        <div className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5">
           <CaptureUrlForm variant="compact" />
         </div>
 
         <form
-          className="rounded-[28px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-4 sm:px-5"
+          className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5"
           method="GET"
         >
           {filters.q ? <input name="q" type="hidden" value={filters.q} /> : null}
 
           <div className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                Browse
-              </p>
-              <h2 className="font-ui-heading text-[1.2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-                收得安静一点，找得快一点
-              </h2>
-            </div>
-
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
               <Field label="文档类型">
                 <SelectInput className="min-h-10 rounded-[16px]" defaultValue={filters.type ?? ""} name="type">
@@ -74,20 +63,6 @@ export function SourceLibraryToolbar({
             </div>
           </div>
         </form>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--border-subtle)] pt-4">
-        <span className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-          Shelves
-        </span>
-        {SHELF_GUIDE.map((label) => (
-          <span
-            className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
-            key={label}
-          >
-            {label}
-          </span>
-        ))}
       </div>
     </Panel>
   );

@@ -1,5 +1,3 @@
-import { PageHeader } from "@/components/ui/page-header";
-import { Panel } from "@/components/ui/panel";
 import { SourceLibraryIndex } from "@/components/library/source-library";
 import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
 import {
@@ -28,39 +26,30 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
   const contextChips = buildSourceContextChips(data.filters);
 
   return (
-    <section className="space-y-8 md:space-y-10">
-      <PageHeader
-        className="gap-6"
-        description="所有新收进来的内容先停在这里。它们不需要立刻进入 Reading，先安静排上书架就好。"
-        eyebrow="Source Library"
-        title="来源库"
-      />
-
-      <SourceLibraryToolbar clearHref={clearHref} filters={data.filters} hasActiveFilters={hasActiveFilters} />
-
-      <Panel className="flex flex-col gap-3 rounded-[28px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between" tone="muted">
-        <div className="space-y-1">
-          <p className="text-sm text-[color:var(--text-secondary)]">
-            当前共有 <span className="font-medium text-[color:var(--text-primary)]">{data.pagination.total}</span> 篇内容停在来源库里
-          </p>
-          <p className="text-sm text-[color:var(--text-tertiary)]">
-            它们先按收入库的时间排成书架，等你判断哪些值得真正开始读。
-          </p>
+    <section className="space-y-7 md:space-y-8">
+      <div className="flex flex-col gap-4 border-b border-[color:var(--border-subtle)] pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-ui-heading text-[clamp(2.8rem,5vw,4.35rem)] leading-[0.92] tracking-[-0.06em] text-[color:var(--text-primary-strong)]">
+            来源库
+          </h1>
         </div>
 
-        {contextChips.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {contextChips.map((chip) => (
-              <span
-                className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
-                key={chip}
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </Panel>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <span className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]">
+            {data.pagination.total} 篇
+          </span>
+          {contextChips.map((chip) => (
+            <span
+              className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]"
+              key={chip}
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <SourceLibraryToolbar clearHref={clearHref} filters={data.filters} hasActiveFilters={hasActiveFilters} />
 
       <SourceLibraryIndex data={data} />
     </section>

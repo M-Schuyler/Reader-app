@@ -19,7 +19,11 @@ const themeOptions: Array<{ label: string; value: ThemePreference }> = [
   { label: "系统", value: "system" },
 ];
 
-export function ThemeToggle() {
+export type ThemeToggleProps = {
+  className?: string;
+};
+
+export function ThemeToggle({ className }: ThemeToggleProps) {
   const [preference, setPreference] = useState<ThemePreference>("system");
 
   useEffect(() => {
@@ -70,7 +74,12 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-1">
+    <div
+      className={cx(
+        "inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-1",
+        className,
+      )}
+    >
       {themeOptions.map((option) => (
         <button
           aria-label={option.value === "system" ? "跟随系统" : option.label}
