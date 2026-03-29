@@ -41,23 +41,53 @@ test("source shelf sections group documents by createdAt recency", () => {
   assert.deepEqual(
     sections.map((section) => ({
       groups: section.groups.map((group) => ({
+        href: group.href,
         id: group.id,
         ids: group.items.map((item) => item.id),
+        kind: group.kind,
         label: group.label,
+        value: group.value,
       })),
       label: section.label,
     })),
     [
       {
-        groups: [{ id: "source:feed:feed-1", ids: ["recent"], label: "Kai Dispatch" }],
+        groups: [
+          {
+            href: "/sources/feed/feed-1",
+            id: "source:feed:feed-1",
+            ids: ["recent"],
+            kind: "feed",
+            label: "Kai Dispatch",
+            value: "feed-1",
+          },
+        ],
         label: "最近收进来",
       },
       {
-        groups: [{ id: "source:domain:example.com", ids: ["week"], label: "example.com" }],
+        groups: [
+          {
+            href: "/sources/domain/example.com",
+            id: "source:domain:example.com",
+            ids: ["week"],
+            kind: "domain",
+            label: "example.com",
+            value: "example.com",
+          },
+        ],
         label: "近七天",
       },
       {
-        groups: [{ id: "source:domain:archive.example.com", ids: ["older"], label: "archive.example.com" }],
+        groups: [
+          {
+            href: "/sources/domain/archive.example.com",
+            id: "source:domain:archive.example.com",
+            ids: ["older"],
+            kind: "domain",
+            label: "archive.example.com",
+            value: "archive.example.com",
+          },
+        ],
         label: "更早",
       },
     ],
@@ -101,26 +131,56 @@ test("source shelf groups prefer feed title and fall back to hostname", () => {
 
   assert.deepEqual(
     recentSection.groups.map((group) => ({
+      href: group.href,
       id: group.id,
       ids: group.items.map((item) => item.id),
+      kind: group.kind,
       label: group.label,
       meta: group.meta,
+      value: group.value,
     })),
     [
       {
+        href: "/sources/feed/feed-1",
         id: "source:feed:feed-1",
         ids: ["feed-a", "feed-b"],
+        kind: "feed",
         label: "Kai Dispatch",
         meta: "2 篇文章",
+        value: "feed-1",
       },
       {
+        href: "/sources/domain/sspai.com",
         id: "source:domain:sspai.com",
         ids: ["domain-a"],
+        kind: "domain",
         label: "sspai.com",
         meta: "1 篇文章",
+        value: "sspai.com",
       },
     ],
   );
+});
+
+test("unknown sources stay grouped but do not generate detail links", () => {
+  const [recentSection] = buildSourceShelfSections(
+    [
+      createListItem({
+        id: "unknown-source",
+        canonicalUrl: null,
+        sourceUrl: null,
+        feed: null,
+      }),
+    ],
+    new Date("2026-03-28T12:00:00.000Z"),
+  );
+
+  assert.equal(recentSection.groups[0]?.id, "source:url:unknown-source");
+  assert.equal(recentSection.groups[0]?.label, "未知来源");
+  assert.equal(recentSection.groups[0]?.kind, "unknown");
+  assert.equal(recentSection.groups[0]?.value, null);
+  assert.equal(recentSection.groups[0]?.href, null);
+  assert.equal(recentSection.groups[0]?.meta, "1 篇文章");
 });
 
 test("source library preview prefers ai summary and hides failed pseudo excerpts", () => {

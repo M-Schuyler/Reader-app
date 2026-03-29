@@ -1,9 +1,13 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
-import { SourceLibrary } from "@/components/library/source-library";
+import { SourceLibraryIndex } from "@/components/library/source-library";
 import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
-import { parseSourceLibraryQuery } from "@/lib/documents/source-library-query";
-import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
+import {
+  buildSourceContextChips,
+  buildSourceLibraryClearHref,
+  parseSourceLibraryQuery,
+  resolveSourceSearchParams,
+} from "@/lib/documents/source-library-query";
 import { getDocuments } from "@/server/modules/documents/document.service";
 
 export const dynamic = "force-dynamic";
@@ -13,14 +17,14 @@ type SourcesPageProps = {
 };
 
 export default async function SourcesPage({ searchParams }: SourcesPageProps) {
-  const resolvedSearchParams = await toUrlSearchParams(searchParams);
+  const resolvedSearchParams = await resolveSourceSearchParams(searchParams);
   const parsedQuery = parseSourceLibraryQuery(resolvedSearchParams);
   const data = await getDocuments({
     ...parsedQuery,
     surface: "source",
   });
   const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.sort !== "latest");
-  const clearHref = data.filters.q ? `/sources?q=${encodeURIComponent(data.filters.q)}` : "/sources";
+  const clearHref = buildSourceLibraryClearHref("/sources", data.filters);
   const contextChips = buildSourceContextChips(data.filters);
 
   return (
@@ -58,62 +62,7 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
         ) : null}
       </Panel>
 
-      <SourceLibrary data={data} />
+      <SourceLibraryIndex data={data} />
     </section>
   );
-}
-
-async function toUrlSearchParams(
-  input: SourcesPageProps["searchParams"],
-): Promise<URLSearchParams> {
-  const resolved = await (input ?? Promise.resolve({}));
-  const searchParams = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(resolved)) {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        if (typeof item === "string") {
-          searchParams.append(key, item);
-        }
-      }
-      continue;
-    }
-
-    if (typeof value === "string") {
-      searchParams.set(key, value);
-    }
-  }
-
-  return searchParams;
-}
-
-function buildSourceContextChips(filters: GetDocumentsResponseData["filters"]) {
-  const chips: string[] = [];
-
-  if (filters.q) {
-    chips.push(`搜索 “${filters.q}”`);
-  }
-
-  if (filters.type) {
-    chips.push(`类型 ${formatDocumentType(filters.type)}`);
-  }
-
-  if (filters.sort === "earliest") {
-    chips.push("最早收进来优先");
-  }
-
-  return chips;
-}
-
-function formatDocumentType(value: string) {
-  switch (value) {
-    case "WEB_PAGE":
-      return "网页";
-    case "RSS_ITEM":
-      return "RSS";
-    case "PDF":
-      return "PDF";
-    default:
-      return value;
-  }
 }

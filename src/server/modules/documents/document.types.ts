@@ -2,6 +2,10 @@ import type { AiSummaryStatus, DocumentType, IngestionStatus, PublishedAtKind, R
 
 export type DocumentListSort = "latest" | "earliest";
 export type DocumentSurface = "source" | "reading";
+export type DocumentSourceFilter = {
+  kind: "feed" | "domain";
+  value: string;
+};
 
 export type DocumentListQuery = {
   surface: DocumentSurface;
@@ -10,6 +14,7 @@ export type DocumentListQuery = {
   readState?: ReadState;
   isFavorite?: boolean;
   tag?: string;
+  source?: DocumentSourceFilter;
   page: number;
   pageSize: number;
   sort: DocumentListSort;

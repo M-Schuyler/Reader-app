@@ -4,14 +4,33 @@ import type { DocumentListItem } from "@/server/modules/documents/document.types
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
 
-export type SourceLibrarySourceGroup = {
+export type SourceLibrarySourceKind = "feed" | "domain" | "unknown";
+
+export type SourceLibrarySourceIdentity = {
   id: string;
   label: string;
-  meta: string;
   host: string | null;
+  kind: SourceLibrarySourceKind;
+  value: string | null;
+  href: string | null;
+};
+
+export type SourceLibrarySourceGroup = {
+  id: SourceLibrarySourceIdentity["id"];
+  label: SourceLibrarySourceIdentity["label"];
+  meta: string;
+  host: SourceLibrarySourceIdentity["host"];
   latestCreatedAt: string;
-  sourceKind: "feed" | "domain" | "unknown";
+  kind: SourceLibrarySourceIdentity["kind"];
+  value: SourceLibrarySourceIdentity["value"];
+  href: SourceLibrarySourceIdentity["href"];
   items: DocumentListItem[];
+};
+
+export type SourceLibrarySourceContext = SourceLibrarySourceIdentity & {
+  latestCreatedAt: string;
+  meta: string;
+  totalItems: number;
 };
 
 export type SourceShelfSection = {
@@ -43,7 +62,10 @@ export function buildSourceShelfSections(
   items: DocumentListItem[],
   now: Date = new Date(),
 ): SourceShelfSection[] {
-  const sections: Record<SourceShelfSection["key"], Map<string, Omit<SourceLibrarySourceGroup, "meta" | "latestCreatedAt">>> = {
+  const sections: Record<
+    SourceShelfSection["key"],
+    Map<string, Omit<SourceLibrarySourceGroup, "meta" | "latestCreatedAt" | "items"> & { items: DocumentListItem[] }>
+  > = {
     recent: new Map(),
     week: new Map(),
     older: new Map(),
@@ -55,7 +77,7 @@ export function buildSourceShelfSections(
 
   for (const item of sortedItems) {
     const sectionKey = resolveShelfKey(item.createdAt, now);
-    const identity = resolveSourceIdentity(item);
+    const identity = resolveSourceLibrarySourceIdentity(item);
     const group = sections[sectionKey].get(identity.id);
 
     if (group) {
@@ -89,6 +111,20 @@ export function resolveSourceLibraryPreviewText(item: DocumentListItem) {
   return normalizePreviewText(item.aiSummary) ?? normalizePreviewText(item.excerpt);
 }
 
+export function buildSourceLibrarySourceContext(
+  item: DocumentListItem,
+  totalItems: number,
+): SourceLibrarySourceContext {
+  const identity = resolveSourceLibrarySourceIdentity(item);
+
+  return {
+    ...identity,
+    latestCreatedAt: item.createdAt,
+    meta: `${totalItems} 篇文章`,
+    totalItems,
+  };
+}
+
 function resolveShelfKey(createdAt: string, now: Date): SourceShelfSection["key"] {
   const createdAtTime = new Date(createdAt).getTime();
   const diffMs = Math.max(0, now.getTime() - createdAtTime);
@@ -113,15 +149,15 @@ function normalizePreviewText(value: string | null) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function resolveSourceIdentity(
-  item: DocumentListItem,
-): Omit<SourceLibrarySourceGroup, "meta" | "latestCreatedAt" | "items"> {
+export function resolveSourceLibrarySourceIdentity(item: DocumentListItem): SourceLibrarySourceIdentity {
   if (item.feed?.title) {
     return {
       id: `source:feed:${item.feed.id}`,
       label: item.feed.title,
       host: resolveSourceHost(item),
-      sourceKind: "feed",
+      kind: "feed",
+      value: item.feed.id,
+      href: `/sources/feed/${encodeURIComponent(item.feed.id)}`,
     };
   }
 
@@ -131,7 +167,9 @@ function resolveSourceIdentity(
       id: `source:domain:${host}`,
       label: host,
       host,
-      sourceKind: "domain",
+      kind: "domain",
+      value: host,
+      href: `/sources/domain/${encodeURIComponent(host)}`,
     };
   }
 
@@ -141,7 +179,9 @@ function resolveSourceIdentity(
     id: `source:url:${fallbackSource}`,
     label: "未知来源",
     host: null,
-    sourceKind: "unknown",
+    kind: "unknown",
+    value: null,
+    href: null,
   };
 }
 

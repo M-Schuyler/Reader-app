@@ -10,33 +10,47 @@ test("sources page uses the dedicated source library components instead of the s
   const sourcesPage = readWorkspaceFile("src/app/(main)/sources/page.tsx");
 
   assert.match(sourcesPage, /SourceLibraryToolbar/);
-  assert.match(sourcesPage, /SourceLibrary/);
+  assert.match(sourcesPage, /SourceLibraryIndex/);
   assert.doesNotMatch(sourcesPage, /DocumentList/);
   assert.doesNotMatch(sourcesPage, /Source filters/);
   assert.doesNotMatch(sourcesPage, /xl:grid-cols-\[22rem_minmax\(0,1fr\)\]/);
 });
 
-test("source library toolbar and shelves expose the new bookroom structure", () => {
+test("source library index uses large clickable source cards instead of inline article lists", () => {
   const toolbar = readWorkspaceFile("src/components/library/source-library-toolbar.tsx");
   const sourceLibrary = readWorkspaceFile("src/components/library/source-library.tsx");
+  const sourceCard = readWorkspaceFile("src/components/library/source-library-source-card.tsx");
 
   assert.match(toolbar, /CaptureUrlForm/);
   assert.match(toolbar, /variant="compact"/);
   assert.match(toolbar, /最近收进来/);
   assert.match(sourceLibrary, /近七天/);
   assert.match(sourceLibrary, /更早/);
-  assert.match(sourceLibrary, /SourceLibraryShelf/);
-  assert.match(sourceLibrary, /SourceLibrarySourceGroup/);
-  assert.match(sourceLibrary, /SourceLibrarySourceRail/);
-  assert.match(sourceLibrary, /SourceLibraryItemCard/);
-  assert.match(sourceLibrary, /SourceLibraryCover/);
-  assert.match(sourceLibrary, /xl:grid-cols-\[15rem_minmax\(0,1fr\)\]/);
-  assert.match(sourceLibrary, /w-\[8\.75rem\]/);
-  assert.match(sourceLibrary, /h-\[11\.5rem\]/);
-  assert.match(sourceLibrary, /sm:items-start/);
-  assert.match(sourceLibrary, /line-clamp-6/);
-  assert.match(sourceLibrary, /divide-y divide-\[color:var\(--border-subtle\)\]/);
-  assert.match(sourceLibrary, /SourceLibrarySourceItems/);
+  assert.match(sourceLibrary, /SourceLibraryIndex/);
+  assert.match(sourceLibrary, /SourceLibraryIndexCard/);
+  assert.match(sourceLibrary, /href=\{group\.href/);
+  assert.match(sourceLibrary, /grid-cols-\[repeat\(auto-fit,minmax\(15rem,1fr\)\)\]/);
+  assert.doesNotMatch(sourceLibrary, /SourceLibraryItemCard/);
+  assert.doesNotMatch(sourceLibrary, /divide-y divide-\[color:var\(--border-subtle\)\]/);
+  assert.match(sourceCard, /h-\[17\.5rem\]/);
+  assert.match(sourceCard, /group-hover:shadow-\[var\(--shadow-surface\)\]/);
+});
+
+test("source detail routes use a dedicated detail surface", () => {
+  const feedPage = readWorkspaceFile("src/app/(main)/sources/feed/[feedId]/page.tsx");
+  const domainPage = readWorkspaceFile("src/app/(main)/sources/domain/[hostname]/page.tsx");
+  const detailComponent = readWorkspaceFile("src/components/library/source-library-detail.tsx");
+  const detailPage = readWorkspaceFile("src/app/(main)/sources/source-detail-page.tsx");
+
+  assert.match(feedPage, /SourceDetailPage/);
+  assert.match(feedPage, /kind: "feed"/);
+  assert.match(domainPage, /SourceDetailPage/);
+  assert.match(domainPage, /kind: "domain"/);
+  assert.match(detailPage, /SourceLibraryDetail/);
+  assert.match(detailPage, /getDocuments/);
+  assert.match(detailComponent, /SourceLibraryDocumentList/);
+  assert.match(detailComponent, /返回来源库/);
+  assert.match(detailComponent, /Source detail/);
 });
 
 test("qa sources page previews the real source library with dev-only fixture data", () => {

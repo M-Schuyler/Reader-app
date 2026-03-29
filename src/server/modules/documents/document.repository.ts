@@ -298,6 +298,10 @@ export async function updateDocumentAiSummaryFailure(id: string, errorMessage: s
 function buildDocumentWhere(query: DocumentListQuery): Prisma.DocumentWhereInput {
   const clauses: Prisma.DocumentWhereInput[] = [];
 
+  if (query.source) {
+    clauses.push(buildDocumentSourceWhere(query.source));
+  }
+
   if (query.q) {
     clauses.push({
       OR: [
@@ -413,6 +417,46 @@ function buildDocumentWhere(query: DocumentListQuery): Prisma.DocumentWhereInput
   }
 
   return clauses.length > 0 ? { AND: clauses } : {};
+}
+
+function buildDocumentSourceWhere(source: NonNullable<DocumentListQuery["source"]>): Prisma.DocumentWhereInput {
+  switch (source.kind) {
+    case "feed":
+      return {
+        feed: {
+          is: {
+            id: source.value,
+          },
+        },
+      };
+    case "domain":
+      return {
+        OR: [
+          {
+            canonicalUrl: {
+              startsWith: `https://${source.value}`,
+            },
+          },
+          {
+            canonicalUrl: {
+              startsWith: `http://${source.value}`,
+            },
+          },
+          {
+            sourceUrl: {
+              startsWith: `https://${source.value}`,
+            },
+          },
+          {
+            sourceUrl: {
+              startsWith: `http://${source.value}`,
+            },
+          },
+        ],
+      };
+    default:
+      return {};
+  }
 }
 
 function buildDocumentOrderBy(sort: DocumentListSort, surface: DocumentListQuery["surface"]): Prisma.DocumentOrderByWithRelationInput[] {

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { SourceLibrary } from "@/components/library/source-library";
+import { SourceLibraryIndex } from "@/components/library/source-library";
 import { Panel } from "@/components/ui/panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { getSourceLibraryQaFixture } from "@/lib/documents/source-library-qa-fixture";
@@ -28,7 +28,7 @@ export default function QaSourcesPage() {
         </p>
       </Panel>
 
-      <SourceLibrary data={getSourceLibraryQaFixture()} />
+      <SourceLibraryIndex data={getSourceLibraryQaFixture()} />
     </section>
   );
 }
