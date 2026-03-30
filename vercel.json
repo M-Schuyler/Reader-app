@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/internal/source-sync/run",
-      "schedule": "0 * * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/internal/summary-jobs/run",
