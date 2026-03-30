@@ -31,7 +31,7 @@ export default function Icon() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#f5f5f6",
+            color: "#eef1f6",
             fontFamily:
               "Inter, SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
             fontSize: 290,
@@ -58,6 +58,29 @@ export default function Icon() {
           <div
             style={{
               position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily:
+                "Inter, SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+              fontSize: 290,
+              fontWeight: 900,
+              lineHeight: 1,
+              paddingTop: 8,
+              color: "transparent",
+              background:
+                "linear-gradient(180deg, #ffffff 0%, #f2f5fb 22%, #cfd6e2 46%, #f6f8ff 70%, #adb5c3 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 2px 1px rgba(255,255,255,0.26)) drop-shadow(0 -2px 2px rgba(0,0,0,0.68))",
+            }}
+          >
+            R
+          </div>
+          <div
+            style={{
+              position: "absolute",
               top: 14,
               left: 26,
               width: 248,
@@ -67,7 +90,6 @@ export default function Icon() {
               transform: "rotate(-14deg)",
             }}
           />
-          R
         </div>
       </div>
     ),

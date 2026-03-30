@@ -20,7 +20,7 @@ export default function AppleIcon() {
           background:
             "linear-gradient(160deg, #161921 0%, #050608 45%, #090b10 100%)",
           borderRadius: 42,
-          color: "#f4f4f5",
+          color: "#eef1f6",
           fontFamily:
             "Inter, SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
           fontSize: 115,
@@ -56,7 +56,29 @@ export default function AppleIcon() {
             transform: "rotate(-14deg)",
           }}
         />
-        R
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily:
+              "Inter, SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+            fontSize: 115,
+            fontWeight: 900,
+            lineHeight: 1,
+            paddingTop: 2,
+            color: "transparent",
+            background:
+              "linear-gradient(180deg, #ffffff 0%, #eef2f8 24%, #cfd5e0 48%, #f9fbff 74%, #aab2bf 100%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            filter: "drop-shadow(0 1px 1px rgba(255,255,255,0.26)) drop-shadow(0 -1px 1px rgba(0,0,0,0.7))",
+          }}
+        >
+          R
+        </div>
       </div>
     ),
     {
