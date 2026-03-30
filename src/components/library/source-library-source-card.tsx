@@ -33,6 +33,7 @@ type SourceLibrarySourceCardProps = {
   host: string | null;
   kind: SourceLibrarySourceKind;
   meta: string;
+  filterSummary?: string | null;
   latestLabel?: string | null;
   href: string | null;
   tone: SourceLibraryTone;
@@ -61,6 +62,7 @@ export function SourceLibrarySourceCard({
   host,
   kind,
   meta,
+  filterSummary,
   latestLabel,
   href,
   tone,
@@ -100,6 +102,7 @@ export function SourceLibrarySourceCard({
         </div>
 
         <div className="space-y-1.5 text-sm text-black/56">
+          {filterSummary ? <p className="line-clamp-2 text-[13px] leading-5 text-black/52">{filterSummary}</p> : null}
           <p>{meta}</p>
           {latestLabel ? <p>{latestLabel}</p> : null}
         </div>
@@ -124,6 +127,8 @@ export function SourceLibrarySourceCard({
 
 function formatSourceKind(kind: SourceLibrarySourceKind) {
   switch (kind) {
+    case "source":
+      return "Named Source";
     case "feed":
       return "Feed Source";
     case "domain":

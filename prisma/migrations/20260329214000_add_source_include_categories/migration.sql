@@ -1,0 +1,2 @@
+ALTER TABLE "Source"
+ADD COLUMN "includeCategories" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

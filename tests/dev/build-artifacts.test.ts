@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+// @ts-expect-error The script is authored as .mjs and exercised directly by the test harness.
 import { archiveLocalBuildArtifacts } from "../../scripts/dev/archive-build-artifacts.mjs";
 
 test("archiveLocalBuildArtifacts moves stale Next artifacts out of the workspace root", async () => {

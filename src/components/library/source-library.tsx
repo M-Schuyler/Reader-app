@@ -72,6 +72,7 @@ function SourceLibraryShelf({ section }: { section: SourceShelfSection }) {
 function SourceLibraryIndexCard({ group }: { group: SourceLibrarySourceGroup }) {
   return (
     <SourceLibrarySourceCard
+      filterSummary={group.filterSummary}
       host={group.host}
       href={group.href}
       kind={group.kind}

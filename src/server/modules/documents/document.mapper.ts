@@ -22,6 +22,18 @@ export function mapDocumentListItem(record: DocumentListRecord): DocumentListIte
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     wordCount: record.content?.wordCount ?? null,
+    source: record.source
+      ? {
+          id: record.source.id,
+          title: record.source.title,
+          kind: record.source.kind,
+          siteUrl: record.source.siteUrl,
+          locatorUrl: record.source.locatorUrl,
+          includeCategories: record.source.includeCategories,
+          lastSyncedAt: toIso(record.source.lastSyncedAt),
+          lastSyncStatus: record.source.lastSyncStatus,
+        }
+      : null,
     feed: record.feed
       ? {
           id: record.feed.id,
@@ -52,6 +64,18 @@ export function mapDocumentDetail(record: DocumentDetailRecord): DocumentDetail 
     ingestionStatus: record.ingestionStatus,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
+    source: record.source
+      ? {
+          id: record.source.id,
+          title: record.source.title,
+          kind: record.source.kind,
+          siteUrl: record.source.siteUrl,
+          locatorUrl: record.source.locatorUrl,
+          includeCategories: record.source.includeCategories,
+          lastSyncedAt: toIso(record.source.lastSyncedAt),
+          lastSyncStatus: record.source.lastSyncStatus,
+        }
+      : null,
     feed: record.feed
       ? {
           id: record.feed.id,

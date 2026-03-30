@@ -22,8 +22,10 @@ test("source library index uses large clickable source cards instead of inline a
   const sourceLibrary = readWorkspaceFile("src/components/library/source-library.tsx");
   const sourceCard = readWorkspaceFile("src/components/library/source-library-source-card.tsx");
   const captureForm = readWorkspaceFile("src/components/library/capture-url-form.tsx");
+  const createSourceForm = readWorkspaceFile("src/components/library/create-source-form.tsx");
 
   assert.match(toolbar, /CaptureUrlForm/);
+  assert.match(toolbar, /CreateSourceForm/);
   assert.match(toolbar, /variant="compact"/);
   assert.doesNotMatch(toolbar, /Browse/);
   assert.doesNotMatch(toolbar, /Shelves/);
@@ -33,6 +35,7 @@ test("source library index uses large clickable source cards instead of inline a
   assert.match(sourceLibrary, /SourceLibraryIndex/);
   assert.match(sourceLibrary, /SourceLibraryIndexCard/);
   assert.match(sourceLibrary, /href=\{group\.href/);
+  assert.match(sourceLibrary, /filterSummary=\{group\.filterSummary\}/);
   assert.match(sourceLibrary, /getSourceLibraryToneForSeed\(group\.id\)/);
   assert.match(sourceLibrary, /grid-cols-\[repeat\(auto-fit,minmax\(15rem,1fr\)\)\]/);
   assert.doesNotMatch(sourceLibrary, /先看有哪些来源被新收进来/);
@@ -42,13 +45,20 @@ test("source library index uses large clickable source cards instead of inline a
   assert.doesNotMatch(sourceLibrary, /SourceLibraryItemCard/);
   assert.doesNotMatch(sourceLibrary, /divide-y divide-\[color:var\(--border-subtle\)\]/);
   assert.match(sourceCard, /h-\[17\.5rem\]/);
+  assert.match(sourceCard, /filterSummary\?: string \| null/);
+  assert.match(sourceCard, /filterSummary \? <p/);
   assert.match(sourceCard, /\[overflow-wrap:anywhere\]/);
   assert.match(sourceCard, /group-hover:shadow-\[var\(--shadow-surface\)\]/);
+  assert.match(createSourceForm, /添加 RSS 来源/);
+  assert.match(createSourceForm, /分类过滤（可选）/);
+  assert.match(createSourceForm, /Tech, Reviews/);
+  assert.match(createSourceForm, /POST/);
 });
 
 test("source detail routes use a dedicated detail surface", () => {
   const feedPage = readWorkspaceFile("src/app/(main)/sources/feed/[feedId]/page.tsx");
   const domainPage = readWorkspaceFile("src/app/(main)/sources/domain/[hostname]/page.tsx");
+  const namedSourcePage = readWorkspaceFile("src/app/(main)/sources/[sourceId]/page.tsx");
   const detailComponent = readWorkspaceFile("src/components/library/source-library-detail.tsx");
   const documentList = readWorkspaceFile("src/components/library/source-library-document-list.tsx");
   const detailPage = readWorkspaceFile("src/app/(main)/sources/source-detail-page.tsx");
@@ -57,11 +67,17 @@ test("source detail routes use a dedicated detail surface", () => {
   assert.match(feedPage, /kind: "feed"/);
   assert.match(domainPage, /SourceDetailPage/);
   assert.match(domainPage, /kind: "domain"/);
+  assert.match(namedSourcePage, /SourceLibraryDetail/);
+  assert.match(namedSourcePage, /sourceId/);
+  assert.match(namedSourcePage, /sync=\{/);
+  assert.match(namedSourcePage, /includeCategories=\{/);
   assert.match(detailPage, /SourceLibraryDetail/);
   assert.match(detailPage, /getDocuments/);
   assert.match(detailComponent, /SourceLibraryDocumentList/);
   assert.match(detailComponent, /getSourceLibraryToneForSeed\(source\.id\)/);
   assert.match(detailComponent, /toneSeed=\{source\.id\}/);
+  assert.match(detailComponent, /分类过滤/);
+  assert.match(detailComponent, /当前来源同步时只会保留这些分类/);
   assert.match(detailComponent, /\[overflow-wrap:anywhere\]/);
   assert.match(documentList, /toneSeed\?: string/);
   assert.match(documentList, /getSourceLibraryToneForSeed\(toneSeed\)/);

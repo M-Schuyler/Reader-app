@@ -16,11 +16,17 @@ export function getAllowedEmails() {
 }
 
 export function hasAllowedEmailsConfigured() {
-  return getAllowedEmails().size > 0;
+  return getAllowedEmails().size > 0 || Boolean(getDevLocalAuthUser());
 }
 
 export function isAllowedEmail(email: string | null | undefined) {
   const normalizedEmail = normalizeEmail(email);
+  const devLocalAuthUser = getDevLocalAuthUser();
+
+  if (devLocalAuthUser && normalizedEmail === devLocalAuthUser.email) {
+    return true;
+  }
+
   if (!normalizedEmail) {
     return false;
   }
@@ -34,10 +40,19 @@ export function isAllowedEmail(email: string | null | undefined) {
 }
 
 export function isAllowedSession(session: Session | null | undefined) {
+  if (getDevLocalAuthUser()) {
+    return true;
+  }
+
   return isAllowedEmail(session?.user?.email);
 }
 
 export function getAuthenticatedUserFromSession(session: Session | null | undefined): AuthenticatedUser | null {
+  const devLocalAuthUser = getDevLocalAuthUser();
+  if (devLocalAuthUser) {
+    return devLocalAuthUser;
+  }
+
   const normalizedEmail = normalizeEmail(session?.user?.email);
   if (!normalizedEmail || !isAllowedEmail(normalizedEmail)) {
     return null;
@@ -56,6 +71,23 @@ export function sanitizeCallbackUrl(value: string | null | undefined) {
   }
 
   return value;
+}
+
+export function getDevLocalAuthUser(): AuthenticatedUser | null {
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
+
+  const email = normalizeEmail(process.env.DEV_LOCAL_AUTH_EMAIL);
+  if (!email) {
+    return null;
+  }
+
+  return {
+    email,
+    name: "Local Dev",
+    image: null,
+  };
 }
 
 function normalizeEmail(value: string | null | undefined) {

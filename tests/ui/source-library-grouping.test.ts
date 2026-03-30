@@ -306,6 +306,71 @@ test("source shelf keeps one top-level cover per source based on the latest arri
   );
 });
 
+test("explicit source metadata overrides feed and domain inference", () => {
+  const now = new Date("2026-03-28T12:00:00.000Z");
+  const first = createListItem({
+    id: "wechat-1",
+    canonicalUrl: "https://mp.weixin.qq.com/s/story-1",
+    sourceUrl: "https://mp.weixin.qq.com/s/story-1",
+  });
+  const second = createListItem({
+    id: "wechat-2",
+    canonicalUrl: "https://mp.weixin.qq.com/s/story-2",
+    sourceUrl: "https://mp.weixin.qq.com/s/story-2",
+  });
+
+  Object.assign(first as Record<string, unknown>, {
+    source: {
+      id: "source-qbian",
+      kind: "WECHAT_ARCHIVE",
+      title: "请辩",
+      includeCategories: ["Technology", "Policy", "Culture"],
+    },
+  });
+  Object.assign(second as Record<string, unknown>, {
+    source: {
+      id: "source-other",
+      kind: "WECHAT_ARCHIVE",
+      title: "另一份来源",
+      includeCategories: [],
+    },
+  });
+
+  const [recentSection] = buildSourceShelfSections([first, second], now);
+
+  assert.deepEqual(
+    recentSection.groups.map((group) => ({
+      filterSummary: group.filterSummary,
+      href: group.href,
+      id: group.id,
+      ids: group.items.map((item) => item.id),
+      kind: group.kind,
+      label: group.label,
+      value: group.value,
+    })),
+    [
+      {
+        filterSummary: "分类过滤 · Technology, Policy +1",
+        href: "/sources/source-qbian",
+        id: "source:source-qbian",
+        ids: ["wechat-1"],
+        kind: "source",
+        label: "请辩",
+        value: "source-qbian",
+      },
+      {
+        filterSummary: null,
+        href: "/sources/source-other",
+        id: "source:source-other",
+        ids: ["wechat-2"],
+        kind: "source",
+        label: "另一份来源",
+        value: "source-other",
+      },
+    ],
+  );
+});
+
 test("unknown sources stay grouped but do not generate detail links", () => {
   const [recentSection] = buildSourceShelfSections(
     [
@@ -368,7 +433,7 @@ function createListItem(overrides: Partial<DocumentListItem> = {}): DocumentList
     sourceUrl: "https://example.com/article",
     canonicalUrl: "https://example.com/article",
     aiSummary: null,
-    aiSummaryStatus: AiSummaryStatus.COMPLETED,
+    aiSummaryStatus: AiSummaryStatus.READY,
     aiSummaryError: null,
     excerpt: "Default excerpt",
     lang: "zh",
@@ -381,6 +446,7 @@ function createListItem(overrides: Partial<DocumentListItem> = {}): DocumentList
     createdAt: "2026-03-27T08:30:00.000Z",
     updatedAt: "2026-03-27T08:30:00.000Z",
     wordCount: 1200,
+    source: null,
     feed: null,
     ...overrides,
   };

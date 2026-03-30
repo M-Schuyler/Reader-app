@@ -43,6 +43,16 @@ enum SourceAliasKind {
   DOMAIN
 }
 
+enum SourceKind {
+  RSS
+  WECHAT_ARCHIVE
+}
+
+enum SourceSyncMode {
+  SCHEDULED
+  MANUAL_ONLY
+}
+
 enum IngestionJobKind {
   FETCH_WEB_PAGE
   IMPORT_FEED_ITEM
@@ -65,6 +75,8 @@ model Feed {
   siteUrl      String?
   isActive     Boolean        @default(true)
   lastSyncedAt DateTime?
+  sourceId     String?        @unique
+  source       Source?        @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
   documents    Document[]
   jobs         IngestionJob[]
@@ -75,6 +87,34 @@ model Feed {
   @@unique([feedUrl])
   @@index([isActive])
   @@index([lastSyncedAt])
+}
+
+model Source {
+  id             String             @id @default(cuid())
+  kind           SourceKind
+  title          String
+  slug           String             @unique
+  siteUrl        String?
+  locatorUrl     String
+  includeCategories String[]        @default([])
+  isActive       Boolean            @default(true)
+  syncMode       SourceSyncMode     @default(SCHEDULED)
+  backfillStartAt DateTime?
+  lastSyncedAt   DateTime?
+  lastSyncStatus IngestionJobStatus?
+  lastSyncError  String?
+
+  feed           Feed?
+  documents      Document[]
+  jobs           IngestionJob[]
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([kind, createdAt])
+  @@index([isActive, syncMode])
+  @@index([lastSyncedAt])
+  @@index([locatorUrl])
 }
 
 model SourceAlias {
@@ -114,6 +154,8 @@ model Document {
 
   feedId          String?
   feed            Feed?            @relation(fields: [feedId], references: [id], onDelete: SetNull)
+  sourceId        String?
+  source          Source?          @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
   content         DocumentContent?
   file            DocumentFile?
@@ -133,6 +175,7 @@ model Document {
   @@index([publishedAtKind, publishedAt])
   @@index([canonicalUrl])
   @@index([sourceUrl])
+  @@index([sourceId, publishedAt])
 }
 
 model DocumentContent {
@@ -228,6 +271,8 @@ model IngestionJob {
 
   feedId       String?
   feed         Feed?              @relation(fields: [feedId], references: [id], onDelete: SetNull)
+  sourceId     String?
+  source       Source?            @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
   sourceUrl    String?
   payloadJson  Json?
@@ -241,4 +286,5 @@ model IngestionJob {
   @@index([kind, status, createdAt])
   @@index([documentId, createdAt])
   @@index([feedId, createdAt])
+  @@index([sourceId, createdAt])
 }

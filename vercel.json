@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/internal/source-sync/run",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/internal/summary-jobs/run",
       "schedule": "0 3 * * *"
     }

@@ -12,6 +12,18 @@ import type { DocumentListQuery, DocumentListSort, SourceAliasTargetKind } from 
 
 export const documentListArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
   include: {
+    source: {
+      select: {
+        id: true,
+        title: true,
+        kind: true,
+        siteUrl: true,
+        locatorUrl: true,
+        includeCategories: true,
+        lastSyncedAt: true,
+        lastSyncStatus: true,
+      },
+    },
     feed: {
       select: {
         id: true,
@@ -28,6 +40,18 @@ export const documentListArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
 
 export const documentDetailArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
   include: {
+    source: {
+      select: {
+        id: true,
+        title: true,
+        kind: true,
+        siteUrl: true,
+        locatorUrl: true,
+        includeCategories: true,
+        lastSyncedAt: true,
+        lastSyncStatus: true,
+      },
+    },
     feed: {
       select: {
         id: true,
@@ -186,6 +210,7 @@ type CreateWebDocumentInput = {
   title: string;
   sourceUrl: string;
   canonicalUrl: string | null;
+  sourceId?: string | null;
   lang: string | null;
   excerpt: string;
   author: string | null;
@@ -200,6 +225,27 @@ type CreateWebDocumentInput = {
   extractedAt: Date;
 };
 
+type CreateRssDocumentInput = {
+  sourceId: string;
+  feedId: string;
+  title: string;
+  sourceUrl: string | null;
+  canonicalUrl: string | null;
+  externalId: string;
+  lang: string | null;
+  excerpt: string;
+  author: string | null;
+  publishedAt: Date | null;
+  publishedAtKind: PublishedAtKind;
+  ingestionStatus: IngestionStatus;
+  contentHtml: string | null;
+  plainText: string;
+  rawHtml: string | null;
+  textHash: string;
+  wordCount: number;
+  extractedAt: Date;
+};
+
 export async function createWebDocument(input: CreateWebDocumentInput) {
   return prisma.document.create({
     data: {
@@ -207,6 +253,50 @@ export async function createWebDocument(input: CreateWebDocumentInput) {
       title: input.title,
       sourceUrl: input.sourceUrl,
       canonicalUrl: input.canonicalUrl,
+      sourceId: input.sourceId ?? null,
+      lang: input.lang,
+      excerpt: input.excerpt,
+      author: input.author,
+      publishedAt: input.publishedAt,
+      publishedAtKind: input.publishedAtKind,
+      ingestionStatus: input.ingestionStatus,
+      content: {
+        create: {
+          contentHtml: input.contentHtml,
+          plainText: input.plainText,
+          rawHtml: input.rawHtml,
+          textHash: input.textHash,
+          wordCount: input.wordCount,
+          extractedAt: input.extractedAt,
+        },
+      },
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function findRssDocumentByExternalId(feedId: string, externalId: string) {
+  return prisma.document.findUnique({
+    where: {
+      feedId_externalId: {
+        feedId,
+        externalId,
+      },
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function createRssDocument(input: CreateRssDocumentInput) {
+  return prisma.document.create({
+    data: {
+      type: DocumentType.RSS_ITEM,
+      title: input.title,
+      sourceId: input.sourceId,
+      feedId: input.feedId,
+      sourceUrl: input.sourceUrl,
+      canonicalUrl: input.canonicalUrl,
+      externalId: input.externalId,
       lang: input.lang,
       excerpt: input.excerpt,
       author: input.author,
@@ -232,6 +322,7 @@ type CreateWebDocumentPlaceholderInput = {
   title: string;
   sourceUrl: string;
   canonicalUrl: string | null;
+  sourceId?: string | null;
   ingestionStatus: IngestionStatus;
 };
 
@@ -242,6 +333,7 @@ export async function createWebDocumentPlaceholder(input: CreateWebDocumentPlace
       title: input.title,
       sourceUrl: input.sourceUrl,
       canonicalUrl: input.canonicalUrl,
+      sourceId: input.sourceId ?? null,
       publishedAtKind: PublishedAtKind.UNKNOWN,
       ingestionStatus: input.ingestionStatus,
     },
@@ -357,6 +449,10 @@ export async function updateDocumentAiSummaryFailure(id: string, errorMessage: s
 
 function buildDocumentWhere(query: DocumentListQuery): Prisma.DocumentWhereInput {
   const clauses: Prisma.DocumentWhereInput[] = [];
+
+  if (query.sourceId) {
+    clauses.push({ sourceId: query.sourceId });
+  }
 
   if (query.source) {
     clauses.push(buildDocumentSourceWhere(query.source));

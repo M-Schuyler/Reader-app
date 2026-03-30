@@ -4,9 +4,9 @@ import type { DocumentListItem } from "@/server/modules/documents/document.types
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
 
-export type SourceLibrarySourceKind = "feed" | "domain" | "unknown";
+export type SourceLibrarySourceKind = "source" | "feed" | "domain" | "unknown";
 export type SourceAliasLookup = {
-  kind: Exclude<SourceLibrarySourceKind, "unknown">;
+  kind: Exclude<SourceLibrarySourceKind, "unknown" | "source">;
   value: string;
 };
 export type SourceAliasRecord = SourceAliasLookup & {
@@ -23,6 +23,7 @@ export type SourceLibrarySourceIdentity = {
   kind: SourceLibrarySourceKind;
   value: string | null;
   href: string | null;
+  filterSummary?: string | null;
 };
 
 export type SourceLibrarySourceGroup = {
@@ -36,6 +37,7 @@ export type SourceLibrarySourceGroup = {
   kind: SourceLibrarySourceIdentity["kind"];
   value: SourceLibrarySourceIdentity["value"];
   href: SourceLibrarySourceIdentity["href"];
+  filterSummary?: string | null;
   items: DocumentListItem[];
 };
 
@@ -211,6 +213,11 @@ export function resolveSourceLibrarySourceIdentity(
   item: DocumentListItem,
   aliasMap: SourceAliasMap = {},
 ): SourceLibrarySourceIdentity {
+  const explicitSource = getExplicitSourceIdentity(item);
+  if (explicitSource) {
+    return explicitSource;
+  }
+
   if (item.feed?.title) {
     const defaultLabel = item.feed.title;
     const customLabel = aliasMap[buildSourceAliasKey("feed", item.feed.id)] ?? null;
@@ -257,6 +264,45 @@ export function resolveSourceLibrarySourceIdentity(
 
 function resolveSourceHost(item: Pick<DocumentListItem, "canonicalUrl" | "sourceUrl">) {
   return parseHostname(item.canonicalUrl) ?? parseHostname(item.sourceUrl);
+}
+
+function getExplicitSourceIdentity(item: DocumentListItem): SourceLibrarySourceIdentity | null {
+  const source = (item as DocumentListItem & {
+    source?: {
+      id?: string | null;
+      title?: string | null;
+      includeCategories?: string[] | null;
+    } | null;
+  }).source;
+
+  if (!source?.id || !source.title) {
+    return null;
+  }
+
+  return {
+    id: `source:${source.id}`,
+    label: source.title,
+    defaultLabel: source.title,
+    customLabel: null,
+    host: resolveSourceHost(item),
+    kind: "source",
+    value: source.id,
+    href: `/sources/${encodeURIComponent(source.id)}`,
+    filterSummary: formatSourceLibraryFilterSummary(source.includeCategories ?? []),
+  };
+}
+
+function formatSourceLibraryFilterSummary(includeCategories: string[]) {
+  if (includeCategories.length === 0) {
+    return null;
+  }
+
+  if (includeCategories.length <= 2) {
+    return `分类过滤 · ${includeCategories.join(", ")}`;
+  }
+
+  const [first, second] = includeCategories;
+  return `分类过滤 · ${first}, ${second} +${includeCategories.length - 2}`;
 }
 
 function parseHostname(value: string | null) {

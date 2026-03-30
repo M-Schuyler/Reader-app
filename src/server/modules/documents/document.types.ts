@@ -1,4 +1,12 @@
-import type { AiSummaryStatus, DocumentType, IngestionStatus, PublishedAtKind, ReadState } from "@prisma/client";
+import type {
+  AiSummaryStatus,
+  DocumentType,
+  IngestionJobStatus,
+  IngestionStatus,
+  PublishedAtKind,
+  ReadState,
+  SourceKind,
+} from "@prisma/client";
 
 export type DocumentListSort = "latest" | "earliest";
 export type DocumentSurface = "source" | "reading";
@@ -10,6 +18,7 @@ export type DocumentSourceFilter = {
 
 export type DocumentListQuery = {
   surface: DocumentSurface;
+  sourceId?: string;
   q?: string;
   type?: DocumentType;
   readState?: ReadState;
@@ -41,6 +50,16 @@ export type DocumentListItem = {
   createdAt: string;
   updatedAt: string;
   wordCount: number | null;
+  source: {
+    id: string;
+    title: string;
+    kind: SourceKind;
+    siteUrl: string | null;
+    locatorUrl: string;
+    includeCategories: string[];
+    lastSyncedAt: string | null;
+    lastSyncStatus: IngestionJobStatus | null;
+  } | null;
   feed: {
     id: string;
     title: string;
@@ -86,6 +105,16 @@ export type DocumentDetail = {
   ingestionStatus: IngestionStatus;
   createdAt: string;
   updatedAt: string;
+  source: {
+    id: string;
+    title: string;
+    kind: SourceKind;
+    siteUrl: string | null;
+    locatorUrl: string;
+    includeCategories: string[];
+    lastSyncedAt: string | null;
+    lastSyncStatus: IngestionJobStatus | null;
+  } | null;
   feed: {
     id: string;
     title: string;

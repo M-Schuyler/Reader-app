@@ -30,6 +30,7 @@ export function getHighlightsQaFixtureDocument(): DocumentDetail {
     ingestionStatus: IngestionStatus.READY,
     createdAt: "2026-03-27T10:00:00.000Z",
     updatedAt: "2026-03-27T10:00:00.000Z",
+    source: null,
     feed: null,
     file: null,
     content: {

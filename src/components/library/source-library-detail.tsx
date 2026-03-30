@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { IngestionJobStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/form-controls";
 import { Panel } from "@/components/ui/panel";
@@ -14,9 +15,16 @@ import { getSourceLibraryToneForSeed, SourceLibrarySourceCard } from "./source-l
 type SourceLibraryDetailProps = {
   data: GetDocumentsResponseData;
   source: SourceLibrarySourceContext;
+  includeCategories?: string[];
+  sync?: {
+    sourceId: string;
+    lastSyncedAt: string | null;
+    lastSyncStatus: IngestionJobStatus | null;
+    lastSyncError: string | null;
+  };
 };
 
-export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) {
+export function SourceLibraryDetail({ data, source, includeCategories = [], sync }: SourceLibraryDetailProps) {
   const latestLabel = formatCollectedAt(source.latestCreatedAt);
   const visibleTotal = data.pagination.total;
   const tone = getSourceLibraryToneForSeed(source.id);
@@ -57,19 +65,41 @@ export function SourceLibraryDetail({ data, source }: SourceLibraryDetailProps) 
                   ) : null}
                 </div>
 
-                <SourceAliasEditor source={source} />
+                <div className="flex flex-col items-start gap-3">
+                  {sync ? <SourceSyncButton sourceId={sync.sourceId} /> : null}
+                  <SourceAliasEditor source={source} />
+                </div>
               </div>
               <p className="max-w-2xl text-[15px] leading-7 text-[color:var(--text-secondary)]">
                 这个来源下共有 {source.totalItems} 篇内容。当前筛选下能看到 {visibleTotal} 篇，保留同一来源的阅读脉络，不再被总书架打散。
               </p>
+              {includeCategories.length > 0 ? (
+                <div className="space-y-2 pt-2">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">分类过滤</p>
+                  <p className="text-sm text-[color:var(--text-secondary)]">当前来源同步时只会保留这些分类，避免把整条 feed 的内容一股脑收进来。</p>
+                  <div className="flex flex-wrap gap-2">
+                    {includeCategories.map((category) => (
+                      <span
+                        className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
+                        key={category}
+                      >
+                        {category}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <div className="grid gap-3 border-t border-[color:var(--border-subtle)] pt-4 sm:grid-cols-3">
+          <div className="grid gap-3 border-t border-[color:var(--border-subtle)] pt-4 sm:grid-cols-4">
             <Metric label="来源类型" value={formatKind(source.kind)} />
             <Metric label="篇数" value={source.meta} />
             <Metric label="最近收入库" value={latestLabel} />
+            {sync ? <Metric label="同步状态" value={formatSyncMeta(sync.lastSyncStatus, sync.lastSyncedAt)} /> : null}
           </div>
+
+          {sync?.lastSyncError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{sync.lastSyncError}</p> : null}
         </Panel>
       </div>
 
@@ -99,7 +129,7 @@ function SourceAliasEditor({ source }: { source: SourceLibrarySourceContext }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  if (source.kind === "unknown" || !source.value) {
+  if (source.kind === "unknown" || source.kind === "source" || !source.value) {
     return null;
   }
 
@@ -198,6 +228,8 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function formatKind(kind: SourceLibrarySourceContext["kind"]) {
   switch (kind) {
+    case "source":
+      return "Named Source";
     case "feed":
       return "Feed";
     case "domain":
@@ -213,4 +245,70 @@ function formatCollectedAt(value: string) {
     month: "numeric",
     day: "numeric",
   }).format(new Date(value));
+}
+
+function formatSyncMeta(status: IngestionJobStatus | null, lastSyncedAt: string | null) {
+  const label =
+    status === IngestionJobStatus.FAILED
+      ? "最近同步失败"
+      : status === IngestionJobStatus.PROCESSING
+        ? "同步中"
+        : status === IngestionJobStatus.PENDING
+          ? "排队中"
+          : "已同步";
+
+  if (!lastSyncedAt) {
+    return label;
+  }
+
+  return `${label} · ${new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(lastSyncedAt))}`;
+}
+
+function SourceSyncButton({ sourceId }: { sourceId: string }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  async function handleSync() {
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/sources/${sourceId}/sync`, {
+        method: "POST",
+      });
+      const payload = (await response.json()) as
+        | { ok: true }
+        | {
+            ok: false;
+            error: {
+              message: string;
+            };
+          };
+
+      if (!payload.ok) {
+        setError(payload.error.message);
+        return;
+      }
+
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch {
+      setError("同步来源失败，请稍后再试。");
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Button disabled={isPending} onClick={handleSync} size="sm" variant="secondary">
+        {isPending ? "同步中…" : "立即同步"}
+      </Button>
+      {error ? <p className="text-sm text-[color:var(--badge-danger-text)]">{error}</p> : null}
+    </div>
+  );
 }

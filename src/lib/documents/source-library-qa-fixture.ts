@@ -124,6 +124,7 @@ function createListItem(overrides: Partial<DocumentListItem>): DocumentListItem 
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     wordCount: 1200,
+    source: null,
     feed: null,
     ...overrides,
   };

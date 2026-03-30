@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Field, SelectInput } from "@/components/ui/form-controls";
 import { Panel } from "@/components/ui/panel";
 import { CaptureUrlForm } from "@/components/library/capture-url-form";
+import { CreateSourceForm } from "@/components/library/create-source-form";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 
 type SourceLibraryToolbarProps = {
@@ -18,9 +19,13 @@ export function SourceLibraryToolbar({
 }: SourceLibraryToolbarProps) {
   return (
     <Panel className="rounded-[30px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-4 sm:p-5">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(19rem,0.95fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(19rem,0.95fr)]">
         <div className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5">
           <CaptureUrlForm variant="compact" />
+        </div>
+
+        <div className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5">
+          <CreateSourceForm />
         </div>
 
         <form
