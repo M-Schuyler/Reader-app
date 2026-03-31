@@ -368,6 +368,15 @@ function parseDocumentSurface(value: string | null): DocumentSurface {
   throw new RouteError("INVALID_QUERY", 400, `Surface "${value}" is invalid.`);
 }
 
+export const __documentQueryParsersForTests = {
+  parseDocumentSort,
+  parseDocumentSurface,
+  parseDocumentType,
+  parseReadState,
+  parsePositiveInt,
+  parseOptionalBoolean,
+};
+
 function dedupeSourceInputs(sources: DocumentSourceFilter[]) {
   const unique = new Map<string, DocumentSourceFilter>();
 

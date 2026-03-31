@@ -14,7 +14,7 @@ import {
 import type { CaptureIngestionError, CaptureUrlResponseData } from "@/server/modules/documents/document.types";
 
 export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseData> {
-  const normalizedUrl = normalizeInputUrl(inputUrl);
+  const normalizedUrl = normalizeCaptureInputUrl(inputUrl);
 
   const existingBySourceUrl = await findWebDocumentByUrlCandidates([normalizedUrl]);
   if (existingBySourceUrl) {
@@ -159,7 +159,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
   }
 }
 
-function normalizeInputUrl(inputUrl: string) {
+export function normalizeCaptureInputUrl(inputUrl: string) {
   const trimmed = inputUrl.trim();
 
   if (!trimmed) {
