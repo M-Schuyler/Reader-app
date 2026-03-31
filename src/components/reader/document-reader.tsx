@@ -70,7 +70,7 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
   }, [isReadable]);
 
   useEffect(() => {
-    if (!selectionState) {
+    if (!selectionState || selectionState.trigger === "contextmenu") {
       return;
     }
 

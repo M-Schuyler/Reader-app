@@ -16,7 +16,11 @@ test("reader swaps the old save banner for mode-aware selection actions", () => 
   assert.match(documentReader, /event\.button !== 2/);
   assert.match(documentReader, /suppressNativeContextMenuRef/);
   assert.match(documentReader, /highlightSaveMode === "auto"/);
+  assert.match(documentReader, /selectionState\.trigger === "contextmenu"/);
+  assert.match(documentReader, /if \(!selectionState \|\| selectionState\.trigger === "contextmenu"\)/);
   assert.match(documentReader, /handleCreateHighlightNote/);
+  assert.match(documentReader, /setSelectionState\(null\);\s*\n\s*}\s*\n\s*\n\s*async function handleCreateHighlight/);
+  assert.match(documentReader, /setSelectionState\(null\);\s*\n\s*documentHighlights\.requestHighlightNoteFocus/);
 });
 
 test("reader highlights hook and panel support focusing a freshly created note target", () => {
