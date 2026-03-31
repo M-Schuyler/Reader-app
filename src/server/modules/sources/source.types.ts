@@ -36,6 +36,9 @@ export type SourceSyncResult = {
   importedCount: number;
   skippedCount: number;
   failedCount: number;
+  dedupedByExternalIdCount: number;
+  dedupedByUrlCount: number;
+  dedupedByContentCount: number;
   error: SourceSyncError | null;
 };
 

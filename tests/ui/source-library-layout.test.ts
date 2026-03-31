@@ -93,3 +93,10 @@ test("qa sources page previews the real source library with dev-only fixture dat
   assert.match(qaSourcesPage, /getSourceLibraryQaFixture/);
   assert.match(qaSourcesPage, /NODE_ENV === "production"/);
 });
+
+test("source surface ordering is based on ingest recency instead of publishedAt", () => {
+  const documentRepository = readWorkspaceFile("src/server/modules/documents/document.repository.ts");
+
+  assert.match(documentRepository, /if \(surface === "source"\)/);
+  assert.match(documentRepository, /sort === "earliest" \? \[\{ createdAt: "asc" \}\] : \[\{ createdAt: "desc" \}\]/);
+});

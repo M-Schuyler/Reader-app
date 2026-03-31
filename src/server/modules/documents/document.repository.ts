@@ -287,6 +287,48 @@ export async function findRssDocumentByExternalId(feedId: string, externalId: st
   });
 }
 
+export async function findRssDocumentByUrlCandidates(feedId: string, urlCandidates: string[]) {
+  if (urlCandidates.length === 0) {
+    return null;
+  }
+
+  return prisma.document.findFirst({
+    where: {
+      type: DocumentType.RSS_ITEM,
+      feedId,
+      OR: [
+        {
+          sourceUrl: {
+            in: urlCandidates,
+          },
+        },
+        {
+          canonicalUrl: {
+            in: urlCandidates,
+          },
+        },
+      ],
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function findRssDocumentByTitleAndTextHash(feedId: string, title: string, textHash: string) {
+  return prisma.document.findFirst({
+    where: {
+      type: DocumentType.RSS_ITEM,
+      feedId,
+      title,
+      content: {
+        is: {
+          textHash,
+        },
+      },
+    },
+    ...documentDetailArgs,
+  });
+}
+
 export async function createRssDocument(input: CreateRssDocumentInput) {
   return prisma.document.create({
     data: {
@@ -626,6 +668,10 @@ function buildDocumentSourceWhere(source: NonNullable<DocumentListQuery["source"
 }
 
 function buildDocumentOrderBy(sort: DocumentListSort, surface: DocumentListQuery["surface"]): Prisma.DocumentOrderByWithRelationInput[] {
+  if (surface === "source") {
+    return sort === "earliest" ? [{ createdAt: "asc" }] : [{ createdAt: "desc" }];
+  }
+
   switch (sort) {
     case "earliest":
       return [

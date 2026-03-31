@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   IngestionJobKind,
   IngestionJobStatus,
@@ -8,7 +7,12 @@ import {
 } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
 import { prisma } from "@/server/db/client";
-import { createRssDocument, findRssDocumentByExternalId } from "@/server/modules/documents/document.repository";
+import {
+  createRssDocument,
+  findRssDocumentByExternalId,
+  findRssDocumentByTitleAndTextHash,
+  findRssDocumentByUrlCandidates,
+} from "@/server/modules/documents/document.repository";
 import {
   createRssSource,
   findSourceByFeedUrl,
@@ -140,6 +144,9 @@ export async function runScheduledSourceSyncs(limit?: number): Promise<RunSource
           importedCount: 0,
           skippedCount: 0,
           failedCount: 0,
+          dedupedByExternalIdCount: 0,
+          dedupedByUrlCount: 0,
+          dedupedByContentCount: 0,
           error: toSourceSyncError(error),
         },
       });
@@ -273,6 +280,9 @@ async function syncRssSource(sourceId: string): Promise<SourceSyncResult> {
     const syncAt = new Date();
     let importedCount = 0;
     let skippedCount = 0;
+    let dedupedByExternalIdCount = 0;
+    let dedupedByUrlCount = 0;
+    let dedupedByContentCount = 0;
 
     await updateFeedMetadata(source.feed.id, {
       title: parsed.title,
@@ -294,6 +304,24 @@ async function syncRssSource(sourceId: string): Promise<SourceSyncResult> {
       const existing = await findRssDocumentByExternalId(source.feed.id, entry.externalId);
       if (existing) {
         skippedCount += 1;
+        dedupedByExternalIdCount += 1;
+        continue;
+      }
+
+      const dedupeUrlCandidates = entry.dedupeUrl ? [entry.dedupeUrl] : [];
+      if (dedupeUrlCandidates.length > 0) {
+        const existingByUrl = await findRssDocumentByUrlCandidates(source.feed.id, dedupeUrlCandidates);
+        if (existingByUrl) {
+          skippedCount += 1;
+          dedupedByUrlCount += 1;
+          continue;
+        }
+      }
+
+      const existingByContent = await findRssDocumentByTitleAndTextHash(source.feed.id, entry.title, entry.textHash);
+      if (existingByContent) {
+        skippedCount += 1;
+        dedupedByContentCount += 1;
         continue;
       }
 
@@ -313,7 +341,7 @@ async function syncRssSource(sourceId: string): Promise<SourceSyncResult> {
         contentHtml: entry.contentHtml,
         plainText: entry.plainText,
         rawHtml: entry.contentHtml,
-        textHash: createHash("sha1").update(entry.plainText).digest("hex"),
+        textHash: entry.textHash,
         wordCount: countReadableUnits(entry.plainText),
         extractedAt: syncAt,
       });
@@ -336,6 +364,9 @@ async function syncRssSource(sourceId: string): Promise<SourceSyncResult> {
         payloadJson: {
           importedCount,
           skippedCount,
+          dedupedByExternalIdCount,
+          dedupedByUrlCount,
+          dedupedByContentCount,
           feedTitle: parsed.title,
         },
       },
@@ -346,6 +377,9 @@ async function syncRssSource(sourceId: string): Promise<SourceSyncResult> {
       importedCount,
       skippedCount,
       failedCount: 0,
+      dedupedByExternalIdCount,
+      dedupedByUrlCount,
+      dedupedByContentCount,
       error: null,
     };
   } catch (error) {
@@ -375,6 +409,9 @@ async function syncRssSource(sourceId: string): Promise<SourceSyncResult> {
       importedCount: 0,
       skippedCount: 0,
       failedCount: 1,
+      dedupedByExternalIdCount: 0,
+      dedupedByUrlCount: 0,
+      dedupedByContentCount: 0,
       error: syncError,
     };
   }

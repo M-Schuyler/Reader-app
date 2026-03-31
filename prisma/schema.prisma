@@ -136,8 +136,7 @@ model Document {
   title           String
   sourceUrl       String?
   canonicalUrl    String?
-  // TODO: RSS externalId may be missing or unstable for some feeds.
-  // Add a fallback dedupe strategy in the RSS import service before shipping RSS support.
+  // RSS dedupe uses externalId first, then service-level fallback by URL and content hash.
   externalId      String?
   aiSummary       String?
   aiSummaryStatus AiSummaryStatus?

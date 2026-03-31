@@ -68,9 +68,11 @@ test("parseFeedDocument extracts rss items with stable fallback ids", () => {
   assert.equal(parsed.siteUrl, "https://example.com");
   assert.equal(parsed.entries.length, 1);
   assert.equal(parsed.entries[0]?.externalId, "https://example.com/posts/1");
+  assert.equal(parsed.entries[0]?.dedupeUrl, "https://example.com/posts/1");
   assert.equal(parsed.entries[0]?.url, "https://example.com/posts/1");
   assert.equal(parsed.entries[0]?.title, "First post");
   assert.deepEqual(parsed.entries[0]?.categories, ["Tech", "Reviews"]);
+  assert.ok(parsed.entries[0]?.textHash);
   assert.match(parsed.entries[0]?.contentHtml ?? "", /Hello world/);
 });
 
@@ -97,7 +99,31 @@ test("parseFeedDocument extracts atom entries and preserves summary html", () =>
   assert.equal(parsed.siteUrl, "https://example.com");
   assert.equal(parsed.entries.length, 1);
   assert.equal(parsed.entries[0]?.externalId, "tag:example.com,2026:post-1");
+  assert.equal(parsed.entries[0]?.dedupeUrl, "https://example.com/atom-post");
   assert.equal(parsed.entries[0]?.url, "https://example.com/atom-post");
   assert.deepEqual(parsed.entries[0]?.categories, ["Tech", "Reviews"]);
+  assert.ok(parsed.entries[0]?.textHash);
   assert.match(parsed.entries[0]?.contentHtml ?? "", /Atom summary/);
+});
+
+test("parseFeedDocument normalizes guid-like urls for dedupeUrl", () => {
+  const parsed = parseFeedDocument({
+    feedUrl: "https://example.com/feed.xml",
+    xml: `<?xml version="1.0"?>
+      <rss version="2.0">
+        <channel>
+          <title>Example Feed</title>
+          <item>
+            <title>Guid fallback post</title>
+            <guid>https://example.com/posts/42</guid>
+            <description><![CDATA[<p>Guid body</p>]]></description>
+          </item>
+        </channel>
+      </rss>`,
+  });
+
+  assert.equal(parsed.entries.length, 1);
+  assert.equal(parsed.entries[0]?.externalId, "https://example.com/posts/42");
+  assert.equal(parsed.entries[0]?.dedupeUrl, "https://example.com/posts/42");
+  assert.ok(parsed.entries[0]?.textHash);
 });

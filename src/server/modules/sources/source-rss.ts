@@ -10,6 +10,7 @@ export type DiscoveredFeed = {
 export type ParsedFeedEntry = {
   externalId: string;
   url: string | null;
+  dedupeUrl: string | null;
   title: string;
   categories: string[];
   author: string | null;
@@ -17,6 +18,7 @@ export type ParsedFeedEntry = {
   contentHtml: string | null;
   plainText: string;
   excerpt: string;
+  textHash: string;
 };
 
 export type ParsedFeedDocument = {
@@ -165,6 +167,9 @@ function parseAtomFeed(input: ParseFeedInput): ParsedFeedDocument {
 function parseRssItem($: ReturnType<typeof load>, item: Parameters<ReturnType<typeof load>>[0], feedUrl: string) {
   const $item = $(item);
   const url = resolveUrl(cleanText($item.children("link").first().text()), feedUrl);
+  const guidValue = cleanText($item.children("guid").first().text());
+  const guidUrl = resolveUrl(guidValue, feedUrl);
+  const dedupeUrl = url ?? guidUrl;
   const title = cleanText($item.children("title").first().text()) ?? url ?? "Untitled item";
   const categories = extractRssCategories($, item);
   const author =
@@ -180,10 +185,11 @@ function parseRssItem($: ReturnType<typeof load>, item: Parameters<ReturnType<ty
     cleanText($item.children("description").first().text());
   const plainText = htmlToPlainText(contentHtml);
   const excerpt = buildExcerpt(plainText);
+  const textHash = createTextHash(plainText);
   const externalId =
-    cleanText($item.children("guid").first().text()) ??
-    url ??
-    buildFallbackExternalId([title, excerpt, publishedAt?.toISOString() ?? null]);
+    guidValue ??
+    dedupeUrl ??
+    buildFallbackExternalId([title, textHash, publishedAt?.toISOString() ?? null]);
 
   if (!title || !externalId || !plainText) {
     return null;
@@ -192,6 +198,7 @@ function parseRssItem($: ReturnType<typeof load>, item: Parameters<ReturnType<ty
   return {
     externalId,
     url,
+    dedupeUrl,
     title,
     categories,
     author,
@@ -199,6 +206,7 @@ function parseRssItem($: ReturnType<typeof load>, item: Parameters<ReturnType<ty
     contentHtml: contentHtml ? normalizeContentHtml(contentHtml) : null,
     plainText,
     excerpt,
+    textHash,
   };
 }
 
@@ -224,10 +232,12 @@ function parseAtomEntry($: ReturnType<typeof load>, entry: Parameters<ReturnType
     cleanText($entry.children("content").first().text()) ?? cleanText($entry.children("summary").first().text());
   const plainText = htmlToPlainText(contentHtml);
   const excerpt = buildExcerpt(plainText);
+  const textHash = createTextHash(plainText);
+  const idValue = cleanText($entry.children("id").first().text());
   const externalId =
-    cleanText($entry.children("id").first().text()) ??
+    idValue ??
     url ??
-    buildFallbackExternalId([title, excerpt, publishedAt?.toISOString() ?? null]);
+    buildFallbackExternalId([title, textHash, publishedAt?.toISOString() ?? null]);
 
   if (!title || !externalId || !plainText) {
     return null;
@@ -236,6 +246,7 @@ function parseAtomEntry($: ReturnType<typeof load>, entry: Parameters<ReturnType
   return {
     externalId,
     url,
+    dedupeUrl: url,
     title,
     categories,
     author,
@@ -243,6 +254,7 @@ function parseAtomEntry($: ReturnType<typeof load>, entry: Parameters<ReturnType
     contentHtml: contentHtml ? normalizeContentHtml(contentHtml) : null,
     plainText,
     excerpt,
+    textHash,
   };
 }
 
@@ -375,4 +387,8 @@ function buildExcerpt(plainText: string) {
 function buildFallbackExternalId(parts: Array<string | null>) {
   const normalized = parts.filter((part): part is string => Boolean(part)).join("|");
   return createHash("sha1").update(normalized).digest("hex");
+}
+
+function createTextHash(value: string) {
+  return createHash("sha1").update(value).digest("hex");
 }

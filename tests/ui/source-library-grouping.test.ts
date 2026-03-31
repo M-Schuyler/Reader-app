@@ -392,6 +392,68 @@ test("unknown sources stay grouped but do not generate detail links", () => {
   assert.equal(recentSection.groups[0]?.meta, "1 篇文章");
 });
 
+test("web pages with missing publishedAt still form domain source cards by createdAt recency", () => {
+  const now = new Date("2026-03-28T12:00:00.000Z");
+  const [recentSection] = buildSourceShelfSections(
+    [
+      createListItem({
+        id: "web-new-1",
+        type: DocumentType.WEB_PAGE,
+        createdAt: "2026-03-28T11:20:00.000Z",
+        publishedAt: null,
+        canonicalUrl: "https://sspai.com/post/1",
+        sourceUrl: "https://sspai.com/post/1",
+      }),
+      createListItem({
+        id: "web-new-2",
+        type: DocumentType.WEB_PAGE,
+        createdAt: "2026-03-28T10:10:00.000Z",
+        publishedAt: null,
+        canonicalUrl: "https://sspai.com/post/2",
+        sourceUrl: "https://sspai.com/post/2",
+      }),
+      createListItem({
+        id: "web-other-host",
+        type: DocumentType.WEB_PAGE,
+        createdAt: "2026-03-28T09:10:00.000Z",
+        publishedAt: null,
+        canonicalUrl: "https://example.com/article",
+        sourceUrl: "https://example.com/article",
+      }),
+    ],
+    now,
+  );
+
+  assert.deepEqual(
+    recentSection.groups.map((group) => ({
+      href: group.href,
+      id: group.id,
+      ids: group.items.map((item) => item.id),
+      kind: group.kind,
+      label: group.label,
+      value: group.value,
+    })),
+    [
+      {
+        href: "/sources/domain/sspai.com",
+        id: "source:domain:sspai.com",
+        ids: ["web-new-1", "web-new-2"],
+        kind: "domain",
+        label: "sspai.com",
+        value: "sspai.com",
+      },
+      {
+        href: "/sources/domain/example.com",
+        id: "source:domain:example.com",
+        ids: ["web-other-host"],
+        kind: "domain",
+        label: "example.com",
+        value: "example.com",
+      },
+    ],
+  );
+});
+
 test("source library preview prefers ai summary and hides failed pseudo excerpts", () => {
   assert.equal(
     resolveSourceLibraryPreviewText(
