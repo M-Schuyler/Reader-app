@@ -13,6 +13,8 @@ test("reader swaps the old save banner for mode-aware selection actions", () => 
   assert.match(documentReader, /HighlightSaveModeToggle/);
   assert.match(documentReader, /onMouseDown=\{handleSelectionMouseDown\}/);
   assert.match(documentReader, /onContextMenu=\{handleSelectionContextMenu\}/);
+  assert.match(documentReader, /onMouseUp=\{handleSelectionMouseUp\}/);
+  assert.match(documentReader, /event\.button !== 0 \|\| suppressNativeContextMenuRef\.current/);
   assert.match(documentReader, /event\.button !== 2/);
   assert.match(documentReader, /suppressNativeContextMenuRef/);
   assert.match(documentReader, /highlightSaveMode === "auto"/);

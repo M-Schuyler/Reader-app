@@ -208,6 +208,14 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
     setSelectionState(nextSelection);
   }
 
+  function handleSelectionMouseUp(event: MouseEvent<HTMLDivElement>) {
+    if (event.button !== 0 || suppressNativeContextMenuRef.current) {
+      return;
+    }
+
+    handleSelectionCapture("mouse");
+  }
+
   async function handleAutoHighlight(nextSelection: ReaderSelectionState) {
     const createdHighlight = await documentHighlights.createHighlightFromSelection(nextSelection.draft);
 
@@ -329,7 +337,7 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
                   onContextMenu={handleSelectionContextMenu}
                   onKeyUp={() => handleSelectionCapture("keyboard")}
                   onMouseDown={handleSelectionMouseDown}
-                  onMouseUp={() => handleSelectionCapture("mouse")}
+                  onMouseUp={handleSelectionMouseUp}
                   onTouchEnd={() => handleSelectionCapture("touch")}
                   ref={documentHighlights.contentRef}
                 >
