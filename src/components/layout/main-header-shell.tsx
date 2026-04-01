@@ -9,7 +9,7 @@ type MainHeaderShellProps = {
   children: ReactNode;
 };
 
-const SCROLL_HIDE_THRESHOLD = 10;
+const SCROLL_HIDE_THRESHOLD = 20;
 const SCROLL_JITTER_THRESHOLD = 8;
 
 export function MainHeaderShell({ children }: MainHeaderShellProps) {

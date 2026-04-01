@@ -22,7 +22,7 @@ test("main header keeps the brand quiet and gives search its own space", () => {
   assert.match(layout, /reader-panel-toggle-slot/);
   assert.match(layout, /MainHeaderShell/);
   assert.match(headerShell, /window\.addEventListener\("scroll", handleScroll, \{ passive: true \}\)/);
-  assert.match(headerShell, /SCROLL_HIDE_THRESHOLD = 10/);
+  assert.match(headerShell, /SCROLL_HIDE_THRESHOLD = 20/);
   assert.match(headerShell, /SCROLL_JITTER_THRESHOLD = 8/);
   assert.match(headerShell, /pathname\.startsWith\("\/documents\/"\)/);
   assert.match(headerShell, /transition-transform duration-300 ease-in-out/);
