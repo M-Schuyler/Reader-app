@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { HeaderAccountMenu } from "@/components/layout/header-account-menu";
+import { MainHeaderShell } from "@/components/layout/main-header-shell";
 import { MainNav } from "@/components/layout/main-nav";
 import { GlobalSearch } from "@/components/search/global-search";
 import { requirePageUser } from "@/server/auth/session";
@@ -14,7 +15,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-[color:var(--border-subtle)] bg-[color:var(--bg-header)] backdrop-blur-xl">
+      <MainHeaderShell>
         <div className="mx-auto flex max-w-[78rem] flex-col gap-3 px-5 py-4 sm:px-6 lg:px-8">
           <div className="grid items-center gap-4 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-6">
             <Link className="min-w-0 shrink-0" href="/sources">
@@ -37,7 +38,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
             <MainNav />
           </div>
         </div>
-      </header>
+      </MainHeaderShell>
       <main className="mx-auto max-w-[78rem] px-5 py-8 sm:px-6 lg:px-8 lg:py-10">{children}</main>
     </div>
   );

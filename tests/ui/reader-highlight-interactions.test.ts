@@ -25,6 +25,8 @@ test("reader swaps the old save banner for mode-aware selection actions", () => 
   assert.match(documentReader, /setSelectionState\(null\);\s*\n\s*documentHighlights\.requestHighlightNoteFocus/);
   assert.match(documentReader, /createPortal/);
   assert.match(documentReader, /reader-panel-toggle-slot/);
+  assert.match(documentReader, /headerToggleSlot\.setAttribute\("data-panel-open", "true"\)/);
+  assert.match(documentReader, /headerToggleSlot\.removeAttribute\("data-panel-open"\)/);
   assert.match(documentReader, /relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-transparent/);
   assert.doesNotMatch(documentReader, /fixed right-14 top-4 left-auto bottom-auto z-50/);
   assert.match(documentReader, /LayersIcon/);

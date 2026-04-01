@@ -70,6 +70,10 @@ export function sanitizeCallbackUrl(value: string | null | undefined) {
     return "/sources";
   }
 
+  if (value === "/login" || value.startsWith("/login?")) {
+    return "/sources";
+  }
+
   return value;
 }
 

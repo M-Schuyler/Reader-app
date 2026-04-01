@@ -5,6 +5,7 @@ import {
   getAllowedEmails,
   hasAllowedEmailsConfigured,
   isAllowedSession,
+  sanitizeCallbackUrl,
 } from "@/server/auth/access";
 
 const ORIGINAL_ENV = {
@@ -53,6 +54,13 @@ test("production ignores dev local auth bypass", () => {
   assert.equal(hasAllowedEmailsConfigured(), false);
   assert.equal(isAllowedSession(null), false);
   assert.equal(getAuthenticatedUserFromSession(null), null);
+});
+
+test("sanitizeCallbackUrl prevents redirect loops back to login", () => {
+  assert.equal(sanitizeCallbackUrl("/login"), "/sources");
+  assert.equal(sanitizeCallbackUrl("/login?callbackUrl=%2Fsources"), "/sources");
+  assert.equal(sanitizeCallbackUrl("/sources"), "/sources");
+  assert.equal(sanitizeCallbackUrl("/documents/abc"), "/documents/abc");
 });
 
 function restoreEnv(key: "ALLOWED_EMAILS" | "DEV_LOCAL_AUTH_EMAIL", value: string | undefined) {

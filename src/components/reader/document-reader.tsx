@@ -170,6 +170,19 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
     setHeaderToggleSlot(document.getElementById("reader-panel-toggle-slot"));
   }, []);
 
+  useEffect(() => {
+    if (!headerToggleSlot) {
+      return;
+    }
+
+    if (isFloatingPanelOpen) {
+      headerToggleSlot.setAttribute("data-panel-open", "true");
+      return;
+    }
+
+    headerToggleSlot.removeAttribute("data-panel-open");
+  }, [headerToggleSlot, isFloatingPanelOpen]);
+
   function persistHighlightSaveMode(nextMode: HighlightSaveMode) {
     setHighlightSaveMode(nextMode);
     setSelectionState(null);
