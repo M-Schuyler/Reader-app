@@ -129,6 +129,7 @@ export function HighlightsPlayground() {
       sortHighlights(current.map((highlight) => (highlight.id === id ? { ...highlight, note } : highlight))),
     );
     setSavingNoteId(null);
+    return true;
   }
 
   async function deleteHighlight(id: string) {

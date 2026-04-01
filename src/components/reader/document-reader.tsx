@@ -18,6 +18,7 @@ import {
 } from "@/lib/highlights/preferences";
 import type { CapturedSelection, SelectionAnchor } from "@/lib/highlights/selection";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
+import { cx } from "@/utils/cx";
 
 type DocumentReaderProps = {
   document: DocumentDetail;
@@ -34,8 +35,12 @@ type AutoHighlightFeedback = {
   highlightId: string;
 };
 
+type ReaderFloatingPanelTab = "highlights" | "actions" | "meta";
+
 export function DocumentReader({ document: readerDocument }: DocumentReaderProps) {
   const selectionActionsRef = useRef<HTMLDivElement>(null);
+  const floatingPanelButtonRef = useRef<HTMLButtonElement>(null);
+  const floatingPanelRef = useRef<HTMLDivElement>(null);
   const suppressNativeContextMenuRef = useRef(false);
   const sourceUrl = readerDocument.sourceUrl ?? readerDocument.canonicalUrl;
   const contentHtml = readerDocument.content?.contentHtml?.trim() ?? null;
@@ -46,6 +51,8 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
   const favorite = useDocumentFavoriteController(readerDocument);
   const [autoHighlightFeedback, setAutoHighlightFeedback] = useState<AutoHighlightFeedback | null>(null);
   const [highlightSaveMode, setHighlightSaveMode] = useState<HighlightSaveMode>("manual");
+  const [floatingPanelTab, setFloatingPanelTab] = useState<ReaderFloatingPanelTab>("highlights");
+  const [isFloatingPanelOpen, setIsFloatingPanelOpen] = useState(false);
   const [selectionState, setSelectionState] = useState<ReaderSelectionState | null>(null);
   const documentHighlights = useDocumentHighlights({
     canHighlight: isReadable,
@@ -112,6 +119,50 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
       window.clearTimeout(timeoutId);
     };
   }, [autoHighlightFeedback]);
+
+  useEffect(() => {
+    if (!isFloatingPanelOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        setIsFloatingPanelOpen(false);
+        return;
+      }
+
+      if (floatingPanelRef.current?.contains(target) || floatingPanelButtonRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsFloatingPanelOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsFloatingPanelOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFloatingPanelOpen]);
+
+  useEffect(() => {
+    if (!documentHighlights.focusedHighlightId) {
+      return;
+    }
+
+    setFloatingPanelTab("highlights");
+    setIsFloatingPanelOpen(true);
+  }, [documentHighlights.focusedHighlightId]);
 
   function persistHighlightSaveMode(nextMode: HighlightSaveMode) {
     setHighlightSaveMode(nextMode);
@@ -263,8 +314,19 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
       return;
     }
 
+    setFloatingPanelTab("highlights");
+    setIsFloatingPanelOpen(true);
     documentHighlights.requestHighlightNoteFocus(autoHighlightFeedback.highlightId);
     setAutoHighlightFeedback(null);
+  }
+
+  function toggleFloatingPanel() {
+    setIsFloatingPanelOpen((current) => !current);
+  }
+
+  function selectFloatingPanelTab(tab: ReaderFloatingPanelTab) {
+    setFloatingPanelTab(tab);
+    setIsFloatingPanelOpen(true);
   }
 
   return (
@@ -297,7 +359,7 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[72rem] gap-8 lg:grid-cols-[minmax(0,var(--content-measure))_17rem] lg:justify-center">
+      <div className="mx-auto max-w-[var(--content-measure)]">
         <Panel
           className="overflow-hidden border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] shadow-[var(--shadow-surface-muted)]"
           padding="none"
@@ -360,91 +422,137 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
             )}
           </div>
         </Panel>
+      </div>
 
-        <aside className="lg:pt-3">
-          <Panel
-            className="space-y-6 border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] shadow-none lg:sticky lg:top-24"
-            tone="transparent"
-          >
-            <div className="space-y-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                操作
-              </p>
-              <FavoriteToggleButton
-                buttonLabel={favorite.buttonLabel}
-                className="w-full justify-center"
-                isFavorite={favorite.isFavorite}
-                isSubmitting={favorite.isSubmitting}
-                onClick={favorite.toggleFavorite}
+      <button
+        aria-expanded={isFloatingPanelOpen}
+        aria-label="打开阅读浮动面板"
+        className={cx(
+          "fixed right-5 top-4 left-auto bottom-auto z-50 inline-flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 bg-white text-[color:var(--text-primary)] shadow-sm transition-shadow hover:shadow-md",
+          isFloatingPanelOpen ? "shadow-md" : undefined,
+        )}
+        onClick={toggleFloatingPanel}
+        ref={floatingPanelButtonRef}
+        type="button"
+      >
+        <LayersIcon />
+        {documentHighlights.highlights.length > 0 ? (
+          <span className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--text-primary)] px-1 text-[10px] font-semibold leading-none text-white">
+            {documentHighlights.highlights.length}
+          </span>
+        ) : null}
+      </button>
+
+      <div
+        className={cx(
+          "fixed right-4 top-[60px] z-50 w-[min(92vw,360px)] origin-top-right transition-all duration-200",
+          isFloatingPanelOpen
+            ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+            : "pointer-events-none -translate-y-2 scale-[0.98] opacity-0",
+        )}
+        ref={floatingPanelRef}
+      >
+        <Panel className="max-h-[calc(100vh-80px)] overflow-y-auto border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] shadow-[var(--shadow-surface)]">
+            <div className="flex items-center gap-2 border-b border-[color:var(--border-subtle)] pb-3">
+              <FloatingTabButton
+                active={floatingPanelTab === "highlights"}
+                label="高亮"
+                onClick={() => selectFloatingPanelTab("highlights")}
               />
-              {isReadable ? (
-                <HighlightSaveModeToggle
-                  onChange={persistHighlightSaveMode}
-                  value={highlightSaveMode}
-                />
-              ) : null}
-              <div className="flex flex-col gap-2">
-                {sourceUrl ? (
-                  <Link
-                    className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
-                    href={sourceUrl}
-                    target="_blank"
-                  >
-                    打开原文
-                  </Link>
-                ) : null}
-                <Link
-                  className="inline-flex min-h-10 items-center rounded-[18px] border border-transparent px-1 text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
-                  href="/reading"
-                >
-                  返回 Reading
-                </Link>
-              </div>
-              {favorite.actionError ? (
-                <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{favorite.actionError}</p>
-              ) : null}
+              <FloatingTabButton
+                active={floatingPanelTab === "actions"}
+                label="操作"
+                onClick={() => selectFloatingPanelTab("actions")}
+              />
+              <FloatingTabButton
+                active={floatingPanelTab === "meta"}
+                label="文档信息"
+                onClick={() => selectFloatingPanelTab("meta")}
+              />
             </div>
 
-            <div className="space-y-3">
-              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                文档信息
-              </p>
-              <dl className="space-y-3 text-sm">
-                <MetaRow label="状态" value={formatIngestionStatus(readerDocument.ingestionStatus)} />
-                <MetaRow label="发布时间" value={formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind)} />
-                {readerDocument.lang ? <MetaRow label="语言" value={readerDocument.lang} /> : null}
-                {isReadable && readerDocument.content?.wordCount ? (
-                  <MetaRow label="字数" value={formatWordCount(readerDocument.content.wordCount)} />
-                ) : null}
-                {sourceUrl ? <MetaRow label="来源" value={truncateUrl(sourceUrl)} /> : null}
-              </dl>
+            <div className="mt-4 pr-1">
+              {floatingPanelTab === "highlights" ? (
+                isReadable ? (
+                  <ReaderHighlightsPanel
+                    actionError={documentHighlights.actionError}
+                    focusedHighlightId={documentHighlights.focusedHighlightId}
+                    highlights={documentHighlights.highlights}
+                    isLoading={documentHighlights.isLoading}
+                    onDelete={documentHighlights.removeHighlightById}
+                    onFocusedHighlightHandled={documentHighlights.clearFocusedHighlight}
+                    onSaveNote={documentHighlights.saveHighlightNote}
+                    savingNoteId={documentHighlights.savingNoteId}
+                  />
+                ) : (
+                  <p className="text-sm leading-7 text-[color:var(--text-secondary)]">当前文档暂无可编辑高亮。</p>
+                )
+              ) : null}
+
+              {floatingPanelTab === "actions" ? (
+                <div className="space-y-4">
+                  <FavoriteToggleButton
+                    buttonLabel={favorite.buttonLabel}
+                    className="w-full justify-center"
+                    isFavorite={favorite.isFavorite}
+                    isSubmitting={favorite.isSubmitting}
+                    onClick={favorite.toggleFavorite}
+                  />
+                  {isReadable ? (
+                    <HighlightSaveModeToggle
+                      onChange={persistHighlightSaveMode}
+                      value={highlightSaveMode}
+                    />
+                  ) : null}
+                  <div className="flex flex-col gap-2">
+                    {sourceUrl ? (
+                      <Link
+                        className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
+                        href={sourceUrl}
+                        target="_blank"
+                      >
+                        打开原文
+                      </Link>
+                    ) : null}
+                    <Link
+                      className="inline-flex min-h-10 items-center rounded-[18px] border border-transparent px-1 text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
+                      href="/reading"
+                    >
+                      返回 Reading
+                    </Link>
+                  </div>
+                  {favorite.actionError ? (
+                    <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{favorite.actionError}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {floatingPanelTab === "meta" ? (
+                <div className="space-y-4">
+                  <dl className="space-y-3 text-sm">
+                    <MetaRow label="状态" value={formatIngestionStatus(readerDocument.ingestionStatus)} />
+                    <MetaRow label="发布时间" value={formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind)} />
+                    {readerDocument.lang ? <MetaRow label="语言" value={readerDocument.lang} /> : null}
+                    {isReadable && readerDocument.content?.wordCount ? (
+                      <MetaRow label="字数" value={formatWordCount(readerDocument.content.wordCount)} />
+                    ) : null}
+                    {sourceUrl ? <MetaRow label="来源" value={truncateUrl(sourceUrl)} /> : null}
+                  </dl>
+
+                  {favorite.isFavorite ? (
+                    <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
+                        收藏
+                      </p>
+                      <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">
+                        这篇内容会保留在收藏视图里，方便你之后更快回到它。
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-
-            {favorite.isFavorite ? (
-              <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                  收藏
-                </p>
-                <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">
-                  这篇内容会保留在收藏视图里，方便你之后更快回到它。
-                </p>
-              </div>
-            ) : null}
-
-            {isReadable ? (
-              <ReaderHighlightsPanel
-                actionError={documentHighlights.actionError}
-                focusedHighlightId={documentHighlights.focusedHighlightId}
-                highlights={documentHighlights.highlights}
-                isLoading={documentHighlights.isLoading}
-                onDelete={documentHighlights.removeHighlightById}
-                onFocusedHighlightHandled={documentHighlights.clearFocusedHighlight}
-                onSaveNote={documentHighlights.saveHighlightNote}
-                savingNoteId={documentHighlights.savingNoteId}
-              />
-            ) : null}
-          </Panel>
-        </aside>
+        </Panel>
       </div>
 
       {selectionState ? (
@@ -524,6 +632,43 @@ function formatDocumentType(value: string) {
 
 function formatWordCount(value: number) {
   return `${new Intl.NumberFormat("zh-CN").format(value)} 字`;
+}
+
+function FloatingTabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      aria-selected={active}
+      className={cx(
+        "inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-semibold transition",
+        active
+          ? "border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)]"
+          : "border-transparent bg-transparent text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
+      )}
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
+function LayersIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.7"
+      viewBox="0 0 20 20"
+    >
+      <path d="m10 3.2 7 3.6-7 3.6-7-3.6Z" />
+      <path d="m3 10.3 7 3.6 7-3.6" />
+      <path d="m3 13.6 7 3.6 7-3.6" />
+    </svg>
+  );
 }
 
 function resolveLeadText(document: DocumentDetail) {

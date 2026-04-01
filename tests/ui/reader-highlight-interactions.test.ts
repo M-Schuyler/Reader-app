@@ -23,14 +23,33 @@ test("reader swaps the old save banner for mode-aware selection actions", () => 
   assert.match(documentReader, /handleCreateHighlightNote/);
   assert.match(documentReader, /setSelectionState\(null\);\s*\n\s*}\s*\n\s*\n\s*async function handleCreateHighlight/);
   assert.match(documentReader, /setSelectionState\(null\);\s*\n\s*documentHighlights\.requestHighlightNoteFocus/);
+  assert.match(documentReader, /fixed right-5 top-4 left-auto bottom-auto z-50/);
+  assert.match(documentReader, /h-9 w-9 items-center justify-center rounded-full border border-stone-200 bg-white/);
+  assert.match(documentReader, /LayersIcon/);
+  assert.match(documentReader, /documentHighlights\.highlights\.length > 0/);
+  assert.doesNotMatch(documentReader, /<span>面板<\/span>/);
+  assert.match(documentReader, /FloatingTabButton/);
+  assert.match(documentReader, /floatingPanelTab === "highlights"/);
+  assert.match(documentReader, /floatingPanelTab === "actions"/);
+  assert.match(documentReader, /floatingPanelTab === "meta"/);
+  assert.match(documentReader, /ReaderHighlightsPanel/);
+  assert.match(documentReader, /fixed right-4 top-\[60px\] z-50/);
+  assert.match(documentReader, /max-h-\[calc\(100vh-80px\)\]/);
+  assert.doesNotMatch(documentReader, /lg:grid-cols-\[minmax\(0,var\(--content-measure\)\)_17rem\]/);
 });
 
-test("reader highlights hook and panel support focusing a freshly created note target", () => {
+test("reader highlights panel opens modal note editor and keeps save flow", () => {
   const readerHighlights = readWorkspaceFile("src/components/reader/reader-highlights.tsx");
 
   assert.match(readerHighlights, /focusedHighlightId/);
   assert.match(readerHighlights, /requestHighlightNoteFocus/);
   assert.match(readerHighlights, /return payload\.data\.highlight/);
-  assert.match(readerHighlights, /autoFocusNote/);
+  assert.match(readerHighlights, /openNoteEditor/);
+  assert.match(readerHighlights, /closeNoteEditor/);
+  assert.match(readerHighlights, /aria-modal="true"/);
+  assert.match(readerHighlights, /role="dialog"/);
+  assert.match(readerHighlights, /onMouseDown=\{handleTriggerMouseDown\}/);
+  assert.match(readerHighlights, /readOnly/);
+  assert.match(readerHighlights, /handleConfirmNoteSave/);
   assert.match(readerHighlights, /scrollIntoView/);
 });

@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/ui/panel";
 import { captureSelection, type CapturedSelection, type SelectionDraft } from "@/lib/highlights/selection";
 import type { HighlightRecord } from "@/server/modules/highlights/highlight.types";
+import { cx } from "@/utils/cx";
 
 type HighlightsApiResponse =
   | {
@@ -185,15 +187,17 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
 
       if (!payload.ok) {
         setActionError("更新批注失败，请稍后再试。");
-        return;
+        return false;
       }
 
       setHighlights((current) =>
         sortHighlights(current.map((highlight) => (highlight.id === id ? payload.data.highlight : highlight))),
       );
       setActionError(null);
+      return true;
     } catch {
       setActionError("更新批注失败，请稍后再试。");
+      return false;
     } finally {
       setSavingNoteId(null);
     }
@@ -247,9 +251,11 @@ type ReaderHighlightsPanelProps = {
   isLoading: boolean;
   onDelete: (id: string) => Promise<void>;
   onFocusedHighlightHandled: () => void;
-  onSaveNote: (id: string, note: string) => Promise<void>;
+  onSaveNote: (id: string, note: string) => Promise<boolean>;
   savingNoteId: string | null;
 };
+
+const NOTE_EDITOR_TRANSITION_MS = 180;
 
 export function ReaderHighlightsPanel({
   actionError,
@@ -261,27 +267,120 @@ export function ReaderHighlightsPanel({
   onSaveNote,
   savingNoteId,
 }: ReaderHighlightsPanelProps) {
-  const noteRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const closeEditorTimerRef = useRef<number | null>(null);
+  const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [editingHighlightId, setEditingHighlightId] = useState<string | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+
+  const editingHighlight = editingHighlightId ? highlights.find((highlight) => highlight.id === editingHighlightId) ?? null : null;
+  const isSavingEditingNote = editingHighlightId ? savingNoteId === editingHighlightId : false;
+
+  function clearCloseEditorTimer() {
+    if (closeEditorTimerRef.current !== null) {
+      window.clearTimeout(closeEditorTimerRef.current);
+      closeEditorTimerRef.current = null;
+    }
+  }
+
+  function openNoteEditor(highlight: ReaderHighlight) {
+    clearCloseEditorTimer();
+    setEditingHighlightId(highlight.id);
+    setNoteDraft(highlight.note ?? "");
+    setIsEditorOpen(true);
+  }
+
+  function closeNoteEditor() {
+    setIsEditorOpen(false);
+    clearCloseEditorTimer();
+    closeEditorTimerRef.current = window.setTimeout(() => {
+      setEditingHighlightId(null);
+      setNoteDraft("");
+      closeEditorTimerRef.current = null;
+    }, NOTE_EDITOR_TRANSITION_MS);
+  }
+
+  async function handleConfirmNoteSave() {
+    if (!editingHighlight) {
+      return;
+    }
+
+    const saved = await onSaveNote(editingHighlight.id, noteDraft);
+
+    if (saved) {
+      closeNoteEditor();
+    }
+  }
+
+  function handleOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) {
+      closeNoteEditor();
+    }
+  }
+
+  function registerCardRef(id: string, element: HTMLDivElement | null) {
+    cardRefs.current[id] = element;
+  }
 
   useEffect(() => {
     if (!focusedHighlightId) {
       return;
     }
 
-    const noteTarget = noteRefs.current[focusedHighlightId];
+    const targetCard = cardRefs.current[focusedHighlightId];
+    const targetHighlight = highlights.find((highlight) => highlight.id === focusedHighlightId);
 
-    if (!noteTarget) {
+    if (!targetHighlight) {
       return;
     }
 
-    noteTarget.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    noteTarget.focus();
-    noteTarget.setSelectionRange(noteTarget.value.length, noteTarget.value.length);
+    targetCard?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    openNoteEditor(targetHighlight);
     onFocusedHighlightHandled();
   }, [focusedHighlightId, highlights, onFocusedHighlightHandled]);
 
+  useEffect(() => {
+    if (!isEditorOpen) {
+      return;
+    }
+
+    const focusTimeoutId = window.setTimeout(() => {
+      editorTextareaRef.current?.focus();
+      editorTextareaRef.current?.setSelectionRange(noteDraft.length, noteDraft.length);
+    }, 20);
+
+    return () => {
+      window.clearTimeout(focusTimeoutId);
+    };
+  }, [isEditorOpen, noteDraft]);
+
+  useEffect(() => {
+    if (!editingHighlightId) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeNoteEditor();
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [editingHighlightId]);
+
+  useEffect(() => {
+    return () => {
+      clearCloseEditorTimer();
+    };
+  }, []);
+
   return (
-    <section className="space-y-4 border-t border-[color:var(--border-subtle)] pt-5">
+    <section className="space-y-4">
       <div className="space-y-2">
         <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
           Highlights
@@ -303,19 +402,71 @@ export function ReaderHighlightsPanel({
         <div className="space-y-4">
           {highlights.map((highlight) => (
             <HighlightCard
-              autoFocusNote={highlight.id === focusedHighlightId}
+              cardRef={(element) => registerCardRef(highlight.id, element)}
               highlight={highlight}
+              isEditing={editingHighlightId === highlight.id}
+              isEditorOpen={isEditorOpen}
               isSaving={savingNoteId === highlight.id}
               key={highlight.id}
-              noteRef={(element) => {
-                noteRefs.current[highlight.id] = element;
-              }}
               onDelete={onDelete}
-              onSaveNote={onSaveNote}
+              onOpenEditor={openNoteEditor}
             />
           ))}
         </div>
       )}
+
+      {editingHighlight ? (
+        <div
+          className={cx(
+            "fixed inset-0 z-[72] flex items-center justify-center px-4 transition-opacity duration-200",
+            isEditorOpen ? "pointer-events-auto bg-black/35 opacity-100" : "pointer-events-none bg-black/0 opacity-0",
+          )}
+          onMouseDown={handleOverlayMouseDown}
+        >
+          <Panel
+            aria-modal="true"
+            className={cx(
+              "relative w-full max-w-[42rem] border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] p-6 transition-all duration-200 sm:p-7",
+              isEditorOpen ? "translate-y-0 scale-100 opacity-100" : "translate-y-1 scale-[0.96] opacity-0",
+            )}
+            role="dialog"
+          >
+            <button
+              aria-label="关闭批注弹窗"
+              className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none text-[color:var(--text-tertiary)] transition hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]"
+              onClick={closeNoteEditor}
+              type="button"
+            >
+              ×
+            </button>
+
+            <div className="space-y-5">
+              <blockquote className="rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm leading-7 text-[color:var(--text-primary)]">
+                “{editingHighlight.quoteText}”
+              </blockquote>
+
+              <textarea
+                className="min-h-44 w-full rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-field)] px-4 py-3.5 text-sm leading-7 text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--border-strong)] focus:bg-[color:var(--bg-field-focus)]"
+                onChange={(event) => setNoteDraft(event.target.value)}
+                placeholder="写下这段高亮的批注"
+                ref={editorTextareaRef}
+                value={noteDraft}
+              />
+
+              <div className="flex justify-end">
+                <Button
+                  disabled={isSavingEditingNote}
+                  onClick={() => void handleConfirmNoteSave()}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {isSavingEditingNote ? "保存中…" : "保存批注"}
+                </Button>
+              </div>
+            </div>
+          </Panel>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -334,54 +485,60 @@ function sortHighlights(highlights: ReaderHighlight[]) {
 }
 
 function HighlightCard({
-  autoFocusNote,
+  cardRef,
   highlight,
+  isEditing,
+  isEditorOpen,
   isSaving,
-  noteRef,
   onDelete,
-  onSaveNote,
+  onOpenEditor,
 }: {
-  autoFocusNote: boolean;
+  cardRef: (element: HTMLDivElement | null) => void;
   highlight: ReaderHighlight;
+  isEditing: boolean;
+  isEditorOpen: boolean;
   isSaving: boolean;
-  noteRef: (element: HTMLTextAreaElement | null) => void;
   onDelete: (id: string) => Promise<void>;
-  onSaveNote: (id: string, note: string) => Promise<void>;
+  onOpenEditor: (highlight: ReaderHighlight) => void;
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  function handleTextareaRef(element: HTMLTextAreaElement | null) {
-    textareaRef.current = element;
-    noteRef(element);
+  function handleTriggerMouseDown(event: MouseEvent<HTMLTextAreaElement>) {
+    event.preventDefault();
+    onOpenEditor(highlight);
   }
 
-  function handleSaveNote() {
-    const nextNote = textareaRef.current?.value ?? highlight.note ?? "";
-    void onSaveNote(highlight.id, nextNote);
+  function handleTriggerClick() {
+    onOpenEditor(highlight);
   }
 
   return (
-    <div className="space-y-3 rounded-[20px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] p-4">
+    <div
+      className={cx(
+        "space-y-3 rounded-[20px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] p-4 transition-all duration-200",
+        isEditing && isEditorOpen ? "scale-[1.02] opacity-0" : "scale-100 opacity-100",
+      )}
+      ref={cardRef}
+    >
       <blockquote className="border-l border-[color:var(--border-strong)] pl-4 text-sm leading-7 text-[color:var(--text-primary)]">
         {highlight.quoteText}
       </blockquote>
       <textarea
         className="min-h-24 w-full rounded-[16px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-field)] px-3.5 py-3 text-sm leading-6 text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--border-strong)] focus:bg-[color:var(--bg-field-focus)]"
-        data-note-focus-target={autoFocusNote ? "true" : undefined}
-        defaultValue={highlight.note ?? ""}
+        onClick={handleTriggerClick}
+        onMouseDown={handleTriggerMouseDown}
         placeholder="写一句批注"
-        ref={handleTextareaRef}
+        readOnly
+        value={highlight.note ?? ""}
       />
       <div className="flex items-center justify-between gap-3">
         <Button
-          disabled={isSaving}
-          onClick={handleSaveNote}
+          onClick={() => onOpenEditor(highlight)}
           size="sm"
           variant="secondary"
         >
-          {isSaving ? "保存中…" : "保存批注"}
+          写批注
         </Button>
         <button
+          disabled={isSaving}
           className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--badge-danger-text)]"
           onClick={() => void onDelete(highlight.id)}
           type="button"
