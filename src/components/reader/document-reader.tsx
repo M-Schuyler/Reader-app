@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { IngestionStatus } from "@prisma/client";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
 import { HighlightSaveModeToggle } from "@/components/reader/highlight-save-mode-toggle";
@@ -53,6 +54,7 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
   const [highlightSaveMode, setHighlightSaveMode] = useState<HighlightSaveMode>("manual");
   const [floatingPanelTab, setFloatingPanelTab] = useState<ReaderFloatingPanelTab>("highlights");
   const [isFloatingPanelOpen, setIsFloatingPanelOpen] = useState(false);
+  const [headerToggleSlot, setHeaderToggleSlot] = useState<HTMLElement | null>(null);
   const [selectionState, setSelectionState] = useState<ReaderSelectionState | null>(null);
   const documentHighlights = useDocumentHighlights({
     canHighlight: isReadable,
@@ -163,6 +165,10 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
     setFloatingPanelTab("highlights");
     setIsFloatingPanelOpen(true);
   }, [documentHighlights.focusedHighlightId]);
+
+  useEffect(() => {
+    setHeaderToggleSlot(document.getElementById("reader-panel-toggle-slot"));
+  }, []);
 
   function persistHighlightSaveMode(nextMode: HighlightSaveMode) {
     setHighlightSaveMode(nextMode);
@@ -424,24 +430,29 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
         </Panel>
       </div>
 
-      <button
-        aria-expanded={isFloatingPanelOpen}
-        aria-label="打开阅读浮动面板"
-        className={cx(
-          "fixed right-5 top-4 left-auto bottom-auto z-50 inline-flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 bg-white text-[color:var(--text-primary)] shadow-sm transition-shadow hover:shadow-md",
-          isFloatingPanelOpen ? "shadow-md" : undefined,
-        )}
-        onClick={toggleFloatingPanel}
-        ref={floatingPanelButtonRef}
-        type="button"
-      >
-        <LayersIcon />
-        {documentHighlights.highlights.length > 0 ? (
-          <span className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--text-primary)] px-1 text-[10px] font-semibold leading-none text-white">
-            {documentHighlights.highlights.length}
-          </span>
-        ) : null}
-      </button>
+      {headerToggleSlot
+        ? createPortal(
+            <button
+              aria-expanded={isFloatingPanelOpen}
+              aria-label="打开阅读浮动面板"
+              className={cx(
+                "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-transparent text-[color:var(--text-primary)] transition-colors hover:bg-stone-100",
+                isFloatingPanelOpen ? "bg-stone-100" : undefined,
+              )}
+              onClick={toggleFloatingPanel}
+              ref={floatingPanelButtonRef}
+              type="button"
+            >
+              <LayersIcon />
+              {documentHighlights.highlights.length > 0 ? (
+                <span className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--text-primary)] px-1 text-[10px] font-semibold leading-none text-white">
+                  {documentHighlights.highlights.length}
+                </span>
+              ) : null}
+            </button>,
+            headerToggleSlot,
+          )
+        : null}
 
       <div
         className={cx(

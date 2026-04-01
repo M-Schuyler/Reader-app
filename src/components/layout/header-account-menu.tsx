@@ -11,11 +11,9 @@ export function HeaderAccountMenu({ email }: HeaderAccountMenuProps) {
 
   return (
     <details className="group relative [&_summary::-webkit-details-marker]:hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-1.5 text-[color:var(--text-primary)] shadow-[var(--shadow-surface-muted)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-surface)]">
+      <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full bg-stone-800 text-[13px] font-semibold text-white transition hover:ring-2 hover:ring-stone-300">
         <span className="sr-only">打开账户菜单</span>
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--bg-surface-strong)] text-sm font-semibold">
-          {avatarLabel}
-        </span>
+        <span>{avatarLabel}</span>
       </summary>
 
       <div className="absolute right-0 top-[calc(100%+0.7rem)] z-40 w-[18rem] rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] p-4 shadow-[var(--shadow-surface)]">

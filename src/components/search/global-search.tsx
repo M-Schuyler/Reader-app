@@ -133,7 +133,7 @@ export function GlobalSearch() {
   }
 
   return (
-    <div className="relative min-w-0 w-full" ref={containerRef}>
+    <div className="relative w-full min-w-0" ref={containerRef}>
       <form onSubmit={handleSubmit}>
         <label className="sr-only" htmlFor={inputId}>
           全局搜索
@@ -148,7 +148,7 @@ export function GlobalSearch() {
         </button>
         <TextInput
           autoComplete="off"
-          className="min-h-10 rounded-full bg-[color:var(--bg-surface)] pl-11 pr-4 lg:min-w-[14rem] xl:min-w-[18rem]"
+          className="min-h-9 rounded-full border-stone-200 bg-white/80 pl-11 pr-4 text-sm placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
           id={inputId}
           ref={inputRef}
           onChange={(event) => setQuery(event.target.value)}
@@ -173,7 +173,7 @@ export function GlobalSearch() {
               setActiveIndex((current) => (current - 1 + results.length) % results.length);
             }
           }}
-          placeholder=""
+          placeholder="搜索文档"
           type="search"
           value={query}
         />

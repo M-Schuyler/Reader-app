@@ -67,6 +67,6 @@ test("global search component wires the top search button to focus and open the 
   assert.match(component, /inputRef\.current\?\.focus\(\)/);
   assert.match(component, /inputRef\.current\?\.focus\(\)/);
   assert.match(component, /aria-label="打开搜索"/);
-  assert.match(component, /lg:min-w-\[14rem\] xl:min-w-\[18rem\]/);
-  assert.match(component, /placeholder=""/);
+  assert.match(component, /min-h-9 rounded-full border-stone-200 bg-white\/80/);
+  assert.match(component, /placeholder="搜索文档"/);
 });

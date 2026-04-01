@@ -23,11 +23,12 @@ export default async function MainLayout({ children }: MainLayoutProps) {
               </p>
             </Link>
 
-            <div className="w-full lg:mx-auto lg:max-w-[36rem]">
+            <div className="w-full lg:mx-auto lg:max-w-[22.5rem]">
               <GlobalSearch />
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center gap-2">
+              <div className="empty:hidden" id="reader-panel-toggle-slot" />
               <HeaderAccountMenu email={user.email ?? null} />
             </div>
           </div>

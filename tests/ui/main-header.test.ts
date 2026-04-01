@@ -17,12 +17,17 @@ test("main header keeps the brand quiet and gives search its own space", () => {
   assert.doesNotMatch(layout, /退出登录/);
   assert.match(layout, /lg:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
   assert.match(layout, /text-\[1\.95rem\]/);
+  assert.match(layout, /flex items-center gap-2/);
+  assert.match(layout, /reader-panel-toggle-slot/);
   assert.match(nav, /overflow-x-auto/);
   assert.match(nav, /whitespace-nowrap/);
-  assert.match(nav, /inline-flex items-center rounded-full border/);
+  assert.match(nav, /inline-flex items-center gap-1 whitespace-nowrap/);
+  assert.match(nav, /after:bg-stone-900/);
   assert.match(accountMenu, /ThemeToggle/);
   assert.match(accountMenu, /退出登录/);
   assert.match(accountMenu, /<details/);
+  assert.match(accountMenu, /h-8 w-8/);
+  assert.match(accountMenu, /bg-stone-800 text-\[13px\] font-semibold text-white/);
 });
 
 test("theme toggle no longer renders an extra appearance label", () => {

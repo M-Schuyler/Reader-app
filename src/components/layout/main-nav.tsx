@@ -10,15 +10,15 @@ export function MainNav() {
   const items = getMainNavItems(pathname);
 
   return (
-    <nav className="overflow-x-auto text-sm text-[color:var(--text-secondary)]">
-      <div className="inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-1 whitespace-nowrap">
+    <nav className="overflow-x-auto text-sm">
+      <div className="inline-flex items-center gap-1 whitespace-nowrap">
         {items.map((item) => (
           <Link
             className={cx(
-              "inline-flex min-h-9 min-w-[4.9rem] items-center justify-center rounded-full px-4 font-semibold transition",
+              "relative inline-flex min-h-9 items-center justify-center px-2.5 transition-colors",
               item.isActive
-                ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] shadow-[var(--shadow-surface-muted)]"
-                : "text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
+                ? "font-medium text-stone-900 after:absolute after:bottom-1 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-stone-900"
+                : "font-normal text-stone-400 hover:text-stone-700",
             )}
             href={item.href}
             key={item.href}

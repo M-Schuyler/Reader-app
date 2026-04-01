@@ -22,6 +22,6 @@ test("root layout exposes the Chinese locale and key UI components use stronger 
   assert.match(layout, /lang="zh-CN"/);
   assert.match(pageHeader, /className="font-ui-heading text-4xl/);
   assert.doesNotMatch(pageHeader, /className="font-display text-4xl/);
-  assert.match(mainNav, /className=\{cx\([\s\S]*font-semibold/);
+  assert.match(mainNav, /className=\{cx\([\s\S]*font-medium/);
   assert.match(button, /className=\{cx\([\s\S]*font-semibold transition/);
 });
