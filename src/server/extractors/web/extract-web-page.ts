@@ -42,6 +42,17 @@ const WECHAT_END_MARKER_TEXT_PATTERNS = /^(?:（完）|\(完\)|全文完|完)$/;
 const WECHAT_TRAILING_SEPARATOR_PATTERNS = /^(?:[.\-_*•。·…\s]{6,}|\.{6,}|。{6,}|_{6,}|\*{6,}|•{6,})$/;
 const WECHAT_TRAILING_PROMO_TEXT_PATTERNS =
   /Tips[:：]|后台私信|交流群|加助理|网址[:：]|自动交易系统|复利吃息系统|知识星球|星球|私董会|定投|X ID[:：]|星标|感谢你的阅读|欢迎⭐|欢迎\*|web3leon|aidog\.xyz/i;
+const META_PUBLISHED_AT_KEYS = [
+  "article:published_time",
+  "og:article:published_time",
+  "og:published_time",
+  "published_time",
+  "publishdate",
+  "pubdate",
+  "date",
+  "dc.date",
+];
+const JSON_LD_PUBLISHED_AT_KEYS = ["datePublished", "dateCreated", "uploadDate", "dateModified"] as const;
 const WECHAT_NOISE_SELECTORS = [
   "#meta_content",
   "#js_tags",
@@ -145,6 +156,7 @@ export function extractWebPageFromHtml(input: {
   const lang = extractLang($);
   const canonicalUrl = extractCanonicalUrl($, finalUrl);
   const author = extractAuthor($);
+  const publishedAt = extractPublishedAt($, finalUrl, rawHtml);
   const contentHtml = trimReadableHtml(extractReadableHtml($, finalUrl), title, finalUrl);
   const plainText = htmlToPlainText(contentHtml);
 
@@ -164,7 +176,7 @@ export function extractWebPageFromHtml(input: {
     title,
     lang,
     author,
-    publishedAt: null,
+    publishedAt,
     excerpt,
     contentHtml: contentHtml || null,
     plainText,
@@ -682,6 +694,121 @@ function extractAuthor($: CheerioAPI) {
   return extractMetaContent($, "author") ?? extractMetaContent($, "article:author");
 }
 
+function extractPublishedAt($: CheerioAPI, finalUrl: string, rawHtml: string) {
+  for (const key of META_PUBLISHED_AT_KEYS) {
+    const parsed = parseDateValue(extractMetaContent($, key));
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  for (const element of $("time").toArray()) {
+    const parsed = parseDateValue(cleanText($(element).attr("datetime") ?? null) ?? cleanText($(element).text()));
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  const jsonLdPublishedAt = extractJsonLdPublishedAt($);
+  if (jsonLdPublishedAt) {
+    return jsonLdPublishedAt;
+  }
+
+  if (isWeChatHost(safeParseUrl(finalUrl))) {
+    return extractWeChatPublishedAt($, rawHtml);
+  }
+
+  return null;
+}
+
+function extractJsonLdPublishedAt($: CheerioAPI) {
+  for (const script of $("script[type='application/ld+json']").toArray()) {
+    const scriptContent = $(script).text();
+    if (!scriptContent.trim()) {
+      continue;
+    }
+
+    try {
+      const parsedJson = JSON.parse(scriptContent) as unknown;
+      const publishedAt = findPublishedAtInJsonLd(parsedJson);
+      if (publishedAt) {
+        return publishedAt;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function findPublishedAtInJsonLd(value: unknown): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = findPublishedAtInJsonLd(item);
+      if (parsed) {
+        return parsed;
+      }
+    }
+
+    return null;
+  }
+
+  if (typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const key of JSON_LD_PUBLISHED_AT_KEYS) {
+    const candidate = record[key];
+    if (typeof candidate !== "string") {
+      continue;
+    }
+
+    const parsed = parseDateValue(candidate);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  for (const nestedValue of Object.values(record)) {
+    const parsed = findPublishedAtInJsonLd(nestedValue);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function extractWeChatPublishedAt($: CheerioAPI, rawHtml: string) {
+  const publishTimeText = cleanText($("#publish_time, em#publish_time, .publish_time").first().text());
+  const publishTimeFromText = parseDateValue(publishTimeText);
+  if (publishTimeFromText) {
+    return publishTimeFromText;
+  }
+
+  const patterns = [
+    /\b(?:var|let|const)\s+ct\s*=\s*["']?(\d{10,13})["']?/i,
+    /\bpublish_time\s*[:=]\s*["']?([0-9:\-T\s+]+)["']?/i,
+    /\b(?:create_time|oriCreateTime)\s*[:=]\s*["']?([0-9:\-T\s+]+)["']?/i,
+  ];
+
+  for (const pattern of patterns) {
+    const candidate = rawHtml.match(pattern)?.[1] ?? null;
+    const parsed = parseDateValue(candidate);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 function extractMetaContent($: CheerioAPI, name: string) {
   const normalizedName = name.toLowerCase();
 
@@ -731,6 +858,51 @@ function cleanText(value: string | null) {
   }
 
   return decodeHtmlEntities(value).replace(/\s+/g, " ").trim() || null;
+}
+
+function parseDateValue(value: string | null) {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (/^\d{10}$/.test(normalized)) {
+    const epochSeconds = Number(normalized);
+    if (epochSeconds >= 946684800 && epochSeconds <= 4102444800) {
+      return parseEpochMillis(epochSeconds * 1000);
+    }
+  }
+
+  if (/^\d{13}$/.test(normalized)) {
+    const epochMillis = Number(normalized);
+    if (epochMillis >= 946684800000 && epochMillis <= 4102444800000) {
+      return parseEpochMillis(epochMillis);
+    }
+  }
+
+  const cjkDateMatch = normalized.match(
+    /^(\d{4})[年\/\-.](\d{1,2})[月\/\-.](\d{1,2})日?(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?$/,
+  );
+  if (cjkDateMatch) {
+    const [, year, month, day, hour = "0", minute = "0", second = "0"] = cjkDateMatch;
+    const withTimezone = `${year}-${padTwoDigits(month)}-${padTwoDigits(day)}T${padTwoDigits(hour)}:${padTwoDigits(minute)}:${padTwoDigits(second)}+08:00`;
+    const parsedCjk = new Date(withTimezone);
+    if (!Number.isNaN(parsedCjk.getTime())) {
+      return parsedCjk;
+    }
+  }
+
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseEpochMillis(value: number) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function padTwoDigits(value: string) {
+  return value.padStart(2, "0");
 }
 
 function normalizeWhitespace(value: string | null) {

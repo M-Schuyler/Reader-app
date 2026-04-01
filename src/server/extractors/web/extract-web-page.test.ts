@@ -67,6 +67,37 @@ test("keeps normal wechat articles readable when content containers exist", () =
   assert.equal(result.contentHtml?.includes("<p>"), true);
 });
 
+test("extracts wechat publishedAt from publish_time text and script timestamp", () => {
+  const rawHtml = `
+    <html>
+      <head>
+        <meta property="og:title" content="带发布时间的微信文章">
+      </head>
+      <body>
+        <div id="img-content" class="rich_media_content">
+          <h1 id="activity-name">带发布时间的微信文章</h1>
+          <em id="publish_time">2026年03月28日 08:15</em>
+          <div id="js_content">
+            <p>${LONG_WECHAT_BODY}</p>
+            <p>${LONG_WECHAT_BODY}</p>
+          </div>
+        </div>
+        <script>
+          var ct = "1774666500";
+        </script>
+      </body>
+    </html>
+  `;
+
+  const result = extractWebPageFromHtml({
+    requestUrl: "https://mp.weixin.qq.com/s/wechat-time-demo",
+    rawHtml,
+  });
+
+  assert.ok(result.publishedAt instanceof Date);
+  assert.equal(result.publishedAt?.toISOString(), "2026-03-28T00:15:00.000Z");
+});
+
 test("rejects low-signal wechat output even if extraction produced some text", () => {
   const rawHtml = `
     <html>
