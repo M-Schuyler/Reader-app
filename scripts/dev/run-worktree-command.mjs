@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { archiveLocalBuildArtifacts, formatArchivedBuildArtifacts } from "./archive-build-artifacts.mjs";
+import { acquireDevServerLock } from "./dev-server-lock.mjs";
 import { loadWorktreeEnv } from "./worktree-env.mjs";
 
 const [mode, ...restArgs] = process.argv.slice(2);
@@ -15,6 +16,8 @@ const env = await loadWorktreeEnv({
   cwd,
   baseEnv: process.env,
 });
+let releaseDevServerLock = null;
+let shutdownSignal = null;
 
 if (mode === "build") {
   const archivedArtifacts = await archiveLocalBuildArtifacts({ cwd });
@@ -25,19 +28,53 @@ if (mode === "build") {
   }
 }
 
-const args = mode === "dev" ? ["next", "dev", ...restArgs] : ["sh", "-lc", "npx prisma generate && npx next build"];
+if (mode === "dev") {
+  const lockResult = await acquireDevServerLock({ cwd });
 
-const child = spawn(mode === "dev" ? "npx" : args[0], mode === "dev" ? args : args.slice(1), {
+  if (!lockResult.acquired) {
+    console.error(lockResult.message);
+    process.exit(1);
+  }
+
+  releaseDevServerLock = lockResult.release;
+}
+
+const child = spawn(
+  mode === "dev" ? process.execPath : "sh",
+  mode === "dev" ? [path.join(cwd, "node_modules", "next", "dist", "bin", "next"), "dev", ...restArgs] : ["-lc", "npx prisma generate && npx next build"],
+  {
   cwd,
   env,
   stdio: "inherit",
-});
+},
+);
 
 child.on("exit", (code, signal) => {
+  void releaseDevServerLock?.();
+
   if (signal) {
+    if (shutdownSignal) {
+      process.exit(0);
+      return;
+    }
+
     process.kill(process.pid, signal);
     return;
   }
 
   process.exit(code ?? 0);
 });
+
+for (const event of ["SIGINT", "SIGTERM"]) {
+  process.on(event, () => {
+    if (shutdownSignal) {
+      return;
+    }
+
+    shutdownSignal = event;
+
+    void releaseDevServerLock?.().finally(() => {
+      child.kill(event);
+    });
+  });
+}

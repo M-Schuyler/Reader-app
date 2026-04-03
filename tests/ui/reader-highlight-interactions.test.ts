@@ -11,6 +11,26 @@ test("reader swaps the old save banner for mode-aware selection actions", () => 
 
   assert.doesNotMatch(documentReader, /把这段文字保存为高亮，方便稍后回看/);
   assert.match(documentReader, /HighlightSaveModeToggle/);
+  assert.match(documentReader, /ReaderTypographyControl/);
+  assert.match(documentReader, /READER_FONT_SIZE_STORAGE_KEY/);
+  assert.match(documentReader, /READER_LINE_HEIGHT_STORAGE_KEY/);
+  assert.match(documentReader, /persistReaderFontSize/);
+  assert.match(documentReader, /persistReaderLineHeight/);
+  assert.match(documentReader, /resolveReaderFontSizePreferenceValue\(readerFontSize\)/);
+  assert.match(documentReader, /resolveReaderLineHeightPreferenceValue\(readerLineHeight\)/);
+  assert.match(documentReader, /字体大小/);
+  assert.match(documentReader, /行距/);
+  assert.match(documentReader, /实时预览/);
+  assert.match(
+    documentReader,
+    /今天的阅读，从一个清晰的段落开始。[\s\S]*The interface should stay calm, while the text stays legible and focused\./,
+  );
+  assert.match(
+    documentReader,
+    /短句用来确认节奏。[\s\S]*Longer sentences help you feel how spacing affects sustained reading comfort over time\./,
+  );
+  assert.match(documentReader, /<br \/>/);
+  assert.match(documentReader, /style=\{\{ fontSize: previewFontSize, lineHeight: previewLineHeight \}\}/);
   assert.match(documentReader, /onMouseDown=\{handleSelectionMouseDown\}/);
   assert.match(documentReader, /onContextMenu=\{handleSelectionContextMenu\}/);
   assert.match(documentReader, /onMouseUp=\{handleSelectionMouseUp\}/);

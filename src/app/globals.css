@@ -126,8 +126,8 @@ textarea {
 
 .reader-prose {
   font-family: var(--font-display);
-  font-size: 1.125rem;
-  line-height: 2;
+  font-size: var(--reader-font-size, 1.125rem);
+  line-height: var(--reader-line-height, 2);
   letter-spacing: -0.01em;
   color: color-mix(in srgb, var(--text-primary) 92%, transparent);
 }
@@ -153,10 +153,50 @@ textarea {
 .reader-rich-content blockquote,
 .reader-rich-content ul,
 .reader-rich-content ol,
+.reader-rich-content .reader-table-wrap,
 .reader-rich-content hr {
   margin-top: 0.25rem;
 }
 
 .reader-rich-content img {
   display: block;
+}
+
+.reader-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: var(--bg-surface-strong);
+}
+
+.reader-table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 0.98rem;
+  line-height: 1.75;
+}
+
+.reader-table caption {
+  caption-side: top;
+  padding: 0.9rem 1rem 0.55rem;
+  text-align: left;
+  font-size: 0.84rem;
+  letter-spacing: 0.01em;
+  color: var(--text-tertiary);
+}
+
+.reader-table th,
+.reader-table td {
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.75rem 0.95rem;
+  vertical-align: top;
+  text-align: left;
+}
+
+.reader-table thead th {
+  border-top: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-surface) 84%, transparent);
 }

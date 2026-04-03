@@ -98,6 +98,80 @@ test("extracts wechat publishedAt from publish_time text and script timestamp", 
   assert.equal(result.publishedAt?.toISOString(), "2026-03-28T00:15:00.000Z");
 });
 
+test("extracts author from meta, json-ld and wechat byline", () => {
+  const jsonLdRawHtml = `
+    <html>
+      <head>
+        <meta property="og:title" content="作者提取测试">
+        <script type="application/ld+json">
+          {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            "author": {
+              "@type": "Person",
+              "name": "Schema Author"
+            }
+          }
+        </script>
+      </head>
+      <body>
+        <article>
+          <p>${LONG_WECHAT_BODY}</p>
+          <p>${LONG_WECHAT_BODY}</p>
+        </article>
+      </body>
+    </html>
+  `;
+
+  const metaRawHtml = `
+    <html>
+      <head>
+        <meta name="author" content="Meta Author">
+      </head>
+      <body>
+        <article>
+          <p>${LONG_WECHAT_BODY}</p>
+          <p>${LONG_WECHAT_BODY}</p>
+        </article>
+      </body>
+    </html>
+  `;
+
+  const wechatBylineRawHtml = `
+    <html>
+      <head>
+        <meta property="og:title" content="微信作者提取">
+      </head>
+      <body>
+        <div id="img-content" class="rich_media_content">
+          <div id="js_content">
+            <section>文：王小明</section>
+            <p>${LONG_WECHAT_BODY}</p>
+            <p>${LONG_WECHAT_BODY}</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const fromJsonLd = extractWebPageFromHtml({
+    requestUrl: "https://example.com/author-jsonld",
+    rawHtml: jsonLdRawHtml,
+  });
+  const fromMeta = extractWebPageFromHtml({
+    requestUrl: "https://example.com/author-meta",
+    rawHtml: metaRawHtml,
+  });
+  const fromWeChatByline = extractWebPageFromHtml({
+    requestUrl: "https://mp.weixin.qq.com/s/author-byline-demo",
+    rawHtml: wechatBylineRawHtml,
+  });
+
+  assert.equal(fromJsonLd.author, "Schema Author");
+  assert.equal(fromMeta.author, "Meta Author");
+  assert.equal(fromWeChatByline.author, "王小明");
+});
+
 test("rejects low-signal wechat output even if extraction produced some text", () => {
   const rawHtml = `
     <html>

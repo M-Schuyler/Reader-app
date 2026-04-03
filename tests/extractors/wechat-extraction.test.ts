@@ -16,6 +16,7 @@ test("extracts a readable WeChat article and trims trailing promo blocks", () =>
   });
 
   assert.equal(result.title, "一人IP公司的诅咒");
+  assert.equal(result.author, "蔡垒磊");
   assert.ok(result.contentHtml);
   assert.ok(result.plainText.length > 120);
   assert.ok(result.wordCount > 120);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { resolveReaderImageUrl } from "@/lib/content/image-proxy";
 import { splitTextByHighlights } from "@/lib/highlights/anchor";
 import { splitPlainTextIntoHighlightedParagraphs } from "@/lib/highlights/plain-text";
@@ -10,7 +10,9 @@ import type { ReaderHighlight } from "@/components/reader/reader-highlights";
 type ReaderRichContentProps = {
   contentHtml: string;
   fallbackText: string;
+  fontSize?: string;
   highlights?: ReaderHighlight[];
+  lineHeight?: string;
   sourceUrl: string | null;
 };
 
@@ -18,7 +20,14 @@ type CursorState = {
   value: number;
 };
 
-export function ReaderRichContent({ contentHtml, fallbackText, highlights = [], sourceUrl }: ReaderRichContentProps) {
+export function ReaderRichContent({
+  contentHtml,
+  fallbackText,
+  fontSize = "1.125rem",
+  highlights = [],
+  lineHeight = "2",
+  sourceUrl,
+}: ReaderRichContentProps) {
   const [content, setContent] = useState<ReactNode | null>(null);
 
   useEffect(() => {
@@ -31,13 +40,33 @@ export function ReaderRichContent({ contentHtml, fallbackText, highlights = [], 
 
   if (!content) {
     return (
-      <div className="reader-prose">
+      <div
+        className="reader-prose"
+        style={
+          {
+            "--reader-font-size": fontSize,
+            "--reader-line-height": lineHeight,
+          } as CSSProperties
+        }
+      >
         {renderPlainTextFallback(fallbackText, highlights)}
       </div>
     );
   }
 
-  return <div className="reader-prose reader-rich-content">{content}</div>;
+  return (
+    <div
+      className="reader-prose reader-rich-content"
+      style={
+        {
+          "--reader-font-size": fontSize,
+          "--reader-line-height": lineHeight,
+        } as CSSProperties
+      }
+    >
+      {content}
+    </div>
+  );
 }
 
 function resolveUrl(value: string | null, sourceUrl: string | null) {
@@ -177,6 +206,34 @@ function renderNode(
         </em>
       );
 
+    case "u":
+      return (
+        <u className="underline decoration-[color:var(--border-strong)] underline-offset-[0.18em]" key={key}>
+          {children}
+        </u>
+      );
+
+    case "del":
+      return (
+        <del className="text-[color:var(--text-secondary)] decoration-[color:var(--text-tertiary)]" key={key}>
+          {children}
+        </del>
+      );
+
+    case "sup":
+      return (
+        <sup className="align-super text-[0.72em]" key={key}>
+          {children}
+        </sup>
+      );
+
+    case "sub":
+      return (
+        <sub className="align-sub text-[0.72em]" key={key}>
+          {children}
+        </sub>
+      );
+
     case "a": {
       const href = resolveUrl(element.getAttribute("href"), sourceUrl);
       if (!href) {
@@ -235,6 +292,31 @@ function renderNode(
           {children}
         </figcaption>
       );
+
+    case "table":
+      return (
+        <div className="reader-table-wrap" key={key}>
+          <table className="reader-table">{children}</table>
+        </div>
+      );
+
+    case "thead":
+      return <thead key={key}>{children}</thead>;
+
+    case "tbody":
+      return <tbody key={key}>{children}</tbody>;
+
+    case "tr":
+      return <tr key={key}>{children}</tr>;
+
+    case "th":
+      return <th key={key}>{children}</th>;
+
+    case "td":
+      return <td key={key}>{children}</td>;
+
+    case "caption":
+      return <caption key={key}>{children}</caption>;
 
     case "img": {
       const src = resolveReaderImageUrl(element.getAttribute("src"), sourceUrl);

@@ -51,7 +51,7 @@ async function main() {
 
   const child =
     mode === "dev"
-      ? spawn("npx", ["next", "dev", ...restArgs], {
+      ? spawn(process.execPath, [path.join(cwd, "node_modules", "next", "dist", "bin", "next"), "dev", ...restArgs], {
           cwd,
           env: process.env,
           stdio: "inherit",

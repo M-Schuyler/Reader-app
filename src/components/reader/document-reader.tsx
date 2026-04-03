@@ -14,8 +14,16 @@ import { Panel } from "@/components/ui/panel";
 import { formatPublishedAtLabel } from "@/lib/documents/published-at";
 import {
   HIGHLIGHT_SAVE_MODE_STORAGE_KEY,
+  READER_FONT_SIZE_STORAGE_KEY,
+  READER_LINE_HEIGHT_STORAGE_KEY,
   normalizeHighlightSaveMode,
+  normalizeReaderFontSizePreference,
+  normalizeReaderLineHeightPreference,
+  resolveReaderFontSizePreferenceValue,
+  resolveReaderLineHeightPreferenceValue,
   type HighlightSaveMode,
+  type ReaderFontSizePreference,
+  type ReaderLineHeightPreference,
 } from "@/lib/highlights/preferences";
 import type { CapturedSelection, SelectionAnchor } from "@/lib/highlights/selection";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
@@ -52,6 +60,8 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
   const favorite = useDocumentFavoriteController(readerDocument);
   const [autoHighlightFeedback, setAutoHighlightFeedback] = useState<AutoHighlightFeedback | null>(null);
   const [highlightSaveMode, setHighlightSaveMode] = useState<HighlightSaveMode>("manual");
+  const [readerFontSize, setReaderFontSize] = useState<ReaderFontSizePreference>("medium");
+  const [readerLineHeight, setReaderLineHeight] = useState<ReaderLineHeightPreference>("comfortable");
   const [floatingPanelTab, setFloatingPanelTab] = useState<ReaderFloatingPanelTab>("highlights");
   const [isFloatingPanelOpen, setIsFloatingPanelOpen] = useState(false);
   const [headerToggleSlot, setHeaderToggleSlot] = useState<HTMLElement | null>(null);
@@ -69,6 +79,8 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
     }
 
     setHighlightSaveMode(normalizeHighlightSaveMode(window.localStorage.getItem(HIGHLIGHT_SAVE_MODE_STORAGE_KEY)));
+    setReaderFontSize(normalizeReaderFontSizePreference(window.localStorage.getItem(READER_FONT_SIZE_STORAGE_KEY)));
+    setReaderLineHeight(normalizeReaderLineHeightPreference(window.localStorage.getItem(READER_LINE_HEIGHT_STORAGE_KEY)));
   }, []);
 
   useEffect(() => {
@@ -193,6 +205,26 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
     }
 
     window.localStorage.setItem(HIGHLIGHT_SAVE_MODE_STORAGE_KEY, nextMode);
+  }
+
+  function persistReaderFontSize(nextValue: ReaderFontSizePreference) {
+    setReaderFontSize(nextValue);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(READER_FONT_SIZE_STORAGE_KEY, nextValue);
+  }
+
+  function persistReaderLineHeight(nextValue: ReaderLineHeightPreference) {
+    setReaderLineHeight(nextValue);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(READER_LINE_HEIGHT_STORAGE_KEY, nextValue);
   }
 
   function readSelectionState(trigger: SelectionTrigger, point?: { x: number; y: number }): ReaderSelectionState | null {
@@ -425,7 +457,9 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
                   <ReaderRichContent
                     contentHtml={contentHtml ?? ""}
                     fallbackText={plainText}
+                    fontSize={resolveReaderFontSizePreferenceValue(readerFontSize)}
                     highlights={documentHighlights.highlights}
+                    lineHeight={resolveReaderLineHeightPreferenceValue(readerLineHeight)}
                     sourceUrl={sourceUrl}
                   />
                 </div>
@@ -523,10 +557,18 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
                     onClick={favorite.toggleFavorite}
                   />
                   {isReadable ? (
-                    <HighlightSaveModeToggle
-                      onChange={persistHighlightSaveMode}
-                      value={highlightSaveMode}
-                    />
+                    <div className="space-y-4">
+                      <HighlightSaveModeToggle
+                        onChange={persistHighlightSaveMode}
+                        value={highlightSaveMode}
+                      />
+                      <ReaderTypographyControl
+                        fontSize={readerFontSize}
+                        lineHeight={readerLineHeight}
+                        onFontSizeChange={persistReaderFontSize}
+                        onLineHeightChange={persistReaderLineHeight}
+                      />
+                    </div>
                   ) : null}
                   <div className="flex flex-col gap-2">
                     {sourceUrl ? (
@@ -656,6 +698,129 @@ function formatDocumentType(value: string) {
 
 function formatWordCount(value: number) {
   return `${new Intl.NumberFormat("zh-CN").format(value)} 字`;
+}
+
+const fontSizeOptions: Array<{ description: string; label: string; value: ReaderFontSizePreference }> = [
+  {
+    description: "更紧凑，适合信息密度更高的阅读。",
+    label: "小",
+    value: "small",
+  },
+  {
+    description: "平衡阅读节奏与信息密度。",
+    label: "中",
+    value: "medium",
+  },
+  {
+    description: "更大字号，长时间阅读更轻松。",
+    label: "大",
+    value: "large",
+  },
+];
+
+const lineHeightOptions: Array<{ description: string; label: string; value: ReaderLineHeightPreference }> = [
+  {
+    description: "行距更紧，滚动更少。",
+    label: "紧凑",
+    value: "compact",
+  },
+  {
+    description: "默认阅读行距。",
+    label: "舒适",
+    value: "comfortable",
+  },
+  {
+    description: "更松弛，段落更透气。",
+    label: "宽松",
+    value: "loose",
+  },
+];
+
+function ReaderTypographyControl({
+  fontSize,
+  lineHeight,
+  onFontSizeChange,
+  onLineHeightChange,
+}: {
+  fontSize: ReaderFontSizePreference;
+  lineHeight: ReaderLineHeightPreference;
+  onFontSizeChange: (value: ReaderFontSizePreference) => void;
+  onLineHeightChange: (value: ReaderLineHeightPreference) => void;
+}) {
+  const activeFontSize = fontSizeOptions.find((option) => option.value === fontSize) ?? fontSizeOptions[1];
+  const activeLineHeight = lineHeightOptions.find((option) => option.value === lineHeight) ?? lineHeightOptions[1];
+  const previewFontSize = resolveReaderFontSizePreferenceValue(fontSize);
+  const previewLineHeight = resolveReaderLineHeightPreferenceValue(lineHeight);
+
+  return (
+    <div className="space-y-4 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">阅读排版</p>
+        <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
+          字号：{activeFontSize.label} · 行距：{activeLineHeight.label}
+        </p>
+      </div>
+
+      <div className="space-y-2.5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">字体大小</p>
+        <div className="inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-1">
+          {fontSizeOptions.map((option) => (
+            <button
+              aria-pressed={fontSize === option.value}
+              className={cx(
+                "min-h-8 rounded-full px-3 text-xs font-semibold transition",
+                fontSize === option.value
+                  ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] shadow-[var(--shadow-surface-muted)]"
+                  : "text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
+              )}
+              key={option.value}
+              onClick={() => onFontSizeChange(option.value)}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">行距</p>
+        <div className="inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-1">
+          {lineHeightOptions.map((option) => (
+            <button
+              aria-pressed={lineHeight === option.value}
+              className={cx(
+                "min-h-8 rounded-full px-3 text-xs font-semibold transition",
+                lineHeight === option.value
+                  ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] shadow-[var(--shadow-surface-muted)]"
+                  : "text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
+              )}
+              key={option.value}
+              onClick={() => onLineHeightChange(option.value)}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">实时预览</p>
+        <div className="rounded-[14px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3.5">
+          <p
+            className="font-display text-[color:var(--text-primary)]"
+            style={{ fontSize: previewFontSize, lineHeight: previewLineHeight }}
+          >
+            今天的阅读，从一个清晰的段落开始。The interface should stay calm, while the text stays legible and focused.
+            <br />
+            <br />
+            短句用来确认节奏。Longer sentences help you feel how spacing affects sustained reading comfort over time.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function FloatingTabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {

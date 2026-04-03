@@ -42,6 +42,19 @@ const WECHAT_END_MARKER_TEXT_PATTERNS = /^(?:（完）|\(完\)|全文完|完)$/;
 const WECHAT_TRAILING_SEPARATOR_PATTERNS = /^(?:[.\-_*•。·…\s]{6,}|\.{6,}|。{6,}|_{6,}|\*{6,}|•{6,})$/;
 const WECHAT_TRAILING_PROMO_TEXT_PATTERNS =
   /Tips[:：]|后台私信|交流群|加助理|网址[:：]|自动交易系统|复利吃息系统|知识星球|星球|私董会|定投|X ID[:：]|星标|感谢你的阅读|欢迎⭐|欢迎\*|web3leon|aidog\.xyz/i;
+const META_AUTHOR_KEYS = [
+  "author",
+  "article:author",
+  "og:article:author",
+  "og:author",
+  "twitter:creator",
+  "parsely-author",
+  "dc.creator",
+  "dc:creator",
+  "byline",
+] as const;
+const BOILERPLATE_HARD_PATTERNS =
+  /^(?:相关阅读|推荐阅读|猜你喜欢|相关推荐|上一篇|下一篇|share this|related articles|read more)/i;
 const META_PUBLISHED_AT_KEYS = [
   "article:published_time",
   "og:article:published_time",
@@ -87,12 +100,17 @@ const ALLOWED_TAGS = new Set([
   "code",
   "figure",
   "figcaption",
+  "caption",
   "img",
   "a",
   "strong",
   "b",
   "em",
   "i",
+  "u",
+  "del",
+  "sup",
+  "sub",
   "br",
   "hr",
   "table",
@@ -101,6 +119,20 @@ const ALLOWED_TAGS = new Set([
   "tr",
   "th",
   "td",
+]);
+const STRUCTURE_PRESERVE_TAGS = new Set([
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
+  "caption",
+  "ul",
+  "ol",
+  "blockquote",
+  "pre",
+  "figure",
 ]);
 
 export type ExtractedWebPage = {
@@ -155,7 +187,7 @@ export function extractWebPageFromHtml(input: {
   const title = extractTitle($, finalUrl) ?? new URL(finalUrl).hostname;
   const lang = extractLang($);
   const canonicalUrl = extractCanonicalUrl($, finalUrl);
-  const author = extractAuthor($);
+  const author = extractAuthor($, finalUrl, rawHtml);
   const publishedAt = extractPublishedAt($, finalUrl, rawHtml);
   const contentHtml = trimReadableHtml(extractReadableHtml($, finalUrl), title, finalUrl);
   const plainText = htmlToPlainText(contentHtml);
@@ -368,7 +400,17 @@ function shouldRemoveBoilerplateNode($: CheerioAPI, $element: Cheerio<Element>) 
   }
 
   if (textLength > 0 && textLength < 260 && BOILERPLATE_TEXT_PATTERNS.test(text)) {
-    return true;
+    if (BOILERPLATE_HARD_PATTERNS.test(text)) {
+      return true;
+    }
+
+    if (CONTENT_NEGATIVE_KEYWORDS.test(signature)) {
+      return true;
+    }
+
+    if (getLinkDensity($, $element) > 0.28) {
+      return true;
+    }
   }
 
   if (textLength > 0 && textLength < 1_200 && getLinkDensity($, $element) > 0.55) {
@@ -458,6 +500,10 @@ function shouldUnwrapContainer($: CheerioAPI, $element: Cheerio<Element>) {
   }
 
   const childElements = $element.children().toArray();
+  if (childElements.some((child) => STRUCTURE_PRESERVE_TAGS.has((child as Element).tagName?.toLowerCase() ?? ""))) {
+    return false;
+  }
+
   const ownText = getOwnText($element);
 
   if (childElements.length === 1 && ownText.length === 0) {
@@ -495,8 +541,18 @@ function sanitizeAttributes($element: Cheerio<Element>, tagName: string) {
       ? ["href", "title"]
       : tagName === "img"
         ? ["src", "alt", "title"]
-        : tagName === "td" || tagName === "th"
-          ? ["colspan", "rowspan"]
+        : tagName === "th"
+          ? ["colspan", "rowspan", "scope"]
+          : tagName === "td"
+            ? ["colspan", "rowspan"]
+            : tagName === "ol"
+              ? ["start", "reversed"]
+              : tagName === "li"
+                ? ["value"]
+                : tagName === "blockquote"
+                  ? ["cite"]
+                  : tagName === "table"
+                    ? ["summary"]
           : [],
   );
 
@@ -690,8 +746,252 @@ function extractCanonicalUrl($: CheerioAPI, finalUrl: string) {
   }
 }
 
-function extractAuthor($: CheerioAPI) {
-  return extractMetaContent($, "author") ?? extractMetaContent($, "article:author");
+function extractAuthor($: CheerioAPI, finalUrl: string, rawHtml: string) {
+  for (const key of META_AUTHOR_KEYS) {
+    const candidate = normalizeAuthorCandidate(extractMetaContent($, key));
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  const jsonLdAuthor = extractJsonLdAuthor($);
+  if (jsonLdAuthor) {
+    return jsonLdAuthor;
+  }
+
+  const authorFromContentRoot = extractAuthorFromSelectors($, selectContentRoot($));
+  if (authorFromContentRoot) {
+    return authorFromContentRoot;
+  }
+
+  const body = $("body").first() as Cheerio<Element>;
+  const authorFromBody = extractAuthorFromSelectors($, body);
+  if (authorFromBody) {
+    return authorFromBody;
+  }
+
+  if (isWeChatHost(safeParseUrl(finalUrl))) {
+    return extractWeChatAuthor($, rawHtml);
+  }
+
+  return null;
+}
+
+function extractAuthorFromSelectors($: CheerioAPI, $root: Cheerio<Element>) {
+  const selectors = [
+    "[itemprop='author'] [itemprop='name']",
+    "[itemprop='author']",
+    "[rel='author']",
+    ".article-author",
+    ".post-author",
+    ".entry-author",
+    ".byline",
+    ".author",
+  ];
+
+  for (const selector of selectors) {
+    for (const element of $root.find(selector).toArray()) {
+      const $element = $(element);
+      const candidate =
+        normalizeAuthorCandidate(cleanText($element.text())) ??
+        normalizeAuthorCandidate(cleanText($element.attr("content") ?? null)) ??
+        normalizeAuthorCandidate(parseAuthorFromByline(getNodeText($element)));
+      if (candidate) {
+        return candidate;
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractJsonLdAuthor($: CheerioAPI) {
+  for (const script of $("script[type='application/ld+json']").toArray()) {
+    const scriptContent = $(script).text();
+    if (!scriptContent.trim()) {
+      continue;
+    }
+
+    try {
+      const parsedJson = JSON.parse(scriptContent) as unknown;
+      const author = findAuthorInJsonLd(parsedJson);
+      if (author) {
+        return author;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function findAuthorInJsonLd(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = findAuthorInJsonLd(item);
+      if (parsed) {
+        return parsed;
+      }
+    }
+
+    return null;
+  }
+
+  const fromValue = parseJsonLdAuthorValue(value);
+  if (fromValue) {
+    return fromValue;
+  }
+
+  if (typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const nestedValue of Object.values(record)) {
+    const parsed = findAuthorInJsonLd(nestedValue);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function parseJsonLdAuthorValue(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return normalizeAuthorCandidate(value);
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = parseJsonLdAuthorValue(item);
+      if (parsed) {
+        return parsed;
+      }
+    }
+
+    return null;
+  }
+
+  if (typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  if ("author" in record) {
+    const parsed = parseJsonLdAuthorValue(record.author);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  if ("creator" in record) {
+    const parsed = parseJsonLdAuthorValue(record.creator);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  if (typeof record.name === "string") {
+    const parsed = normalizeAuthorCandidate(record.name);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function extractWeChatAuthor($: CheerioAPI, rawHtml: string) {
+  const selectorCandidates = [
+    "#meta_content .rich_media_meta_text",
+    "#js_name",
+    ".profile_nickname",
+    ".rich_media_meta.rich_media_meta_nickname",
+    ".rich_media_meta.rich_media_meta_text",
+  ];
+
+  for (const selector of selectorCandidates) {
+    const candidate = normalizeAuthorCandidate(cleanText($(selector).first().text()));
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  const bylineSelectors = ["#js_content > section", "#js_content > p", "#img-content > section", "#img-content > p"];
+  for (const selector of bylineSelectors) {
+    for (const element of $(selector).slice(0, 3).toArray()) {
+      const candidate = parseAuthorFromByline(getNodeText($(element)));
+      if (candidate) {
+        return candidate;
+      }
+    }
+  }
+
+  const scriptNickname =
+    rawHtml.match(/\bnickname\s*[:=]\s*(?:htmlDecode\()?["']([^"'\\\n]{1,80})["']\)?/i)?.[1] ??
+    rawHtml.match(/\bprofile_nickname\s*[:=]\s*["']([^"'\\\n]{1,80})["']/i)?.[1] ??
+    null;
+
+  return normalizeAuthorCandidate(scriptNickname);
+}
+
+function parseAuthorFromByline(value: string) {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const matchedByline =
+    normalized.match(/^(?:文|作者|撰文|By|BY|by)\s*[:：]\s*(.+)$/i)?.[1] ??
+    normalized.match(/^(?:作者|By|BY|by)\s+(.+)$/i)?.[1] ??
+    null;
+
+  return normalizeAuthorCandidate(matchedByline);
+}
+
+function normalizeAuthorCandidate(value: string | null) {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const candidate = normalized
+    .replace(/^(?:原创|转载)?\s*(?:作者|文|撰文|By|BY|by)\s*[:：]\s*/i, "")
+    .replace(/^@\s*/, "")
+    .replace(/[，,。.!！?？;；:：\s]+$/g, "")
+    .trim();
+
+  if (!candidate || candidate.length > 60) {
+    return null;
+  }
+
+  if (/https?:\/\//i.test(candidate) || /[\r\n]/.test(candidate)) {
+    return null;
+  }
+
+  if (/^(?:微信扫一扫|使用小程序|向上滑动看下一个|点击下方按钮|访问原文章)$/i.test(candidate)) {
+    return null;
+  }
+
+  if (/^\d{4}[\/.-]\d{1,2}[\/.-]\d{1,2}/.test(candidate)) {
+    return null;
+  }
+
+  if (/[。！？]/.test(candidate) && candidate.length > 20) {
+    return null;
+  }
+
+  return candidate;
 }
 
 function extractPublishedAt($: CheerioAPI, finalUrl: string, rawHtml: string) {
