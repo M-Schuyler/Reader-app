@@ -3,12 +3,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-// @ts-expect-error The script is authored as .mjs and exercised directly by the test harness.
-import {
-  acquireDevServerLock,
-  DEV_SERVER_LOCK_FILENAME,
-  formatDevServerLockMessage,
-} from "../../scripts/dev/dev-server-lock.mjs";
+// @ts-ignore -- The test intentionally imports the .mjs script directly because that's what production uses.
+import { acquireDevServerLock, DEV_SERVER_LOCK_FILENAME, formatDevServerLockMessage } from "../../scripts/dev/dev-server-lock.mjs";
 
 test("acquireDevServerLock creates lock and releases it", async () => {
   const sandboxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "reader-dev-lock-"));

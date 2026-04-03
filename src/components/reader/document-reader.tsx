@@ -72,6 +72,8 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
   });
   const leadText = resolveLeadText(readerDocument);
   const showIngestionBadge = readerDocument.ingestionStatus !== IngestionStatus.READY;
+  const markdownDownloadHref = `/api/documents/${readerDocument.id}/download?format=markdown`;
+  const htmlDownloadHref = `/api/documents/${readerDocument.id}/download?format=html`;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -571,6 +573,25 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
                     </div>
                   ) : null}
                   <div className="flex flex-col gap-2">
+                    <div className="space-y-2 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-3">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
+                        下载
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <a
+                          className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
+                          href={markdownDownloadHref}
+                        >
+                          下载 Markdown
+                        </a>
+                        <a
+                          className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
+                          href={htmlDownloadHref}
+                        >
+                          下载 HTML
+                        </a>
+                      </div>
+                    </div>
                     {sourceUrl ? (
                       <Link
                         className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
