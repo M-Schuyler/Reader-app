@@ -1,12 +1,23 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
-import { getHighlightOverview } from "@/server/modules/highlights/highlight-overview.service";
+import {
+  getHighlightOverview,
+  normalizeHighlightOverviewPage,
+} from "@/server/modules/highlights/highlight-overview.service";
 
 export const dynamic = "force-dynamic";
 
-export default async function HighlightsPage() {
-  const overview = await getHighlightOverview();
+type HighlightsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function HighlightsPage({ searchParams }: HighlightsPageProps) {
+  const resolvedSearchParams = await resolveHighlightsSearchParams(searchParams);
+  const page = normalizeHighlightOverviewPage(firstSearchParamValue(resolvedSearchParams.page));
+  const overview = await getHighlightOverview(page);
+  const hasPreviousPage = overview.pagination.page > 1;
+  const hasNextPage = overview.pagination.page < overview.pagination.totalPages;
 
   return (
     <section className="space-y-10">
@@ -32,14 +43,17 @@ export default async function HighlightsPage() {
       <Panel className="space-y-6">
         <div className="space-y-2">
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-            Recent
+            Archive
           </p>
           <h2 className="font-ui-heading text-[2rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)]">
-            最近高亮，适合快速回看
+            全部高亮，不只看最近几条
           </h2>
+          <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
+            这里应该是完整档案，不是“最近 8 条”。当前显示第 {overview.pagination.page} / {overview.pagination.totalPages} 页。
+          </p>
         </div>
 
-        {overview.recentHighlights.length === 0 ? (
+        {overview.highlights.length === 0 ? (
           <div className="space-y-4">
             <p className="max-w-2xl text-sm leading-7 text-[color:var(--text-secondary)]">
               还没有高亮。等你在阅读页开始标记句子，这里会慢慢形成一条轻量的回看轨迹。
@@ -52,23 +66,57 @@ export default async function HighlightsPage() {
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-[color:var(--border-subtle)]">
-            {overview.recentHighlights.map((highlight) => (
-              <article className="space-y-3 py-5 first:pt-0 last:pb-0" key={highlight.id}>
-                <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-                  <span>{formatDate(highlight.createdAt)}</span>
-                  <Link className="transition hover:text-[color:var(--text-primary)]" href={`/documents/${highlight.document.id}`}>
-                    {highlight.document.title}
-                  </Link>
-                </div>
-                <blockquote className="max-w-3xl border-l border-[color:var(--border-strong)] pl-4 text-[15px] leading-7 text-[color:var(--text-primary)]">
-                  {highlight.quoteText}
-                </blockquote>
-                {highlight.note ? (
-                  <p className="max-w-2xl text-sm leading-7 text-[color:var(--text-secondary)]">{highlight.note}</p>
-                ) : null}
-              </article>
-            ))}
+          <div className="space-y-6">
+            <div className="divide-y divide-[color:var(--border-subtle)]">
+              {overview.highlights.map((highlight) => (
+                <article className="space-y-3 py-5 first:pt-0 last:pb-0" key={highlight.id}>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+                    <span>{formatDate(highlight.createdAt)}</span>
+                    <Link className="transition hover:text-[color:var(--text-primary)]" href={`/documents/${highlight.document.id}`}>
+                      {highlight.document.title}
+                    </Link>
+                  </div>
+                  <blockquote className="max-w-3xl border-l border-[color:var(--border-strong)] pl-4 text-[15px] leading-7 text-[color:var(--text-primary)]">
+                    {highlight.quoteText}
+                  </blockquote>
+                  {highlight.note ? (
+                    <p className="max-w-2xl text-sm leading-7 text-[color:var(--text-secondary)]">{highlight.note}</p>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+
+            <nav className="flex items-center justify-between gap-3 border-t border-[color:var(--border-subtle)] pt-4">
+              {hasPreviousPage ? (
+                <Link
+                  className="inline-flex min-h-10 items-center rounded-full border border-[color:var(--border-subtle)] px-4 text-sm text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+                  href={buildHighlightsPageHref(overview.pagination.page - 1)}
+                >
+                  上一页
+                </Link>
+              ) : (
+                <span className="inline-flex min-h-10 items-center rounded-full border border-[color:var(--border-subtle)] px-4 text-sm text-[color:var(--text-tertiary)]">
+                  上一页
+                </span>
+              )}
+
+              <span className="text-sm text-[color:var(--text-secondary)]">
+                {overview.pagination.total} 条高亮
+              </span>
+
+              {hasNextPage ? (
+                <Link
+                  className="inline-flex min-h-10 items-center rounded-full border border-[color:var(--border-subtle)] px-4 text-sm text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+                  href={buildHighlightsPageHref(overview.pagination.page + 1)}
+                >
+                  下一页
+                </Link>
+              ) : (
+                <span className="inline-flex min-h-10 items-center rounded-full border border-[color:var(--border-subtle)] px-4 text-sm text-[color:var(--text-tertiary)]">
+                  下一页
+                </span>
+              )}
+            </nav>
           </div>
         )}
       </Panel>
@@ -94,4 +142,18 @@ function formatDate(value: string) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function firstSearchParamValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function buildHighlightsPageHref(page: number) {
+  return page <= 1 ? "/highlights" : `/highlights?page=${page}`;
+}
+
+async function resolveHighlightsSearchParams(
+  input: HighlightsPageProps["searchParams"],
+): Promise<Record<string, string | string[] | undefined>> {
+  return (await input) ?? {};
 }

@@ -8,6 +8,7 @@ import {
 } from "@/lib/documents/source-library-query";
 import { collectSourceAliasLookups } from "@/lib/documents/source-library";
 import { getDocuments, getSourceAliasMapForSources } from "@/server/modules/documents/document.service";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
     surface: "source",
   });
   const sourceAliasMap = await getSourceAliasMapForSources(collectSourceAliasLookups(data.items));
-  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.sort !== "latest");
+  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.tag || data.filters.sort !== "latest");
   const clearHref = buildSourceLibraryClearHref("/sources", data.filters);
   const contextChips = buildSourceContextChips(data.filters);
 
@@ -37,6 +38,12 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <Link
+            className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+            href="/sources/import/cubox"
+          >
+            导入 Cubox
+          </Link>
           <span className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]">
             {data.pagination.total} 篇
           </span>

@@ -22,12 +22,16 @@ export default async function ReadingPage({ searchParams }: ReadingPageProps) {
   });
   const activeView = resolveReadingView(data.filters);
   const activeViewMeta = READING_VIEWS.find((view) => view.id === activeView) ?? READING_VIEWS[0];
-  const hasActiveFilters = Boolean(data.filters.type || data.filters.isFavorite || data.filters.readState || data.filters.sort !== "latest");
+  const hasActiveFilters = Boolean(
+    data.filters.type || data.filters.isFavorite || data.filters.readState || data.filters.tag || data.filters.sort !== "latest",
+  );
   const viewItems = READING_VIEWS.map((view) => ({
     ...view,
     href: buildReadingViewHref(view.id, resolvedSearchParams),
     isActive: view.id === activeView,
   }));
+  const clearHref = buildReadingClearHref(data.filters.q);
+  const activeFilterChips = buildReadingFilterChips(data.filters);
 
   return (
     <section className="space-y-10">
@@ -67,6 +71,7 @@ export default async function ReadingPage({ searchParams }: ReadingPageProps) {
 
             <form className="space-y-5" method="GET">
               {data.filters.q ? <input name="q" type="hidden" value={data.filters.q} /> : null}
+              {data.filters.tag ? <input name="tag" type="hidden" value={data.filters.tag} /> : null}
               <Field label="文档类型">
                 <SelectInput defaultValue={data.filters.type ?? ""} name="type">
                   <option value="">全部类型</option>
@@ -90,7 +95,7 @@ export default async function ReadingPage({ searchParams }: ReadingPageProps) {
                 {hasActiveFilters ? (
                   <Link
                     className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
-                    href="/reading"
+                    href={clearHref}
                   >
                     清空
                   </Link>
@@ -107,6 +112,18 @@ export default async function ReadingPage({ searchParams }: ReadingPageProps) {
                 当前共有 <span className="font-medium text-[color:var(--text-primary)]">{data.pagination.total}</span> 篇文档处于 Reading
                 <span className="ml-1 font-medium text-[color:var(--text-primary)]">· {activeViewMeta.label}</span>
               </p>
+              {activeFilterChips.length > 0 ? (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {activeFilterChips.map((chip) => (
+                    <span
+                      className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
+                      key={chip}
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <p className="max-w-xl text-sm text-[color:var(--text-tertiary)]">{activeViewMeta.description}</p>
           </div>
@@ -166,3 +183,40 @@ const READING_VIEWS: Array<{ id: ReadingViewId; label: string; description: stri
     description: "已经读完的内容仍然留在 Reading 体系里，但不再干扰当前队列。",
   },
 ];
+
+function buildReadingClearHref(q?: string) {
+  return q ? `/reading?q=${encodeURIComponent(q)}` : "/reading";
+}
+
+function buildReadingFilterChips(
+  filters: Awaited<ReturnType<typeof getDocuments>>["filters"],
+) {
+  const chips: string[] = [];
+
+  if (filters.type) {
+    chips.push(`类型 ${formatReadingDocumentType(filters.type)}`);
+  }
+
+  if (filters.tag) {
+    chips.push(`标签 ${filters.tag}`);
+  }
+
+  if (filters.sort === "earliest") {
+    chips.push("最早发布优先");
+  }
+
+  return chips;
+}
+
+function formatReadingDocumentType(value: string) {
+  switch (value) {
+    case "WEB_PAGE":
+      return "网页";
+    case "RSS_ITEM":
+      return "RSS";
+    case "PDF":
+      return "PDF";
+    default:
+      return value;
+  }
+}

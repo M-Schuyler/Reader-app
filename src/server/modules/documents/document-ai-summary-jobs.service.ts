@@ -9,23 +9,36 @@ import {
 import { RouteError } from "@/server/api/response";
 import { prisma } from "@/server/db/client";
 import { generateDocumentAiSummary } from "./document-ai-summary.service";
-import {
-  documentDetailArgs,
-  getDocumentById,
-  type DocumentDetailRecord,
-  updateDocumentAiSummary,
-  updateDocumentAiSummaryFailure,
-  updateDocumentAiSummaryState,
-} from "./document.repository";
+import { documentDetailArgs, type DocumentDetailRecord } from "./document.repository";
 import type {
   BackfillDocumentAiSummaryJobsResponseData,
   GenerateAiSummaryError,
   RunDocumentAiSummaryJobsResponseData,
+  SummaryRunnerThrottle,
+  SweepDocumentAiSummaryJobsResponseData,
 } from "./document.types";
 
 const DEFAULT_SUMMARY_JOB_BATCH_SIZE = 5;
 const MAX_SUMMARY_JOB_BATCH_SIZE = 20;
+const DEFAULT_SUMMARY_RATE_LIMIT_COOLDOWN_MS = 15_000;
+const MAX_SUMMARY_RATE_LIMIT_COOLDOWN_MS = 120_000;
+const SUMMARY_RATE_LIMIT_JITTER_MS = 1_000;
+const DEFAULT_SUMMARY_SWEEP_MAX_RUNS = 6;
+const DEFAULT_SUMMARY_SWEEP_MAX_RUNTIME_MS = 45_000;
+const SUMMARY_RUNNER_BUSY_MIN_BACKOFF_MS = 1_500;
+const SUMMARY_RUNNER_BUSY_BACKOFF_RANGE_MS = 1_500;
+const SUMMARY_RUNNER_FAIRNESS_GAP_MIN_MS = 150;
+const SUMMARY_RUNNER_FAIRNESS_GAP_RANGE_MS = 150;
+const AI_SUMMARY_PROVIDER_LOCK_NAMESPACE = 41_021;
+const AI_SUMMARY_PROVIDER_LOCK_KEYS = {
+  gemini: 1,
+  openai: 2,
+} as const;
+const AI_SUMMARY_PROVIDER_LOCK_MAX_WAIT_MS = 5_000;
+const AI_SUMMARY_PROVIDER_LOCK_TRANSACTION_TIMEOUT_MS = 30_000;
 
+type SummaryAiProvider = keyof typeof AI_SUMMARY_PROVIDER_LOCK_KEYS;
+type SummaryDbClient = Prisma.TransactionClient | typeof prisma;
 type AutoAiSummaryCandidate = {
   ingestionStatus: IngestionStatus;
   aiSummary: string | null;
@@ -35,8 +48,53 @@ type AutoAiSummaryCandidate = {
     plainText: string;
   } | null;
 };
-
 type SummaryJobResult = RunDocumentAiSummaryJobsResponseData["results"][number];
+type PendingSummaryJobRecord = Prisma.IngestionJobGetPayload<Record<string, never>>;
+type SummaryRunnerStateSnapshot = {
+  cooldownUntil: Date | null;
+  lastCooldownMs: number;
+  consecutiveRateLimitCount: number;
+};
+type SummaryRunNextJobResult = {
+  result: SummaryJobResult | null;
+  throttle: SummaryRunnerThrottle | null;
+};
+type WithAiSummaryProviderLockResult<T> = { status: "acquired"; value: T } | { status: "runner_busy" };
+type PrioritizeDocumentAiSummaryResult = {
+  document: DocumentDetailRecord;
+  summary: {
+    status: "generated" | "queued" | "skipped" | "blocked" | "failed";
+    error: GenerateAiSummaryError | null;
+    throttle: SummaryRunnerThrottle | null;
+    runtimeIssues: string[];
+  };
+};
+type RunPendingDocumentAiSummaryJobsDeps = {
+  now?: () => number;
+  random?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+  runNextJob?: () => Promise<SummaryRunNextJobResult>;
+};
+type PrioritizeDocumentAiSummaryDeps = {
+  getDocument?: (documentId: string) => Promise<DocumentDetailRecord | null>;
+  ensurePendingDocument?: (document: DocumentDetailRecord, tx?: Prisma.TransactionClient) => Promise<DocumentDetailRecord>;
+  getRuntimeIssues?: () => string[];
+  withLock?: (
+    work: (context: { tx: Prisma.TransactionClient; provider: SummaryAiProvider }) => Promise<PrioritizeDocumentAiSummaryResult | null>,
+  ) => Promise<WithAiSummaryProviderLockResult<PrioritizeDocumentAiSummaryResult | null>>;
+  now?: () => number;
+  random?: () => number;
+};
+type SweepPendingDocumentAiSummaryJobsOptions = {
+  limit?: number;
+  maxRuns?: number;
+  maxRuntimeMs?: number;
+};
+type SweepPendingDocumentAiSummaryJobsDeps = {
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+  runBatch?: (limit: number) => Promise<RunDocumentAiSummaryJobsResponseData>;
+};
 
 export function getSummaryRuntimeIssues(options?: { requireInternalApiSecret?: boolean }) {
   const issues: string[] = [];
@@ -110,7 +168,7 @@ export async function queueAutomaticDocumentAiSummary(
   if (existingJob) {
     return document.aiSummaryStatus === AiSummaryStatus.PENDING
       ? document
-      : updateDocumentAiSummaryState(document.id, AiSummaryStatus.PENDING);
+      : updateDocumentAiSummaryStateWithClient(prisma, document.id, AiSummaryStatus.PENDING);
   }
 
   if (document.aiSummaryStatus === AiSummaryStatus.PENDING) {
@@ -126,24 +184,15 @@ export async function queueAutomaticDocumentAiSummary(
     return document;
   }
 
-  const [pendingDocument] = await prisma.$transaction([
-    prisma.document.update({
-      where: { id: document.id },
-      data: {
-        aiSummaryStatus: AiSummaryStatus.PENDING,
-        aiSummaryError: null,
-      },
-      ...documentDetailArgs,
-    }),
-    prisma.ingestionJob.create({
-      data: {
-        kind: IngestionJobKind.GENERATE_AI_SUMMARY,
-        status: IngestionJobStatus.PENDING,
-        documentId: document.id,
-        sourceUrl: document.sourceUrl ?? document.canonicalUrl,
-      },
-    }),
-  ]);
+  const pendingDocument = await updateDocumentAiSummaryStateWithClient(prisma, document.id, AiSummaryStatus.PENDING);
+  await prisma.ingestionJob.create({
+    data: {
+      kind: IngestionJobKind.GENERATE_AI_SUMMARY,
+      status: IngestionJobStatus.PENDING,
+      documentId: document.id,
+      sourceUrl: document.sourceUrl ?? document.canonicalUrl,
+    },
+  });
 
   return pendingDocument;
 }
@@ -155,7 +204,160 @@ export async function queueAndRunAutomaticDocumentAiSummary(document: DocumentDe
     return queuedDocument;
   }
 
-  return (await runPendingDocumentAiSummaryForDocument(queuedDocument.id)) ?? queuedDocument;
+  return (await prioritizeDocumentAiSummary(queuedDocument.id))?.document ?? queuedDocument;
+}
+
+export async function prioritizeDocumentAiSummary(
+  documentId: string,
+  deps: PrioritizeDocumentAiSummaryDeps = {},
+): Promise<PrioritizeDocumentAiSummaryResult | null> {
+  const getDocument = deps.getDocument ?? ((targetDocumentId: string) => getDocumentByIdWithClient(prisma, targetDocumentId));
+  const ensurePendingDocument =
+    deps.ensurePendingDocument ??
+    ((document: DocumentDetailRecord, tx?: Prisma.TransactionClient) => {
+      if (!tx) {
+        throw new Error("Priority summary path requires a transaction client.");
+      }
+
+      return ensurePendingDocumentAiSummaryJob(tx, document, { allowRetry: true });
+    });
+  const getRuntimeIssues =
+    deps.getRuntimeIssues ?? (() => getSummaryRuntimeIssues({ requireInternalApiSecret: false }));
+  const provider = getConfiguredSummaryAiProvider();
+  const now = deps.now ?? Date.now;
+  const withLock =
+    deps.withLock ??
+    ((work: (context: { tx: Prisma.TransactionClient; provider: SummaryAiProvider }) => Promise<PrioritizeDocumentAiSummaryResult | null>) =>
+      withAiSummaryProviderLock(provider, async (tx) => work({ tx, provider })));
+
+  const existingDocument = await getDocument(documentId);
+  if (!existingDocument) {
+    return null;
+  }
+
+  if (existingDocument.aiSummary) {
+    return buildPrioritizeSummaryResult(existingDocument, {
+      status: "skipped",
+      error: null,
+      throttle: null,
+      runtimeIssues: [],
+    });
+  }
+
+  const runtimeIssues = getRuntimeIssues();
+  if (runtimeIssues.length > 0) {
+    return buildPrioritizeSummaryResult(existingDocument, {
+      status: "blocked",
+      error: null,
+      throttle: null,
+      runtimeIssues,
+    });
+  }
+
+  const lockResult = await withLock(async ({ tx, provider: lockedProvider }) => {
+    const lockedDocument = await getDocumentByIdWithClient(tx, documentId);
+    if (!lockedDocument) {
+      return null;
+    }
+
+    if (lockedDocument.aiSummary) {
+      return buildPrioritizeSummaryResult(lockedDocument, {
+        status: "skipped",
+        error: null,
+        throttle: null,
+        runtimeIssues: [],
+      });
+    }
+
+    const queuedDocument = await ensurePendingDocument(lockedDocument, tx);
+
+    if (queuedDocument.aiSummary) {
+      return buildPrioritizeSummaryResult(queuedDocument, {
+        status: "skipped",
+        error: null,
+        throttle: null,
+        runtimeIssues: [],
+      });
+    }
+
+    if (queuedDocument.aiSummaryStatus !== AiSummaryStatus.PENDING) {
+      return buildPrioritizeSummaryResult(queuedDocument, {
+        status: "skipped",
+        error: null,
+        throttle: null,
+        runtimeIssues: [],
+      });
+    }
+
+    const activeThrottle = getActiveSummaryRunnerThrottle(await getAiSummaryRunnerState(tx, lockedProvider), now());
+    if (activeThrottle) {
+      return buildPrioritizeSummaryResult(queuedDocument, {
+        status: "queued",
+        error: null,
+        throttle: activeThrottle,
+        runtimeIssues: [],
+      });
+    }
+
+    const run = await runPendingSummaryJobForDocument(tx, lockedProvider, queuedDocument.id, {
+      now,
+      random: deps.random,
+    });
+
+    if (!run.result) {
+      return buildPrioritizeSummaryResult(run.document ?? queuedDocument, {
+        status: run.document?.aiSummary ? "skipped" : "queued",
+        error: null,
+        throttle: run.throttle,
+        runtimeIssues: [],
+      });
+    }
+
+    if (run.result.outcome === "generated") {
+      return buildPrioritizeSummaryResult(run.document ?? queuedDocument, {
+        status: "generated",
+        error: null,
+        throttle: null,
+        runtimeIssues: [],
+      });
+    }
+
+    if (run.result.outcome === "deferred") {
+      return buildPrioritizeSummaryResult(run.document ?? queuedDocument, {
+        status: "queued",
+        error: run.result.error,
+        throttle: run.throttle,
+        runtimeIssues: [],
+      });
+    }
+
+    if (run.result.outcome === "failed") {
+      return buildPrioritizeSummaryResult(run.document ?? queuedDocument, {
+        status: "failed",
+        error: run.result.error,
+        throttle: null,
+        runtimeIssues: [],
+      });
+    }
+
+    return buildPrioritizeSummaryResult(run.document ?? queuedDocument, {
+      status: "skipped",
+      error: null,
+      throttle: null,
+      runtimeIssues: [],
+    });
+  });
+
+  if (lockResult.status === "runner_busy") {
+    return buildPrioritizeSummaryResult(existingDocument, {
+      status: "queued",
+      error: null,
+      throttle: buildRunnerBusyThrottle(deps.random),
+      runtimeIssues: [],
+    });
+  }
+
+  return lockResult.value;
 }
 
 export async function backfillAutomaticDocumentAiSummaryJobs(
@@ -203,31 +405,246 @@ export async function backfillAutomaticDocumentAiSummaryJobs(
   };
 }
 
-export async function runPendingDocumentAiSummaryJobs(limitInput?: number): Promise<RunDocumentAiSummaryJobsResponseData> {
-  const jobs = await prisma.ingestionJob.findMany({
-    where: {
-      kind: IngestionJobKind.GENERATE_AI_SUMMARY,
-      status: IngestionJobStatus.PENDING,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-    take: normalizeSummaryJobBatchLimit(limitInput),
-  });
+export async function runPendingDocumentAiSummaryJobs(
+  limitInput?: number,
+  deps: RunPendingDocumentAiSummaryJobsDeps = {},
+): Promise<RunDocumentAiSummaryJobsResponseData> {
+  const limit = normalizeSummaryJobBatchLimit(limitInput);
+  const random = deps.random;
+  const sleep = deps.sleep ?? sleepForSummarySweep;
+  const runNextJob =
+    deps.runNextJob ??
+    (() =>
+      runNextPendingSummaryJob({
+        now: deps.now ?? Date.now,
+        random,
+      }));
 
   const results: SummaryJobResult[] = [];
+  let throttle: SummaryRunnerThrottle | null = null;
 
-  for (const job of jobs) {
-    results.push(await processSummaryJob(job));
+  for (let index = 0; index < limit; index += 1) {
+    const nextRun = await runNextJob();
+
+    if (nextRun.result) {
+      results.push(nextRun.result);
+    }
+
+    if (nextRun.throttle) {
+      throttle = nextRun.throttle;
+      break;
+    }
+
+    if (!nextRun.result) {
+      break;
+    }
+
+    if (index < limit - 1) {
+      await sleep(resolveSummaryFairnessGapMs(random));
+    }
+  }
+
+  return buildSummaryRunResponse(results, throttle);
+}
+
+export async function sweepPendingDocumentAiSummaryJobs(
+  options: SweepPendingDocumentAiSummaryJobsOptions = {},
+  deps: SweepPendingDocumentAiSummaryJobsDeps = {},
+): Promise<SweepDocumentAiSummaryJobsResponseData> {
+  const limit = normalizeSummaryJobBatchLimit(options.limit);
+  const maxRuns = normalizeSummarySweepMaxRuns(options.maxRuns);
+  const maxRuntimeMs = normalizeSummarySweepMaxRuntimeMs(options.maxRuntimeMs);
+  const now = deps.now ?? Date.now;
+  const sleep = deps.sleep ?? sleepForSummarySweep;
+  const runBatch = deps.runBatch ?? ((batchLimit: number) => runPendingDocumentAiSummaryJobs(batchLimit));
+  const startedAtMs = now();
+
+  const totals: Omit<SweepDocumentAiSummaryJobsResponseData, "completed" | "stopReason" | "throttle"> = {
+    runs: 0,
+    processed: 0,
+    generated: 0,
+    failed: 0,
+    skipped: 0,
+    deferred: 0,
+    waitedMs: 0,
+  };
+
+  let throttle: SummaryRunnerThrottle | null = null;
+
+  while (totals.runs < maxRuns) {
+    const run = await runBatch(limit);
+    totals.runs += 1;
+    totals.processed += run.processed;
+    totals.generated += run.generated;
+    totals.failed += run.failed;
+    totals.skipped += run.skipped;
+    totals.deferred += run.deferred;
+
+    if (run.processed === 0 && !run.throttle) {
+      return {
+        ...totals,
+        completed: true,
+        stopReason: "queue_empty",
+        throttle: null,
+      };
+    }
+
+    throttle = run.throttle;
+    if (!throttle) {
+      continue;
+    }
+
+    const elapsedMs = now() - startedAtMs;
+    const remainingBudgetMs = maxRuntimeMs - elapsedMs;
+
+    if (remainingBudgetMs < throttle.retryAfterMs) {
+      return {
+        ...totals,
+        completed: false,
+        stopReason: throttle.reason === "runner_busy" ? "runner_busy" : "time_budget_exhausted",
+        throttle,
+      };
+    }
+
+    await sleep(throttle.retryAfterMs);
+    totals.waitedMs += throttle.retryAfterMs;
+    throttle = null;
   }
 
   return {
-    processed: results.length,
-    generated: results.filter((result) => result.outcome === "generated").length,
-    failed: results.filter((result) => result.outcome === "failed").length,
-    skipped: results.filter((result) => result.outcome === "skipped").length,
-    results,
+    ...totals,
+    completed: false,
+    stopReason: "max_runs_reached",
+    throttle,
   };
+}
+
+export function calculateNextSummaryRateLimitDelayMs(
+  state: SummaryRunnerStateSnapshot,
+  input: { retryAfterMs?: number },
+  options?: { random?: () => number },
+) {
+  const providerDelayMs = normalizeRetryAfterMs(input.retryAfterMs);
+  const baseDelayMs =
+    providerDelayMs ??
+    Math.min(
+      state.lastCooldownMs > 0 ? state.lastCooldownMs * 2 : DEFAULT_SUMMARY_RATE_LIMIT_COOLDOWN_MS,
+      MAX_SUMMARY_RATE_LIMIT_COOLDOWN_MS,
+    );
+
+  const jitterMs =
+    baseDelayMs >= MAX_SUMMARY_RATE_LIMIT_COOLDOWN_MS
+      ? 0
+      : Math.min(
+          Math.round((options?.random ?? Math.random)() * SUMMARY_RATE_LIMIT_JITTER_MS),
+          MAX_SUMMARY_RATE_LIMIT_COOLDOWN_MS - baseDelayMs,
+        );
+
+  return Math.min(baseDelayMs + jitterMs, MAX_SUMMARY_RATE_LIMIT_COOLDOWN_MS);
+}
+
+/**
+ * We intentionally keep this transaction open while a single AI provider call is in flight.
+ * That means one Postgres connection and one advisory lock stay occupied for the full request.
+ * This is an accepted tradeoff for the current per-job serialized runner. If provider latency
+ * or throughput requirements grow, this should move to a lease-based design instead.
+ */
+export async function withAiSummaryProviderLock<T>(
+  provider: SummaryAiProvider,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<WithAiSummaryProviderLockResult<T>> {
+  return prisma.$transaction(
+    async (tx) => {
+      const lockRows = await tx.$queryRaw<Array<{ locked: boolean }>>`
+        SELECT pg_try_advisory_xact_lock(
+          CAST(${AI_SUMMARY_PROVIDER_LOCK_NAMESPACE} AS integer),
+          CAST(${AI_SUMMARY_PROVIDER_LOCK_KEYS[provider]} AS integer)
+        ) AS "locked"
+      `;
+
+      if (!lockRows[0]?.locked) {
+        return { status: "runner_busy" };
+      }
+
+      const value = await work(tx);
+      return {
+        status: "acquired",
+        value,
+      };
+    },
+    {
+      maxWait: AI_SUMMARY_PROVIDER_LOCK_MAX_WAIT_MS,
+      timeout: AI_SUMMARY_PROVIDER_LOCK_TRANSACTION_TIMEOUT_MS,
+    },
+  );
+}
+
+export async function getAiSummaryRunnerState(
+  tx: Prisma.TransactionClient,
+  provider: SummaryAiProvider,
+): Promise<SummaryRunnerStateSnapshot> {
+  const state = await tx.aiSummaryRunnerState.findUnique({
+    where: {
+      provider,
+    },
+  });
+
+  if (!state) {
+    return {
+      cooldownUntil: null,
+      lastCooldownMs: 0,
+      consecutiveRateLimitCount: 0,
+    };
+  }
+
+  return {
+    cooldownUntil: state.cooldownUntil,
+    lastCooldownMs: state.lastCooldownMs,
+    consecutiveRateLimitCount: state.consecutiveRateLimitCount,
+  };
+}
+
+export async function applyAiSummaryRunnerCooldown(
+  tx: Prisma.TransactionClient,
+  provider: SummaryAiProvider,
+  retryAfterMs: number | undefined,
+  nowMs: number,
+  options?: { random?: () => number },
+): Promise<SummaryRunnerThrottle> {
+  const currentState = await getAiSummaryRunnerState(tx, provider);
+  const delayMs = calculateNextSummaryRateLimitDelayMs(currentState, { retryAfterMs }, options);
+  const cooldownUntil = new Date(nowMs + delayMs);
+
+  await tx.aiSummaryRunnerState.upsert({
+    where: {
+      provider,
+    },
+    create: {
+      provider,
+      cooldownUntil,
+      lastCooldownMs: delayMs,
+      consecutiveRateLimitCount: currentState.consecutiveRateLimitCount + 1,
+    },
+    update: {
+      cooldownUntil,
+      lastCooldownMs: delayMs,
+      consecutiveRateLimitCount: currentState.consecutiveRateLimitCount + 1,
+    },
+  });
+
+  return {
+    reason: "rate_limited",
+    retryAfterMs: delayMs,
+    cooldownUntil: cooldownUntil.toISOString(),
+  };
+}
+
+export async function clearAiSummaryRunnerCooldown(tx: Prisma.TransactionClient, provider: SummaryAiProvider) {
+  await tx.aiSummaryRunnerState.deleteMany({
+    where: {
+      provider,
+    },
+  });
 }
 
 function normalizeSummaryJobBatchLimit(value?: number) {
@@ -243,8 +660,39 @@ function normalizeSummaryJobBatchLimit(value?: number) {
   return Math.min(normalized, MAX_SUMMARY_JOB_BATCH_SIZE);
 }
 
-function normalizeAiProvider(value: string | undefined) {
-  const normalized = value?.trim().toLowerCase() ?? "gemini";
+function normalizeSummarySweepMaxRuns(value?: number) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_SUMMARY_SWEEP_MAX_RUNS;
+  }
+
+  const normalized = Math.trunc(value as number);
+  if (normalized < 1) {
+    throw new RouteError("INVALID_QUERY", 400, '"maxRuns" must be a positive integer.');
+  }
+
+  return normalized;
+}
+
+function normalizeSummarySweepMaxRuntimeMs(value?: number) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_SUMMARY_SWEEP_MAX_RUNTIME_MS;
+  }
+
+  const normalized = Math.trunc(value as number);
+  if (normalized < 1) {
+    throw new RouteError("INVALID_QUERY", 400, '"maxRuntimeMs" must be a positive integer.');
+  }
+
+  return normalized;
+}
+
+function normalizeAiProvider(value: string | undefined): SummaryAiProvider | null {
+  const normalized = value?.trim().toLowerCase();
+
+  if (!normalized) {
+    return "gemini";
+  }
+
   if (normalized === "gemini" || normalized === "openai") {
     return normalized;
   }
@@ -252,37 +700,97 @@ function normalizeAiProvider(value: string | undefined) {
   return null;
 }
 
+function getConfiguredSummaryAiProvider() {
+  const provider = normalizeAiProvider(process.env.AI_PROVIDER);
+  if (!provider) {
+    throw new RouteError("AI_PROVIDER_UNSUPPORTED", 500, 'AI_PROVIDER must be "gemini" or "openai".');
+  }
+
+  return provider;
+}
+
 function hasAnyInternalAutomationSecret() {
   return Boolean(process.env.INTERNAL_API_SECRET?.trim() || process.env.CRON_SECRET?.trim());
 }
 
-async function processSummaryJob(job: Prisma.IngestionJobGetPayload<Record<string, never>>): Promise<SummaryJobResult> {
-  await prisma.ingestionJob.update({
+async function runNextPendingSummaryJob(options: {
+  now: () => number;
+  random?: () => number;
+}): Promise<SummaryRunNextJobResult> {
+  const provider = getConfiguredSummaryAiProvider();
+  const lockResult = await withAiSummaryProviderLock(provider, async (tx) => {
+    const activeThrottle = getActiveSummaryRunnerThrottle(await getAiSummaryRunnerState(tx, provider), options.now());
+    if (activeThrottle) {
+      return {
+        result: null,
+        throttle: activeThrottle,
+      };
+    }
+
+    const pendingJob = await findNextPendingSummaryJob(tx);
+    if (!pendingJob) {
+      await clearAiSummaryRunnerCooldown(tx, provider);
+      return {
+        result: null,
+        throttle: null,
+      };
+    }
+
+    const result = await processSummaryJob(tx, pendingJob);
+    if (shouldThrottleSummaryRunner(result)) {
+      return {
+        result,
+        throttle: await applyAiSummaryRunnerCooldown(tx, provider, result.error?.retryAfterMs, options.now(), {
+          random: options.random,
+        }),
+      };
+    }
+
+    await clearAiSummaryRunnerCooldown(tx, provider);
+    return {
+      result,
+      throttle: null,
+    };
+  });
+
+  if (lockResult.status === "runner_busy") {
+    return {
+      result: null,
+      throttle: buildRunnerBusyThrottle(options.random),
+    };
+  }
+
+  return lockResult.value;
+}
+
+async function processSummaryJob(client: SummaryDbClient, job: PendingSummaryJobRecord): Promise<SummaryJobResult> {
+  await client.ingestionJob.update({
     where: { id: job.id },
     data: {
       status: IngestionJobStatus.PROCESSING,
       startedAt: job.startedAt ?? new Date(),
       errorMessage: null,
+      finishedAt: null,
     },
   });
 
   if (!job.documentId) {
-    return failSummaryJob(job.id, null, {
+    return failSummaryJob(client, job.id, null, {
       code: "DOCUMENT_NOT_FOUND",
       message: "Summary job is missing its document reference.",
     });
   }
 
-  const document = await getDocumentById(job.documentId);
+  const document = await getDocumentByIdWithClient(client, job.documentId);
   if (!document) {
-    return failSummaryJob(job.id, job.documentId, {
+    return failSummaryJob(client, job.id, job.documentId, {
       code: "DOCUMENT_NOT_FOUND",
       message: "Document was not found.",
     });
   }
 
   if (document.aiSummary) {
-    await prisma.ingestionJob.update({
+    await client.ingestionJob.update({
       where: { id: job.id },
       data: {
         status: IngestionJobStatus.SUCCEEDED,
@@ -309,16 +817,17 @@ async function processSummaryJob(job: Prisma.IngestionJobGetPayload<Record<strin
     } satisfies GenerateAiSummaryError;
 
     if (document.aiSummaryStatus === AiSummaryStatus.PENDING) {
-      await updateDocumentAiSummaryFailure(document.id, error.message);
+      await updateDocumentAiSummaryFailureWithClient(client, document.id, error.message);
     }
 
-    return failSummaryJob(job.id, document.id, error);
+    return failSummaryJob(client, job.id, document.id, error);
   }
 
   try {
     const generated = await generateDocumentAiSummary(document);
-    await updateDocumentAiSummary(document.id, generated.summary);
-    await prisma.ingestionJob.update({
+
+    await updateDocumentAiSummaryWithClient(client, document.id, generated.summary);
+    await client.ingestionJob.update({
       where: { id: job.id },
       data: {
         status: IngestionJobStatus.SUCCEEDED,
@@ -338,13 +847,33 @@ async function processSummaryJob(job: Prisma.IngestionJobGetPayload<Record<strin
     };
   } catch (error) {
     const summaryError = toGenerateAiSummaryError(error);
-    await updateDocumentAiSummaryFailure(document.id, summaryError.message);
-    return failSummaryJob(job.id, document.id, summaryError);
+
+    if (isRateLimitedSummaryError(summaryError)) {
+      await deferRateLimitedSummaryJob(client, job.id, document.id, summaryError);
+
+      return {
+        jobId: job.id,
+        documentId: document.id,
+        outcome: "deferred",
+        error: summaryError,
+      };
+    }
+
+    await updateDocumentAiSummaryFailureWithClient(client, document.id, summaryError.message);
+    return failSummaryJob(client, job.id, document.id, summaryError);
   }
 }
 
-async function runPendingDocumentAiSummaryForDocument(documentId: string) {
-  const pendingJob = await prisma.ingestionJob.findFirst({
+async function runPendingSummaryJobForDocument(
+  tx: Prisma.TransactionClient,
+  provider: SummaryAiProvider,
+  documentId: string,
+  options: {
+    now: () => number;
+    random?: () => number;
+  },
+) {
+  const pendingJob = await tx.ingestionJob.findFirst({
     where: {
       kind: IngestionJobKind.GENERATE_AI_SUMMARY,
       documentId,
@@ -356,11 +885,163 @@ async function runPendingDocumentAiSummaryForDocument(documentId: string) {
   });
 
   if (!pendingJob) {
-    return getDocumentById(documentId);
+    await clearAiSummaryRunnerCooldown(tx, provider);
+
+    return {
+      document: await getDocumentByIdWithClient(tx, documentId),
+      result: null,
+      throttle: null,
+    };
   }
 
-  await processSummaryJob(pendingJob);
-  return getDocumentById(documentId);
+  const result = await processSummaryJob(tx, pendingJob);
+
+  if (shouldThrottleSummaryRunner(result)) {
+    return {
+      document: await getDocumentByIdWithClient(tx, documentId),
+      result,
+      throttle: await applyAiSummaryRunnerCooldown(tx, provider, result.error?.retryAfterMs, options.now(), {
+        random: options.random,
+      }),
+    };
+  }
+
+  await clearAiSummaryRunnerCooldown(tx, provider);
+
+  return {
+    document: await getDocumentByIdWithClient(tx, documentId),
+    result,
+    throttle: null,
+  };
+}
+
+async function ensurePendingDocumentAiSummaryJob(
+  tx: Prisma.TransactionClient,
+  document: DocumentDetailRecord,
+  options?: { allowRetry?: boolean },
+) {
+  if (document.aiSummary) {
+    return document;
+  }
+
+  const shouldQueue = options?.allowRetry
+    ? shouldBackfillAutomaticAiSummary(document)
+    : shouldEnqueueAutomaticAiSummary(document);
+
+  if (!shouldQueue) {
+    return document;
+  }
+
+  const existingJob = await tx.ingestionJob.findFirst({
+    where: {
+      kind: IngestionJobKind.GENERATE_AI_SUMMARY,
+      documentId: document.id,
+      status: {
+        in: [IngestionJobStatus.PENDING, IngestionJobStatus.PROCESSING],
+      },
+    },
+  });
+
+  if (existingJob) {
+    return document.aiSummaryStatus === AiSummaryStatus.PENDING
+      ? document
+      : updateDocumentAiSummaryStateWithClient(tx, document.id, AiSummaryStatus.PENDING);
+  }
+
+  if (document.aiSummaryStatus === AiSummaryStatus.PENDING) {
+    await tx.ingestionJob.create({
+      data: {
+        kind: IngestionJobKind.GENERATE_AI_SUMMARY,
+        status: IngestionJobStatus.PENDING,
+        documentId: document.id,
+        sourceUrl: document.sourceUrl ?? document.canonicalUrl,
+      },
+    });
+
+    return document;
+  }
+
+  const pendingDocument = await updateDocumentAiSummaryStateWithClient(tx, document.id, AiSummaryStatus.PENDING);
+  await tx.ingestionJob.create({
+    data: {
+      kind: IngestionJobKind.GENERATE_AI_SUMMARY,
+      status: IngestionJobStatus.PENDING,
+      documentId: document.id,
+      sourceUrl: document.sourceUrl ?? document.canonicalUrl,
+    },
+  });
+
+  return pendingDocument;
+}
+
+async function findNextPendingSummaryJob(client: SummaryDbClient) {
+  return client.ingestionJob.findFirst({
+    where: {
+      kind: IngestionJobKind.GENERATE_AI_SUMMARY,
+      status: IngestionJobStatus.PENDING,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+}
+
+async function getDocumentByIdWithClient(client: SummaryDbClient, documentId: string) {
+  return client.document.findUnique({
+    where: {
+      id: documentId,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+async function updateDocumentAiSummaryStateWithClient(
+  client: SummaryDbClient,
+  documentId: string,
+  status: AiSummaryStatus,
+) {
+  return client.document.update({
+    where: {
+      id: documentId,
+    },
+    data: {
+      aiSummaryStatus: status,
+      aiSummaryError: null,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+async function updateDocumentAiSummaryWithClient(client: SummaryDbClient, documentId: string, summary: string) {
+  return client.document.update({
+    where: {
+      id: documentId,
+    },
+    data: {
+      aiSummary: summary,
+      aiSummaryStatus: AiSummaryStatus.READY,
+      aiSummaryError: null,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+async function updateDocumentAiSummaryFailureWithClient(
+  client: SummaryDbClient,
+  documentId: string,
+  errorMessage: string,
+) {
+  return client.document.update({
+    where: {
+      id: documentId,
+    },
+    data: {
+      aiSummary: null,
+      aiSummaryStatus: AiSummaryStatus.FAILED,
+      aiSummaryError: errorMessage,
+    },
+    ...documentDetailArgs,
+  });
 }
 
 function isEligibleQueuedDocument(document: DocumentDetailRecord) {
@@ -376,8 +1057,121 @@ function normalizeSummarySourceText(value: string | null | undefined) {
   return normalized ? normalized : null;
 }
 
-async function failSummaryJob(jobId: string, documentId: string | null, error: GenerateAiSummaryError): Promise<SummaryJobResult> {
-  await prisma.ingestionJob.update({
+function buildSummaryRunResponse(
+  results: SummaryJobResult[],
+  throttle: SummaryRunnerThrottle | null,
+): RunDocumentAiSummaryJobsResponseData {
+  return {
+    processed: results.length,
+    generated: results.filter((result) => result.outcome === "generated").length,
+    failed: results.filter((result) => result.outcome === "failed").length,
+    skipped: results.filter((result) => result.outcome === "skipped").length,
+    deferred: results.filter((result) => result.outcome === "deferred").length,
+    throttle,
+    results,
+  };
+}
+
+function buildPrioritizeSummaryResult(
+  document: DocumentDetailRecord,
+  summary: PrioritizeDocumentAiSummaryResult["summary"],
+): PrioritizeDocumentAiSummaryResult {
+  return {
+    document,
+    summary,
+  };
+}
+
+function shouldThrottleSummaryRunner(result: SummaryJobResult) {
+  return result.outcome === "deferred" && isRateLimitedSummaryError(result.error);
+}
+
+function getActiveSummaryRunnerThrottle(state: SummaryRunnerStateSnapshot, nowMs: number): SummaryRunnerThrottle | null {
+  if (!state.cooldownUntil) {
+    return null;
+  }
+
+  const remainingMs = state.cooldownUntil.getTime() - nowMs;
+  if (remainingMs <= 0) {
+    return null;
+  }
+
+  return {
+    reason: "rate_limited",
+    retryAfterMs: remainingMs,
+    cooldownUntil: state.cooldownUntil.toISOString(),
+  };
+}
+
+function buildRunnerBusyThrottle(random?: () => number): SummaryRunnerThrottle {
+  return {
+    reason: "runner_busy",
+    retryAfterMs: resolveRunnerBusyBackoffMs(random),
+    cooldownUntil: null,
+  };
+}
+
+function resolveRunnerBusyBackoffMs(random?: () => number) {
+  return SUMMARY_RUNNER_BUSY_MIN_BACKOFF_MS + Math.round((random ?? Math.random)() * SUMMARY_RUNNER_BUSY_BACKOFF_RANGE_MS);
+}
+
+function resolveSummaryFairnessGapMs(random?: () => number) {
+  return SUMMARY_RUNNER_FAIRNESS_GAP_MIN_MS + Math.round((random ?? Math.random)() * SUMMARY_RUNNER_FAIRNESS_GAP_RANGE_MS);
+}
+
+function normalizeRetryAfterMs(value: number | undefined) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.min(Math.max(Math.trunc(value as number), 1_000), MAX_SUMMARY_RATE_LIMIT_COOLDOWN_MS);
+}
+
+function isRateLimitedSummaryError(
+  error: GenerateAiSummaryError | null,
+): error is GenerateAiSummaryError & { code: "AI_PROVIDER_RATE_LIMITED" } {
+  return Boolean(error && error.code === "AI_PROVIDER_RATE_LIMITED");
+}
+
+async function deferRateLimitedSummaryJob(
+  client: SummaryDbClient,
+  jobId: string,
+  documentId: string,
+  error: GenerateAiSummaryError,
+) {
+  await client.document.update({
+    where: {
+      id: documentId,
+    },
+    data: {
+      aiSummaryStatus: AiSummaryStatus.PENDING,
+      aiSummaryError: null,
+    },
+  });
+
+  await client.ingestionJob.update({
+    where: { id: jobId },
+    data: {
+      status: IngestionJobStatus.PENDING,
+      errorMessage: error.message,
+      payloadJson: {
+        outcome: "deferred",
+        reason: "rate_limited",
+        error,
+      },
+      startedAt: null,
+      finishedAt: null,
+    },
+  });
+}
+
+async function failSummaryJob(
+  client: SummaryDbClient,
+  jobId: string,
+  documentId: string | null,
+  error: GenerateAiSummaryError,
+): Promise<SummaryJobResult> {
+  await client.ingestionJob.update({
     where: { id: jobId },
     data: {
       status: IngestionJobStatus.FAILED,
@@ -400,21 +1194,30 @@ async function failSummaryJob(jobId: string, documentId: string | null, error: G
 
 function toGenerateAiSummaryError(error: unknown): GenerateAiSummaryError {
   if (error instanceof RouteError) {
+    const routeError = error as RouteError & { retryAfterMs?: number };
+
     return {
-      code: error.code,
-      message: error.message,
+      code: routeError.code,
+      message: routeError.message,
+      ...(routeError.retryAfterMs ? { retryAfterMs: routeError.retryAfterMs } : {}),
     };
   }
 
-  if (error instanceof Error && error.message) {
+  if (error && typeof error === "object" && "message" in error && typeof (error as { message?: unknown }).message === "string") {
     return {
-      code: "AI_SUMMARY_FAILED",
-      message: error.message,
+      code: "AI_PROVIDER_REQUEST_FAILED",
+      message: (error as { message: string }).message,
     };
   }
 
   return {
-    code: "AI_SUMMARY_FAILED",
+    code: "AI_PROVIDER_REQUEST_FAILED",
     message: "AI summary generation failed.",
   };
+}
+
+function sleepForSummarySweep(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

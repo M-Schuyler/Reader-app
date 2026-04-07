@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { IngestionStatus, type DocumentType } from "@prisma/client";
 import { type ApiError, type ApiSuccess } from "@/server/api/response";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
+import { DocumentTagPills } from "@/components/documents/document-tag-pills";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { resolveSourceLibraryPreviewText } from "@/lib/documents/source-library";
@@ -106,36 +107,40 @@ function SourceLibraryItemCard({
   return (
     <article className="px-4 py-4 transition hover:bg-[color:var(--bg-field)] sm:px-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <Link className="block min-w-0 flex-1" href={`/documents/${item.id}`}>
-          <div className="grid gap-4 sm:grid-cols-[8.75rem_minmax(0,1fr)] sm:items-start sm:gap-5">
-            <SourceLibraryCover item={item} tone={tone} />
+        <div className="min-w-0 flex-1 space-y-3">
+          <Link className="block min-w-0" href={`/documents/${item.id}`}>
+            <div className="grid gap-4 sm:grid-cols-[8.75rem_minmax(0,1fr)] sm:items-start sm:gap-5">
+              <SourceLibraryCover item={item} tone={tone} />
 
-            <div className="min-w-0 space-y-4">
-              <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-                <span>{formatDocumentType(item.type)}</span>
-                <span>{formatCollectedAt(item.createdAt)}</span>
-                {shouldShowStatusBadge ? (
-                  <Badge tone={statusTone(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</Badge>
-                ) : null}
-              </div>
+              <div className="min-w-0 space-y-4">
+                <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+                  <span>{formatDocumentType(item.type)}</span>
+                  <span>{formatCollectedAt(item.createdAt)}</span>
+                  {shouldShowStatusBadge ? (
+                    <Badge tone={statusTone(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</Badge>
+                  ) : null}
+                </div>
 
-              <div className="space-y-2.5">
-                <h4 className="max-w-4xl font-ui-heading text-[1.45rem] leading-[1.1] tracking-[-0.04em] text-[color:var(--text-primary)]">
-                  {item.title}
-                </h4>
-                {previewText ? (
-                  <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{previewText}</p>
-                ) : null}
-              </div>
+                <div className="space-y-2.5">
+                  <h4 className="max-w-4xl font-ui-heading text-[1.45rem] leading-[1.1] tracking-[-0.04em] text-[color:var(--text-primary)]">
+                    {item.title}
+                  </h4>
+                  {previewText ? (
+                    <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{previewText}</p>
+                  ) : null}
+                </div>
 
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-[color:var(--text-tertiary)]">
-                {sourcePath ? <span className="truncate">{sourcePath}</span> : null}
-                {!isFailed && item.wordCount ? <span>{formatWordCount(item.wordCount)}</span> : null}
-                {item.lang ? <span>{item.lang}</span> : null}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-[color:var(--text-tertiary)]">
+                  {sourcePath ? <span className="truncate">{sourcePath}</span> : null}
+                  {!isFailed && item.wordCount ? <span>{formatWordCount(item.wordCount)}</span> : null}
+                  {item.lang ? <span>{item.lang}</span> : null}
+                </div>
               </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+
+          <DocumentTagPills basePath="/sources" tags={item.tags} />
+        </div>
 
         <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
           <FavoriteToggleButton

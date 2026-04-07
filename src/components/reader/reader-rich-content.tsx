@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { resolveReaderImageUrl } from "@/lib/content/image-proxy";
-import { splitTextByHighlights } from "@/lib/highlights/anchor";
+import { resolveHighlightTextRanges, splitTextByHighlights } from "@/lib/highlights/anchor";
 import { splitPlainTextIntoHighlightedParagraphs } from "@/lib/highlights/plain-text";
 import { shouldRenderTextNode, type TextNeighborKind } from "@/lib/highlights/whitespace";
 import type { ReaderHighlight } from "@/components/reader/reader-highlights";
@@ -20,6 +20,8 @@ type CursorState = {
   value: number;
 };
 
+type ResolvedReaderHighlight = Pick<ReaderHighlight, "id" | "quoteText" | "startOffset" | "endOffset">;
+
 export function ReaderRichContent({
   contentHtml,
   fallbackText,
@@ -35,8 +37,8 @@ export function ReaderRichContent({
       return;
     }
 
-    setContent(renderStructuredContent(contentHtml, sourceUrl, highlights));
-  }, [contentHtml, highlights, sourceUrl]);
+    setContent(renderStructuredContent(contentHtml, fallbackText, sourceUrl, highlights));
+  }, [contentHtml, fallbackText, highlights, sourceUrl]);
 
   if (!content) {
     return (
@@ -86,12 +88,18 @@ function resolveUrl(value: string | null, sourceUrl: string | null) {
   }
 }
 
-function renderStructuredContent(contentHtml: string, sourceUrl: string | null, highlights: ReaderHighlight[]) {
+function renderStructuredContent(
+  contentHtml: string,
+  fallbackText: string,
+  sourceUrl: string | null,
+  highlights: ReaderHighlight[],
+) {
   const parser = new DOMParser();
   const parsed = parser.parseFromString(contentHtml, "text/html");
+  const resolvedHighlights = resolveHighlightTextRanges(parsed.body.textContent || fallbackText, highlights);
   const cursor: CursorState = { value: 0 };
   const nodes = Array.from(parsed.body.childNodes)
-    .map((node, index) => renderNode(node, `${index}`, sourceUrl, highlights, cursor))
+    .map((node, index) => renderNode(node, `${index}`, sourceUrl, resolvedHighlights, cursor))
     .filter((node): node is ReactNode => node !== null);
 
   return nodes.length > 0 ? nodes : null;
@@ -101,16 +109,20 @@ function renderNode(
   node: Node,
   key: string,
   sourceUrl: string | null,
-  highlights: ReaderHighlight[],
+  highlights: ResolvedReaderHighlight[],
   cursor: CursorState,
 ): ReactNode | null {
   if (node.nodeType === Node.TEXT_NODE) {
     const textContent = node.textContent ?? "";
+    const startOffset = cursor.value;
+    const endOffset = startOffset + textContent.length;
+    cursor.value = endOffset;
+
     if (!shouldRenderTextNode(textContent, resolveWhitespaceContext(node))) {
       return null;
     }
 
-    return renderTextWithHighlights(textContent, key, highlights, cursor);
+    return renderTextWithHighlights(textContent, key, highlights, startOffset, endOffset);
   }
 
   if (node.nodeType !== Node.ELEMENT_NODE) {
@@ -344,9 +356,10 @@ function renderNode(
 }
 
 function renderPlainTextFallback(sourceText: string, highlights: ReaderHighlight[]) {
+  const resolvedHighlights = resolveHighlightTextRanges(sourceText, highlights);
   const paragraphs = splitPlainTextIntoHighlightedParagraphs(
     sourceText,
-    highlights
+    resolvedHighlights
       .filter((highlight) => typeof highlight.startOffset === "number" && typeof highlight.endOffset === "number")
       .map((highlight) => ({
         id: highlight.id,
@@ -378,13 +391,10 @@ function renderPlainTextFallback(sourceText: string, highlights: ReaderHighlight
 function renderTextWithHighlights(
   textContent: string,
   key: string,
-  highlights: ReaderHighlight[],
-  cursor: CursorState,
+  highlights: ResolvedReaderHighlight[],
+  startOffset: number,
+  endOffset: number,
 ): ReactNode | null {
-  const startOffset = cursor.value;
-  const endOffset = startOffset + textContent.length;
-  cursor.value = endOffset;
-
   const overlappingHighlights = highlights
     .filter((highlight) => typeof highlight.startOffset === "number" && typeof highlight.endOffset === "number")
     .filter((highlight) => {

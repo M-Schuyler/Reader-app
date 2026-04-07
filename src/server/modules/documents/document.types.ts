@@ -16,6 +16,11 @@ export type DocumentSourceFilter = {
   value: string;
 };
 
+export type DocumentTagLabel = {
+  name: string;
+  slug: string;
+};
+
 export type DocumentListQuery = {
   surface: DocumentSurface;
   sourceId?: string;
@@ -50,6 +55,7 @@ export type DocumentListItem = {
   createdAt: string;
   updatedAt: string;
   wordCount: number | null;
+  tags: DocumentTagLabel[];
   source: {
     id: string;
     title: string;
@@ -105,6 +111,7 @@ export type DocumentDetail = {
   ingestionStatus: IngestionStatus;
   createdAt: string;
   updatedAt: string;
+  tags: DocumentTagLabel[];
   source: {
     id: string;
     title: string;
@@ -149,6 +156,13 @@ export type AiSummarySource = "content" | "excerpt" | "metadata";
 export type GenerateAiSummaryError = {
   code: string;
   message: string;
+  retryAfterMs?: number;
+};
+
+export type SummaryRunnerThrottle = {
+  reason: "rate_limited" | "runner_busy";
+  retryAfterMs: number;
+  cooldownUntil: string | null;
 };
 
 export type UpdateDocumentFavoriteInput = {
@@ -215,12 +229,27 @@ export type RunDocumentAiSummaryJobsResponseData = {
   generated: number;
   failed: number;
   skipped: number;
+  deferred: number;
+  throttle: SummaryRunnerThrottle | null;
   results: Array<{
     jobId: string;
     documentId: string | null;
-    outcome: "generated" | "failed" | "skipped";
+    outcome: "generated" | "failed" | "skipped" | "deferred";
     error: GenerateAiSummaryError | null;
   }>;
+};
+
+export type SweepDocumentAiSummaryJobsResponseData = {
+  runs: number;
+  processed: number;
+  generated: number;
+  failed: number;
+  skipped: number;
+  deferred: number;
+  waitedMs: number;
+  completed: boolean;
+  stopReason: "queue_empty" | "rate_limited" | "runner_busy" | "time_budget_exhausted" | "max_runs_reached";
+  throttle: SummaryRunnerThrottle | null;
 };
 
 export type BackfillDocumentAiSummaryJobsResponseData = {
@@ -228,4 +257,14 @@ export type BackfillDocumentAiSummaryJobsResponseData = {
   queued: number;
   skipped: number;
   documentIds: string[];
+};
+
+export type PrioritizeDocumentAiSummaryResponseData = {
+  document: DocumentDetail;
+  summary: {
+    status: "generated" | "queued" | "skipped" | "blocked" | "failed";
+    error: GenerateAiSummaryError | null;
+    throttle: SummaryRunnerThrottle | null;
+    runtimeIssues: string[];
+  };
 };

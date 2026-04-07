@@ -3,10 +3,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-// @ts-ignore -- The test intentionally imports the .mjs script directly because that's what production uses.
-import { acquireDevServerLock, DEV_SERVER_LOCK_FILENAME, formatDevServerLockMessage } from "../../scripts/dev/dev-server-lock.mjs";
+import { loadDevServerLockModule } from "./dev-server-lock-harness";
 
 test("acquireDevServerLock creates lock and releases it", async () => {
+  const { acquireDevServerLock, DEV_SERVER_LOCK_FILENAME } = await loadDevServerLockModule();
   const sandboxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "reader-dev-lock-"));
   const workspaceDir = path.join(sandboxRoot, "reader-app");
   await fs.mkdir(workspaceDir, { recursive: true });
@@ -27,6 +27,7 @@ test("acquireDevServerLock creates lock and releases it", async () => {
 });
 
 test("acquireDevServerLock blocks when active reader dev process exists", async () => {
+  const { acquireDevServerLock, DEV_SERVER_LOCK_FILENAME } = await loadDevServerLockModule();
   const sandboxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "reader-dev-lock-"));
   const workspaceDir = path.join(sandboxRoot, "reader-app");
   await fs.mkdir(workspaceDir, { recursive: true });
@@ -54,6 +55,7 @@ test("acquireDevServerLock blocks when active reader dev process exists", async 
 });
 
 test("acquireDevServerLock blocks when existing command is the worktree dev launcher", async () => {
+  const { acquireDevServerLock, DEV_SERVER_LOCK_FILENAME } = await loadDevServerLockModule();
   const sandboxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "reader-dev-lock-"));
   const workspaceDir = path.join(sandboxRoot, "reader-app");
   await fs.mkdir(workspaceDir, { recursive: true });
@@ -80,6 +82,7 @@ test("acquireDevServerLock blocks when existing command is the worktree dev laun
 });
 
 test("acquireDevServerLock releases stale lock from transient wrapper pid", async () => {
+  const { acquireDevServerLock, DEV_SERVER_LOCK_FILENAME } = await loadDevServerLockModule();
   const sandboxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "reader-dev-lock-"));
   const workspaceDir = path.join(sandboxRoot, "reader-app");
   await fs.mkdir(workspaceDir, { recursive: true });
@@ -108,6 +111,7 @@ test("acquireDevServerLock releases stale lock from transient wrapper pid", asyn
 });
 
 test("acquireDevServerLock cleans stale lock when process is gone", async () => {
+  const { acquireDevServerLock, DEV_SERVER_LOCK_FILENAME } = await loadDevServerLockModule();
   const sandboxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "reader-dev-lock-"));
   const workspaceDir = path.join(sandboxRoot, "reader-app");
   await fs.mkdir(workspaceDir, { recursive: true });
@@ -135,7 +139,63 @@ test("acquireDevServerLock cleans stale lock when process is gone", async () => 
   await lockResult.release();
 });
 
-test("formatDevServerLockMessage provides clear recovery hint", () => {
+test("findActiveDevServerLock reports an active Reader dev server", async () => {
+  const { findActiveDevServerLock, DEV_SERVER_LOCK_FILENAME } = await loadDevServerLockModule();
+  const sandboxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "reader-dev-lock-"));
+  const workspaceDir = path.join(sandboxRoot, "reader-app");
+  await fs.mkdir(workspaceDir, { recursive: true });
+
+  await fs.writeFile(
+    path.join(workspaceDir, DEV_SERVER_LOCK_FILENAME),
+    JSON.stringify({
+      command: "/usr/local/bin/node scripts/dev/run-worktree-command.mjs dev --hostname 127.0.0.1 --port 3000",
+      createdAt: "2026-04-03T00:00:00.000Z",
+      cwd: workspaceDir,
+      pid: 56789,
+      token: "build-block-token",
+    }),
+  );
+
+  const lockResult = await findActiveDevServerLock({
+    cwd: workspaceDir,
+    isProcessRunning: async () => true,
+    readProcessCommand: async () => `${workspaceDir}/node_modules/.bin/next dev --hostname 127.0.0.1 --port 3000`,
+  });
+
+  assert.equal(lockResult.active, true);
+  assert.equal(lockResult.pid, 56789);
+  assert.match(lockResult.message ?? "", /another Reader dev server is already running/i);
+});
+
+test("findActiveDevServerLock ignores stale locks", async () => {
+  const { findActiveDevServerLock, DEV_SERVER_LOCK_FILENAME } = await loadDevServerLockModule();
+  const sandboxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "reader-dev-lock-"));
+  const workspaceDir = path.join(sandboxRoot, "reader-app");
+  await fs.mkdir(workspaceDir, { recursive: true });
+
+  await fs.writeFile(
+    path.join(workspaceDir, DEV_SERVER_LOCK_FILENAME),
+    JSON.stringify({
+      command: "node scripts/dev/run-worktree-command.mjs dev",
+      createdAt: "2026-04-03T00:00:00.000Z",
+      cwd: workspaceDir,
+      pid: 67890,
+      token: "stale-build-lock-token",
+    }),
+  );
+
+  const lockResult = await findActiveDevServerLock({
+    cwd: workspaceDir,
+    isProcessRunning: async () => false,
+    readProcessCommand: async () => null,
+  });
+
+  assert.equal(lockResult.active, false);
+  assert.equal(await pathExists(path.join(workspaceDir, DEV_SERVER_LOCK_FILENAME)), false);
+});
+
+test("formatDevServerLockMessage provides clear recovery hint", async () => {
+  const { formatDevServerLockMessage } = await loadDevServerLockModule();
   const message = formatDevServerLockMessage({
     lockPath: "/tmp/reader/.reader-dev-server.lock",
     pid: 67890,

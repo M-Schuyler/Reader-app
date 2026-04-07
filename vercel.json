@@ -5,8 +5,8 @@
       "schedule": "0 4 * * *"
     },
     {
-      "path": "/api/internal/summary-jobs/run",
-      "schedule": "0 3 * * *"
+      "path": "/api/internal/summary-jobs/sweep",
+      "schedule": "0 * * * *"
     }
   ]
 }

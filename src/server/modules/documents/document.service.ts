@@ -2,6 +2,7 @@ import { DocumentType, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
 import { buildSourceAliasMap } from "@/lib/documents/source-library";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
+import { prioritizeDocumentAiSummary } from "./document-ai-summary-jobs.service";
 import {
   deleteDocumentById,
   deleteSourceAlias,
@@ -22,6 +23,7 @@ import type {
   GenerateAiSummaryError,
   GetDocumentResponseData,
   GetDocumentsResponseData,
+  PrioritizeDocumentAiSummaryResponseData,
   QuickSearchResponseData,
   SourceAliasTargetKind,
   UpdateSourceAliasInput,
@@ -163,6 +165,21 @@ export async function deleteDocument(id: string): Promise<DeleteDocumentResponse
 
   const deleted = await deleteDocumentById(id);
   return deleted;
+}
+
+export async function prioritizeDocumentAiSummaryForReader(
+  id: string,
+): Promise<PrioritizeDocumentAiSummaryResponseData | null> {
+  const result = await prioritizeDocumentAiSummary(id);
+
+  if (!result) {
+    return null;
+  }
+
+  return {
+    document: mapDocumentDetail(result.document),
+    summary: result.summary,
+  };
 }
 
 export async function getSourceAliasMapForSources(sources: DocumentSourceFilter[]) {

@@ -77,3 +77,10 @@ test("reader highlights panel opens modal note editor and keeps save flow", () =
   assert.match(readerHighlights, /handleConfirmNoteSave/);
   assert.match(readerHighlights, /scrollIntoView/);
 });
+
+test("reader rich content resolves imported quote-only highlights back into inline marks", () => {
+  const richContent = readWorkspaceFile("src/components/reader/reader-rich-content.tsx");
+
+  assert.match(richContent, /resolveHighlightTextRanges/);
+  assert.match(richContent, /const resolvedHighlights = resolveHighlightTextRanges/);
+});

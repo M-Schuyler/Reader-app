@@ -22,6 +22,10 @@ export function mapDocumentListItem(record: DocumentListRecord): DocumentListIte
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     wordCount: record.content?.wordCount ?? null,
+    tags: record.tags.map((entry) => ({
+      name: entry.tag.name,
+      slug: entry.tag.slug,
+    })),
     source: record.source
       ? {
           id: record.source.id,
@@ -64,6 +68,10 @@ export function mapDocumentDetail(record: DocumentDetailRecord): DocumentDetail 
     ingestionStatus: record.ingestionStatus,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
+    tags: record.tags.map((entry) => ({
+      name: entry.tag.name,
+      slug: entry.tag.slug,
+    })),
     source: record.source
       ? {
           id: record.source.id,

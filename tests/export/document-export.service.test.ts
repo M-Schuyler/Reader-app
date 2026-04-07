@@ -37,6 +37,7 @@ function createDocument(overrides: Partial<DocumentDetail> = {}): DocumentDetail
     ingestionStatus: IngestionStatus.READY,
     createdAt: "2026-04-03T09:40:00.000Z",
     updatedAt: "2026-04-03T09:45:00.000Z",
+    tags: [],
     source: {
       id: "source_1",
       title: "Example Source",

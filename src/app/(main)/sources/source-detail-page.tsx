@@ -45,7 +45,7 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
 
   const sourceAliasMap = await getSourceAliasMapForSources([source]);
   const sourceContext = buildSourceLibrarySourceContext(representativeItem, overviewData.pagination.total, sourceAliasMap);
-  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.sort !== "latest");
+  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.tag || data.filters.sort !== "latest");
   const clearHref = buildSourceLibraryClearHref(basePath, data.filters);
   const contextChips = buildSourceContextChips(data.filters);
 

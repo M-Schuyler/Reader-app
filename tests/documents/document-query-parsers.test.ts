@@ -32,6 +32,11 @@ test("parseDocumentListQuery parses surface, type, and readState", () => {
   assert.equal(parsed.readState, ReadState.UNREAD);
 });
 
+test("parseDocumentListQuery preserves tag filters", () => {
+  const parsed = parseDocumentListQuery(new URLSearchParams("tag=ai"));
+  assert.equal(parsed.tag, "ai");
+});
+
 test("parseDocumentListQuery caps pageSize at max", () => {
   const parsed = parseDocumentListQuery(new URLSearchParams("pageSize=999&page=2"));
   assert.equal(parsed.page, 2);

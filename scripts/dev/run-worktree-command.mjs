@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { archiveLocalBuildArtifacts, formatArchivedBuildArtifacts } from "./archive-build-artifacts.mjs";
-import { acquireDevServerLock } from "./dev-server-lock.mjs";
+import { acquireDevServerLock, findActiveDevServerLock } from "./dev-server-lock.mjs";
 import { loadWorktreeEnv } from "./worktree-env.mjs";
 
 const [mode, ...restArgs] = process.argv.slice(2);
@@ -20,6 +20,13 @@ let releaseDevServerLock = null;
 let shutdownSignal = null;
 
 if (mode === "build") {
+  const activeDevServer = await findActiveDevServerLock({ cwd });
+
+  if (activeDevServer.active) {
+    console.error(activeDevServer.message);
+    process.exit(1);
+  }
+
   const archivedArtifacts = await archiveLocalBuildArtifacts({ cwd });
   const archivedMessage = formatArchivedBuildArtifacts(archivedArtifacts);
 

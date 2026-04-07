@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { archiveLocalBuildArtifacts, formatArchivedBuildArtifacts } from "./archive-build-artifacts.mjs";
+import { acquireDevServerLock, findActiveDevServerLock } from "./dev-server-lock.mjs";
 
 const [mode, ...restArgs] = process.argv.slice(2);
 
@@ -43,10 +44,32 @@ async function main() {
   }
 
   const cwd = process.cwd();
+  let releaseDevServerLock = null;
+  let shutdownSignal = null;
 
   if (await isGitWorktreeCwd(cwd)) {
     console.error(formatWorktreeGuardMessage(mode));
     process.exit(1);
+  }
+
+  if (mode === "build") {
+    const activeDevServer = await findActiveDevServerLock({ cwd });
+
+    if (activeDevServer.active) {
+      console.error(activeDevServer.message);
+      process.exit(1);
+    }
+  }
+
+  if (mode === "dev") {
+    const lockResult = await acquireDevServerLock({ cwd });
+
+    if (!lockResult.acquired) {
+      console.error(lockResult.message);
+      process.exit(1);
+    }
+
+    releaseDevServerLock = lockResult.release;
   }
 
   const child =
@@ -59,13 +82,34 @@ async function main() {
       : await spawnBuild(cwd);
 
   child.on("exit", (code, signal) => {
+    void releaseDevServerLock?.();
+
     if (signal) {
+      if (shutdownSignal) {
+        process.exit(0);
+        return;
+      }
+
       process.kill(process.pid, signal);
       return;
     }
 
     process.exit(code ?? 0);
   });
+
+  for (const event of ["SIGINT", "SIGTERM"]) {
+    process.on(event, () => {
+      if (shutdownSignal) {
+        return;
+      }
+
+      shutdownSignal = event;
+
+      void releaseDevServerLock?.().finally(() => {
+        child.kill(event);
+      });
+    });
+  }
 }
 
 async function spawnBuild(cwd) {
