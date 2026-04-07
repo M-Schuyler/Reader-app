@@ -42,6 +42,10 @@ export function buildSourceContextChips(filters: GetDocumentsResponseData["filte
     chips.push(`类型 ${formatDocumentType(filters.type)}`);
   }
 
+  if (filters.tag) {
+    chips.push(`标签 ${filters.tag}`);
+  }
+
   if (filters.sort === "earliest") {
     chips.push("最早收进来优先");
   }

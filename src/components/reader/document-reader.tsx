@@ -4,14 +4,17 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { IngestionStatus } from "@prisma/client";
+import { DocumentTagPills } from "@/components/documents/document-tag-pills";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
 import { HighlightSaveModeToggle } from "@/components/reader/highlight-save-mode-toggle";
 import { ReaderHighlightsPanel, useDocumentHighlights } from "@/components/reader/reader-highlights";
 import { ReaderRichContent } from "@/components/reader/reader-rich-content";
 import { ReaderAutoHighlightFeedback, ReaderSelectionActions } from "@/components/reader/reader-selection-actions";
+import { usePrioritizedDocumentAiSummary } from "@/components/reader/use-prioritized-document-ai-summary";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/panel";
-import { formatPublishedAtLabel } from "@/lib/documents/published-at";
+import { resolveDocumentLead } from "@/lib/documents/document-lead";
+import { formatPublishedAtLabel, resolveDocumentDateMetaLabel } from "@/lib/documents/published-at";
 import {
   HIGHLIGHT_SAVE_MODE_STORAGE_KEY,
   READER_FONT_SIZE_STORAGE_KEY,
@@ -46,7 +49,8 @@ type AutoHighlightFeedback = {
 
 type ReaderFloatingPanelTab = "highlights" | "actions" | "meta";
 
-export function DocumentReader({ document: readerDocument }: DocumentReaderProps) {
+export function DocumentReader({ document: initialDocument }: DocumentReaderProps) {
+  const readerDocument = usePrioritizedDocumentAiSummary(initialDocument);
   const selectionActionsRef = useRef<HTMLDivElement>(null);
   const floatingPanelButtonRef = useRef<HTMLButtonElement>(null);
   const floatingPanelRef = useRef<HTMLDivElement>(null);
@@ -70,7 +74,7 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
     canHighlight: isReadable,
     documentId: readerDocument.id,
   });
-  const leadText = resolveLeadText(readerDocument);
+  const lead = resolveDocumentLead(readerDocument);
   const showIngestionBadge = readerDocument.ingestionStatus !== IngestionStatus.READY;
 
   useEffect(() => {
@@ -398,13 +402,21 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
           <h1 className="font-display text-[2.85rem] leading-[1.02] tracking-[-0.045em] text-[color:var(--text-primary)] sm:text-[4.1rem]">
             {readerDocument.title}
           </h1>
-          {leadText ? (
-            <p className="max-w-[38rem] text-[1.02rem] leading-8 text-[color:var(--text-secondary)]">{leadText}</p>
+          {lead.text ? (
+            <div className="max-w-[38rem] space-y-2">
+              {lead.label ? (
+                <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+                  {lead.label}
+                </p>
+              ) : null}
+              <p className="text-[1.02rem] leading-8 text-[color:var(--text-secondary)]">{lead.text}</p>
+              {lead.note ? <p className="text-sm leading-7 text-[color:var(--text-tertiary)]">{lead.note}</p> : null}
+            </div>
           ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-[color:var(--text-tertiary)]">
-          <span>{formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind)}</span>
+          <span>{formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind, readerDocument.createdAt)}</span>
           {readerDocument.lang ? <span>{readerDocument.lang}</span> : null}
           {isReadable && readerDocument.content?.wordCount ? <span>{formatWordCount(readerDocument.content.wordCount)}</span> : null}
         </div>
@@ -597,13 +609,27 @@ export function DocumentReader({ document: readerDocument }: DocumentReaderProps
                 <div className="space-y-4">
                   <dl className="space-y-3 text-sm">
                     <MetaRow label="状态" value={formatIngestionStatus(readerDocument.ingestionStatus)} />
-                    <MetaRow label="发布时间" value={formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind)} />
+                    <MetaRow
+                      label={resolveDocumentDateMetaLabel(readerDocument.publishedAt, readerDocument.createdAt)}
+                      value={formatPublishedAtLabel(
+                        readerDocument.publishedAt,
+                        readerDocument.publishedAtKind,
+                        readerDocument.createdAt,
+                      )}
+                    />
                     {readerDocument.lang ? <MetaRow label="语言" value={readerDocument.lang} /> : null}
                     {isReadable && readerDocument.content?.wordCount ? (
                       <MetaRow label="字数" value={formatWordCount(readerDocument.content.wordCount)} />
                     ) : null}
                     {sourceUrl ? <MetaRow label="来源" value={truncateUrl(sourceUrl)} /> : null}
                   </dl>
+
+                  {readerDocument.tags.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">标签</p>
+                      <DocumentTagPills basePath="/reading" tags={readerDocument.tags} />
+                    </div>
+                  ) : null}
 
                   {favorite.isFavorite ? (
                     <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
@@ -858,14 +884,6 @@ function LayersIcon() {
       <path d="m3 13.6 7 3.6 7-3.6" />
     </svg>
   );
-}
-
-function resolveLeadText(document: DocumentDetail) {
-  if (document.ingestionStatus === IngestionStatus.FAILED) {
-    return null;
-  }
-
-  return document.aiSummary ?? document.excerpt;
 }
 
 function truncateUrl(value: string) {

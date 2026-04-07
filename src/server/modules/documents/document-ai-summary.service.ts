@@ -317,7 +317,14 @@ function toAiProviderError(error: unknown) {
   }
 
   if (getAiProviderStatus(error) === 429) {
-    return new RouteError("AI_PROVIDER_RATE_LIMITED", 429, "AI 服务请求过于频繁，请稍后重试。");
+    const rateLimitedError = new RouteError("AI_PROVIDER_RATE_LIMITED", 429, "AI 服务请求过于频繁，请稍后重试。");
+    const retryAfterMs = getRetryAfterMs(error);
+
+    if (retryAfterMs) {
+      Object.assign(rateLimitedError, { retryAfterMs });
+    }
+
+    return rateLimitedError;
   }
 
   if (isConnectionError(error)) {

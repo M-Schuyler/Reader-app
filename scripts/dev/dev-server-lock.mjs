@@ -11,6 +11,43 @@ export function getDevServerLockPath(cwd) {
   return path.join(cwd, DEV_SERVER_LOCK_FILENAME);
 }
 
+export async function findActiveDevServerLock({
+  cwd,
+  isProcessRunning = defaultIsProcessRunning,
+  readProcessCommand = defaultReadProcessCommand,
+} = {}) {
+  if (!cwd) {
+    throw new Error("findActiveDevServerLock requires cwd");
+  }
+
+  const lockPath = getDevServerLockPath(cwd);
+  const activeLock = await resolveActiveDevServerLock({
+    cwd,
+    lockPath,
+    isProcessRunning,
+    readProcessCommand,
+  });
+
+  if (!activeLock) {
+    return {
+      active: false,
+      lockPath,
+    };
+  }
+
+  return {
+    active: true,
+    lockPath,
+    pid: activeLock.pid,
+    startedAt: activeLock.startedAt,
+    message: formatDevServerLockMessage({
+      lockPath,
+      pid: activeLock.pid,
+      startedAt: activeLock.startedAt,
+    }),
+  };
+}
+
 export async function acquireDevServerLock({
   cwd,
   pid = process.pid,
@@ -47,24 +84,14 @@ export async function acquireDevServerLock({
       }
     }
 
-    const existingLock = await readLockPayload(lockPath);
+    const activeLock = await resolveActiveDevServerLock({
+      cwd,
+      lockPath,
+      isProcessRunning,
+      readProcessCommand,
+    });
 
-    if (!existingLock || !isValidPid(existingLock.pid)) {
-      await removeLockIfPresent(lockPath);
-      continue;
-    }
-
-    const running = await isProcessRunning(existingLock.pid);
-
-    if (!running) {
-      await removeLockIfPresent(lockPath);
-      continue;
-    }
-
-    const processCommand = await readProcessCommand(existingLock.pid);
-
-    if (!looksLikeReaderDevProcess(processCommand, cwd)) {
-      await removeLockIfPresent(lockPath);
+    if (!activeLock) {
       continue;
     }
 
@@ -73,8 +100,8 @@ export async function acquireDevServerLock({
       lockPath,
       message: formatDevServerLockMessage({
         lockPath,
-        pid: existingLock.pid,
-        startedAt: existingLock.createdAt,
+        pid: activeLock.pid,
+        startedAt: activeLock.startedAt,
       }),
     };
   }
@@ -105,6 +132,47 @@ export function formatDevServerLockMessage({ lockPath, pid, startedAt }) {
     `If this lock is stale, run: rm -f "${lockPath}"`,
     "",
   ].join("\n");
+}
+
+async function resolveActiveDevServerLock({
+  cwd,
+  lockPath,
+  isProcessRunning,
+  readProcessCommand,
+}) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const existingLock = await readLockPayload(lockPath);
+
+    if (!existingLock) {
+      return null;
+    }
+
+    if (!isValidPid(existingLock.pid)) {
+      await removeLockIfPresent(lockPath);
+      continue;
+    }
+
+    const running = await isProcessRunning(existingLock.pid);
+
+    if (!running) {
+      await removeLockIfPresent(lockPath);
+      continue;
+    }
+
+    const processCommand = await readProcessCommand(existingLock.pid);
+
+    if (!looksLikeReaderDevProcess(processCommand, cwd)) {
+      await removeLockIfPresent(lockPath);
+      continue;
+    }
+
+    return {
+      pid: existingLock.pid,
+      startedAt: existingLock.createdAt ?? null,
+    };
+  }
+
+  return null;
 }
 
 export async function defaultIsProcessRunning(pid) {

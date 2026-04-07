@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { IngestionStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
+import { DocumentTagPills } from "@/components/documents/document-tag-pills";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
 import { Panel } from "@/components/ui/panel";
 import { formatPublishedAtLabel } from "@/lib/documents/published-at";
@@ -65,7 +66,7 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
         <div className="min-w-0 flex-1 space-y-4">
           <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
             <span>{formatDocumentType(item.type)}</span>
-            <span>{formatPublishedAtLabel(item.publishedAt, item.publishedAtKind)}</span>
+            <span>{formatPublishedAtLabel(item.publishedAt, item.publishedAtKind, item.createdAt)}</span>
             {shouldShowStatusBadge ? (
               <Badge tone={statusTone(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</Badge>
             ) : null}
@@ -87,6 +88,8 @@ function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number
               ) : null}
             </div>
           </Link>
+
+          <DocumentTagPills basePath="/reading" tags={item.tags} />
 
           {favorite.actionError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{favorite.actionError}</p> : null}
         </div>

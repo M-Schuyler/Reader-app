@@ -33,7 +33,7 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
     surface: "source",
     sourceId,
   });
-  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.sort !== "latest");
+  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.tag || data.filters.sort !== "latest");
   const clearHref = buildSourceLibraryClearHref(`/sources/${encodeURIComponent(sourceId)}`, data.filters);
   const contextChips = buildSourceContextChips(data.filters);
   const host = resolveHostname(sourceData.source.siteUrl ?? sourceData.source.locatorUrl);

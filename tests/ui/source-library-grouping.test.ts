@@ -508,6 +508,7 @@ function createListItem(overrides: Partial<DocumentListItem> = {}): DocumentList
     createdAt: "2026-03-27T08:30:00.000Z",
     updatedAt: "2026-03-27T08:30:00.000Z",
     wordCount: 1200,
+    tags: [],
     source: null,
     feed: null,
     ...overrides,

@@ -53,6 +53,7 @@ test("mapping a QA real document only rewrites the public id", () => {
     ingestionStatus: IngestionStatus.READY,
     createdAt: "2026-03-27T10:00:00.000Z",
     updatedAt: "2026-03-27T10:00:00.000Z",
+    tags: [],
     source: null,
     feed: null,
     file: null,

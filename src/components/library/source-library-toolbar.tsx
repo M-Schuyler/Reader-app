@@ -33,6 +33,7 @@ export function SourceLibraryToolbar({
           method="GET"
         >
           {filters.q ? <input name="q" type="hidden" value={filters.q} /> : null}
+          {filters.tag ? <input name="tag" type="hidden" value={filters.tag} /> : null}
 
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">

@@ -35,6 +35,17 @@ export const documentListArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
         wordCount: true,
       },
     },
+    tags: {
+      select: {
+        tag: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    },
   },
 });
 
@@ -72,8 +83,20 @@ export const documentDetailArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()
       select: {
         contentHtml: true,
         plainText: true,
+        textHash: true,
         wordCount: true,
         extractedAt: true,
+      },
+    },
+    tags: {
+      select: {
+        tag: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
       },
     },
   },
@@ -201,6 +224,16 @@ export async function findWebDocumentByUrlCandidates(urlCandidates: string[]) {
           },
         },
       ],
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function findWebDocumentByExternalId(externalId: string) {
+  return prisma.document.findFirst({
+    where: {
+      type: DocumentType.WEB_PAGE,
+      externalId,
     },
     ...documentDetailArgs,
   });
@@ -593,20 +626,10 @@ function buildDocumentWhere(query: DocumentListQuery): Prisma.DocumentWhereInput
         some: {
           tag: {
             is: {
-              OR: [
-                {
-                  name: {
-                    contains: query.tag,
-                    mode: "insensitive",
-                  },
-                },
-                {
-                  slug: {
-                    contains: query.tag,
-                    mode: "insensitive",
-                  },
-                },
-              ],
+              slug: {
+                equals: query.tag,
+                mode: "insensitive",
+              },
             },
           },
         },

@@ -174,6 +174,7 @@ model Document {
   @@index([publishedAtKind, publishedAt])
   @@index([canonicalUrl])
   @@index([sourceUrl])
+  @@index([type, externalId])
   @@index([sourceId, publishedAt])
 }
 
@@ -247,6 +248,7 @@ model Highlight {
   documentId   String
   document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
+  externalId   String?
   quoteText    String
   note         String?
   color        String?
@@ -257,7 +259,17 @@ model Highlight {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  @@unique([documentId, externalId])
   @@index([documentId, createdAt])
+}
+
+model AiSummaryRunnerState {
+  provider                  String   @id
+  cooldownUntil             DateTime?
+  lastCooldownMs            Int      @default(0)
+  consecutiveRateLimitCount Int      @default(0)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 }
 
 model IngestionJob {

@@ -150,27 +150,48 @@ export type ExtractedWebPage = {
   textHash: string;
 };
 
+export type ExtractedWebPageMetadata = Pick<ExtractedWebPage, "finalUrl" | "canonicalUrl" | "author" | "publishedAt">;
+
 export async function extractWebPage(url: string): Promise<ExtractedWebPage> {
-  const requestUrl = new URL(url);
-  const response = await fetch(url, {
-    method: "GET",
-    redirect: "follow",
-    cache: "no-store",
-    headers: buildRequestHeaders(requestUrl),
-  });
-
-  if (!response.ok) {
-    throw new RouteError("FETCH_FAILED", 502, `Failed to fetch "${url}".`);
-  }
-
-  const rawHtml = await response.text();
-  const finalUrl = response.url || url;
+  const fetchedPage = await fetchWebPageDocument(url);
 
   return extractWebPageFromHtml({
-    requestUrl: requestUrl.toString(),
-    finalUrl,
-    rawHtml,
+    requestUrl: fetchedPage.requestUrl,
+    finalUrl: fetchedPage.finalUrl,
+    rawHtml: fetchedPage.rawHtml,
   });
+}
+
+export async function extractWebPageMetadata(
+  url: string,
+  options?: {
+    signal?: AbortSignal;
+  },
+): Promise<ExtractedWebPageMetadata> {
+  const fetchedPage = await fetchWebPageDocument(url, options);
+
+  return extractWebPageMetadataFromHtml({
+    requestUrl: fetchedPage.requestUrl,
+    finalUrl: fetchedPage.finalUrl,
+    rawHtml: fetchedPage.rawHtml,
+  });
+}
+
+export function extractWebPageMetadataFromHtml(input: {
+  requestUrl: string;
+  finalUrl?: string;
+  rawHtml: string;
+}): ExtractedWebPageMetadata {
+  const finalUrl = input.finalUrl || input.requestUrl;
+  const rawHtml = input.rawHtml;
+  const $ = load(rawHtml);
+
+  return {
+    finalUrl,
+    canonicalUrl: extractCanonicalUrl($, finalUrl),
+    author: extractAuthor($, finalUrl, rawHtml),
+    publishedAt: extractPublishedAt($, finalUrl, rawHtml),
+  };
 }
 
 export function extractWebPageFromHtml(input: {
@@ -183,13 +204,22 @@ export function extractWebPageFromHtml(input: {
   const rawHtml = input.rawHtml;
 
   const $ = load(rawHtml);
-  assertPageIsReadable(requestUrl, finalUrl, $, rawHtml);
-  const title = extractTitle($, finalUrl) ?? new URL(finalUrl).hostname;
+  const weChatInlineReadablePayload = extractWeChatInlineReadablePayload(rawHtml);
+  const shouldUseWeChatInlineReadablePayload =
+    Boolean(weChatInlineReadablePayload) && isWeChatHost(safeParseUrl(finalUrl)) && !hasWeChatReadableContentContainer($);
+
+  assertPageIsReadable(requestUrl, finalUrl, $, rawHtml, {
+    hasWeChatInlineReadablePayload: shouldUseWeChatInlineReadablePayload,
+  });
+
+  const title = extractTitle($, finalUrl) ?? weChatInlineReadablePayload?.title ?? new URL(finalUrl).hostname;
   const lang = extractLang($);
   const canonicalUrl = extractCanonicalUrl($, finalUrl);
-  const author = extractAuthor($, finalUrl, rawHtml);
-  const publishedAt = extractPublishedAt($, finalUrl, rawHtml);
-  const contentHtml = trimReadableHtml(extractReadableHtml($, finalUrl), title, finalUrl);
+  const author = extractAuthor($, finalUrl, rawHtml) ?? weChatInlineReadablePayload?.author ?? null;
+  const publishedAt = extractPublishedAt($, finalUrl, rawHtml) ?? weChatInlineReadablePayload?.publishedAt ?? null;
+  const contentHtml = shouldUseWeChatInlineReadablePayload
+    ? trimReadableHtml(buildParagraphHtmlFromPlainText(weChatInlineReadablePayload?.plainText ?? ""), title, finalUrl)
+    : trimReadableHtml(extractReadableHtml($, finalUrl), title, finalUrl);
   const plainText = htmlToPlainText(contentHtml);
 
   if (!plainText) {
@@ -218,6 +248,38 @@ export function extractWebPageFromHtml(input: {
   };
 }
 
+async function fetchWebPageDocument(
+  url: string,
+  options?: {
+    signal?: AbortSignal;
+  },
+) {
+  const requestUrl = new URL(url);
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+      headers: buildRequestHeaders(requestUrl),
+      signal: options?.signal,
+    });
+  } catch {
+    throw new RouteError("FETCH_FAILED", 502, `Failed to fetch "${url}".`);
+  }
+
+  if (!response.ok) {
+    throw new RouteError("FETCH_FAILED", 502, `Failed to fetch "${url}".`);
+  }
+
+  return {
+    requestUrl: requestUrl.toString(),
+    finalUrl: response.url || url,
+    rawHtml: await response.text(),
+  };
+}
+
 function buildRequestHeaders(url: URL): Record<string, string> {
   if (isWeChatHost(url)) {
     return {
@@ -235,7 +297,15 @@ function buildRequestHeaders(url: URL): Record<string, string> {
   };
 }
 
-function assertPageIsReadable(requestUrl: URL, finalUrl: string, $: CheerioAPI, rawHtml: string) {
+function assertPageIsReadable(
+  requestUrl: URL,
+  finalUrl: string,
+  $: CheerioAPI,
+  rawHtml: string,
+  options?: {
+    hasWeChatInlineReadablePayload?: boolean;
+  },
+) {
   const finalPageUrl = safeParseUrl(finalUrl);
   const bodyHtml = extractBodyHtml($, rawHtml);
   const bodyText = htmlToPlainText(bodyHtml).slice(0, 1_500);
@@ -248,7 +318,7 @@ function assertPageIsReadable(requestUrl: URL, finalUrl: string, $: CheerioAPI, 
     );
   }
 
-  if (isWeChatShareShellPage($, finalPageUrl)) {
+  if (isWeChatShareShellPage($, finalPageUrl, options?.hasWeChatInlineReadablePayload ?? false)) {
     throw new RouteError("EXTRACTION_UNREADABLE", 422, "来源站点返回了微信分享壳页面，无法提取可阅读正文。");
   }
 
@@ -589,6 +659,18 @@ function normalizeExtractedHtml(html: string) {
   return html.replace(/\u00a0/g, " ").replace(/>\s+</g, "><").trim();
 }
 
+function buildParagraphHtmlFromPlainText(plainText: string) {
+  const normalized = normalizeReadablePlainText(plainText);
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
 function trimReadableHtml(contentHtml: string, title: string, finalUrl: string) {
   if (!contentHtml) {
     return "";
@@ -747,6 +829,8 @@ function extractCanonicalUrl($: CheerioAPI, finalUrl: string) {
 }
 
 function extractAuthor($: CheerioAPI, finalUrl: string, rawHtml: string) {
+  const finalPageUrl = safeParseUrl(finalUrl);
+
   for (const key of META_AUTHOR_KEYS) {
     const candidate = normalizeAuthorCandidate(extractMetaContent($, key));
     if (candidate) {
@@ -757,6 +841,13 @@ function extractAuthor($: CheerioAPI, finalUrl: string, rawHtml: string) {
   const jsonLdAuthor = extractJsonLdAuthor($);
   if (jsonLdAuthor) {
     return jsonLdAuthor;
+  }
+
+  if (isWeChatHost(finalPageUrl)) {
+    const weChatAuthor = extractWeChatAuthor($, rawHtml);
+    if (weChatAuthor) {
+      return weChatAuthor;
+    }
   }
 
   const authorFromContentRoot = extractAuthorFromSelectors($, selectContentRoot($));
@@ -770,7 +861,7 @@ function extractAuthor($: CheerioAPI, finalUrl: string, rawHtml: string) {
     return authorFromBody;
   }
 
-  if (isWeChatHost(safeParseUrl(finalUrl))) {
+  if (isWeChatHost(finalPageUrl)) {
     return extractWeChatAuthor($, rawHtml);
   }
 
@@ -912,6 +1003,17 @@ function parseJsonLdAuthorValue(value: unknown): string | null {
 }
 
 function extractWeChatAuthor($: CheerioAPI, rawHtml: string) {
+  const scriptNickname =
+    rawHtml.match(/\bnick_name\s*:\s*JsDecode\(\s*'([\s\S]{1,160}?)'\s*\)/i)?.[1] ??
+    rawHtml.match(/\bprofile_nickname\s*[:=]\s*["']([^"'\\\n]{1,80})["']/i)?.[1] ??
+    rawHtml.match(/\bnickname\s*[:=]\s*(?:htmlDecode\()?["']([^"'\\\n]{1,80})["']\)?/i)?.[1] ??
+    null;
+  const decodedScriptNickname = normalizeAuthorCandidate(decodeWeChatJsString(scriptNickname));
+
+  if (decodedScriptNickname) {
+    return decodedScriptNickname;
+  }
+
   const selectorCandidates = [
     "#meta_content .rich_media_meta_text",
     "#js_name",
@@ -937,12 +1039,7 @@ function extractWeChatAuthor($: CheerioAPI, rawHtml: string) {
     }
   }
 
-  const scriptNickname =
-    rawHtml.match(/\bnickname\s*[:=]\s*(?:htmlDecode\()?["']([^"'\\\n]{1,80})["']\)?/i)?.[1] ??
-    rawHtml.match(/\bprofile_nickname\s*[:=]\s*["']([^"'\\\n]{1,80})["']/i)?.[1] ??
-    null;
-
-  return normalizeAuthorCandidate(scriptNickname);
+  return null;
 }
 
 function parseAuthorFromByline(value: string) {
@@ -976,6 +1073,10 @@ function normalizeAuthorCandidate(value: string | null) {
   }
 
   if (/https?:\/\//i.test(candidate) || /[\r\n]/.test(candidate)) {
+    return null;
+  }
+
+  if (/^data-[a-z0-9_-]+$/i.test(candidate)) {
     return null;
   }
 
@@ -1093,7 +1194,7 @@ function extractWeChatPublishedAt($: CheerioAPI, rawHtml: string) {
   }
 
   const patterns = [
-    /\b(?:var|let|const)\s+ct\s*=\s*["']?(\d{10,13})["']?/i,
+    /\b(?:(?:var|let|const)\s+|window\.)?ct\s*=\s*["']?(\d{10,13})["']?/i,
     /\bpublish_time\s*[:=]\s*["']?([0-9:\-T\s+]+)["']?/i,
     /\b(?:create_time|oriCreateTime)\s*[:=]\s*["']?([0-9:\-T\s+]+)["']?/i,
   ];
@@ -1152,6 +1253,15 @@ function decodeHtmlEntities(value: string) {
     .replace(/&#x27;/gi, "'");
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function cleanText(value: string | null) {
   if (!value) {
     return null;
@@ -1207,6 +1317,21 @@ function padTwoDigits(value: string) {
 
 function normalizeWhitespace(value: string | null) {
   return value?.replace(/\s+/g, " ").trim() || null;
+}
+
+function normalizeReadablePlainText(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function resolveUrl(value: string | null, baseUrl: string) {
@@ -1398,8 +1523,12 @@ function isWeChatVerificationPage(requestUrl: URL, finalUrl: URL | null, bodyTex
   );
 }
 
-function isWeChatShareShellPage($: CheerioAPI, finalUrl: URL | null) {
+function isWeChatShareShellPage($: CheerioAPI, finalUrl: URL | null, hasInlineReadablePayload = false) {
   if (!isWeChatHost(finalUrl)) {
+    return false;
+  }
+
+  if (hasInlineReadablePayload) {
     return false;
   }
 
@@ -1436,6 +1565,53 @@ function extractWeChatTitle($: CheerioAPI) {
     cleanText($(".js_title_inner").first().text()) ??
     extractMetaContent($, "og:title")
   );
+}
+
+function extractWeChatInlineReadablePayload(rawHtml: string) {
+  const itemShowType =
+    rawHtml.match(/\b(?:window\.)?item_show_type\s*=\s*['"]?(\d+)['"]?/i)?.[1] ??
+    rawHtml.match(/\bitem_show_type\s*:\s*['"]?(\d+)['"]?/i)?.[1] ??
+    null;
+
+  if (itemShowType !== "10") {
+    return null;
+  }
+
+  const plainText = normalizeReadablePlainText(
+    decodeWeChatJsString(
+      rawHtml.match(/\bcontent_noencode\s*:\s*JsDecode\(\s*'([\s\S]*?)'\s*\)\s*,\s*source_url\b/i)?.[1] ?? null,
+    ),
+  );
+  if (!plainText) {
+    return null;
+  }
+
+  return {
+    title: cleanText(decodeWeChatJsString(rawHtml.match(/\btitle\s*:\s*JsDecode\(\s*'([\s\S]*?)'\s*\)/i)?.[1] ?? null)),
+    author: normalizeAuthorCandidate(
+      decodeWeChatJsString(rawHtml.match(/\bnick_name\s*:\s*JsDecode\(\s*'([\s\S]*?)'\s*\)/i)?.[1] ?? null),
+    ),
+    publishedAt: parseDateValue(
+      rawHtml.match(/\b(?:(?:var|let|const)\s+|window\.)?ct\s*=\s*["']?(\d{10,13})["']?/i)?.[1] ?? null,
+    ),
+    plainText,
+  };
+}
+
+function decodeWeChatJsString(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return value
+    .replace(/\\x5c/g, "\\")
+    .replace(/\\x0d/g, "\r")
+    .replace(/\\x0a/g, "\n")
+    .replace(/\\x22/g, '"')
+    .replace(/\\x26/g, "&")
+    .replace(/\\x27/g, "'")
+    .replace(/\\x3c/g, "<")
+    .replace(/\\x3e/g, ">");
 }
 
 function isElementNode(node: AnyNode): node is Element {
