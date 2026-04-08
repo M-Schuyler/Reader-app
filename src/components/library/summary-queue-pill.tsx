@@ -1,7 +1,11 @@
 "use client";
 
 import { type MutableRefObject, useEffect, useRef, useState } from "react";
-import { resolveSummaryQueuePillPresentation, type SummaryQueuePillFeedback } from "@/lib/documents/summary-queue-pill";
+import {
+  resolveDisplayedSummaryQueueThrottle,
+  resolveSummaryQueuePillPresentation,
+  type SummaryQueuePillFeedback,
+} from "@/lib/documents/summary-queue-pill";
 import type { ApiError, ApiSuccess } from "@/server/api/response";
 import type {
   SummaryQueueStatusResponseData,
@@ -123,13 +127,7 @@ export function SummaryQueuePill({ initialStatus }: { initialStatus: SummaryQueu
     pendingCount: status.pendingCount,
     isAvailable: status.isAvailable,
     isSweeping,
-    throttle:
-      status.throttle && countdownMs > 0
-        ? {
-            ...status.throttle,
-            retryAfterMs: countdownMs,
-          }
-        : status.throttle,
+    throttle: resolveDisplayedSummaryQueueThrottle(status.throttle, countdownMs),
     feedback,
   });
 

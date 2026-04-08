@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveSummaryQueuePillPresentation } from "@/lib/documents/summary-queue-pill";
+import { resolveDisplayedSummaryQueueThrottle, resolveSummaryQueuePillPresentation } from "@/lib/documents/summary-queue-pill";
 
 test("summary queue pill shows the live queue count while idle", () => {
   assert.deepEqual(
@@ -109,5 +109,19 @@ test("summary queue pill disables itself when the runtime is unavailable", () =>
       label: "摘要暂不可用",
       tone: "disabled",
     },
+  );
+});
+
+test("summary queue pill clears a stale local cooldown once the countdown reaches zero", () => {
+  assert.equal(
+    resolveDisplayedSummaryQueueThrottle(
+      {
+        reason: "rate_limited",
+        retryAfterMs: 30_000,
+        cooldownUntil: new Date(30_000).toISOString(),
+      },
+      0,
+    ),
+    null,
   );
 });

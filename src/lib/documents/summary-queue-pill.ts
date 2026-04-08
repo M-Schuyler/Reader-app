@@ -24,6 +24,24 @@ type SummaryQueuePillPresentationInput = {
   feedback: SummaryQueuePillFeedback | null;
 };
 
+export function resolveDisplayedSummaryQueueThrottle(
+  throttle: SummaryRunnerThrottle | null,
+  countdownMs: number,
+): SummaryRunnerThrottle | null {
+  if (!throttle) {
+    return null;
+  }
+
+  if (countdownMs <= 0) {
+    return null;
+  }
+
+  return {
+    ...throttle,
+    retryAfterMs: countdownMs,
+  };
+}
+
 export function resolveSummaryQueuePillPresentation(
   input: SummaryQueuePillPresentationInput,
 ): SummaryQueuePillPresentation {
