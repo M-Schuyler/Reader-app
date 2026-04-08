@@ -14,6 +14,7 @@ import type {
   BackfillDocumentAiSummaryJobsResponseData,
   GenerateAiSummaryError,
   RunDocumentAiSummaryJobsResponseData,
+  SummaryQueueStatusResponseData,
   SummaryRunnerThrottle,
   SweepDocumentAiSummaryJobsResponseData,
 } from "./document.types";
@@ -94,6 +95,12 @@ type SweepPendingDocumentAiSummaryJobsDeps = {
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   runBatch?: (limit: number) => Promise<RunDocumentAiSummaryJobsResponseData>;
+};
+type SummaryQueueStatusDeps = {
+  getRuntimeIssues?: () => string[];
+  countPending?: () => Promise<number>;
+  getState?: (provider: SummaryAiProvider) => Promise<SummaryRunnerStateSnapshot>;
+  now?: () => number;
 };
 
 export function getSummaryRuntimeIssues(options?: { requireInternalApiSecret?: boolean }) {
@@ -519,6 +526,40 @@ export async function sweepPendingDocumentAiSummaryJobs(
   };
 }
 
+export async function getSummaryQueueStatus(
+  deps: SummaryQueueStatusDeps = {},
+): Promise<SummaryQueueStatusResponseData> {
+  const countPending =
+    deps.countPending ??
+    (() =>
+      prisma.document.count({
+        where: {
+          aiSummaryStatus: AiSummaryStatus.PENDING,
+        },
+      }));
+  const getRuntimeIssues =
+    deps.getRuntimeIssues ?? (() => getSummaryRuntimeIssues({ requireInternalApiSecret: false }));
+  const pendingCount = await countPending();
+  const runtimeIssues = getRuntimeIssues();
+
+  if (runtimeIssues.length > 0) {
+    return {
+      pendingCount,
+      isAvailable: false,
+      throttle: null,
+    };
+  }
+
+  const provider = getConfiguredSummaryAiProvider();
+  const getState = deps.getState ?? getAiSummaryRunnerStateSnapshot;
+
+  return {
+    pendingCount,
+    isAvailable: true,
+    throttle: getActiveSummaryRunnerThrottle(await getState(provider), (deps.now ?? Date.now)()),
+  };
+}
+
 export function calculateNextSummaryRateLimitDelayMs(
   state: SummaryRunnerStateSnapshot,
   input: { retryAfterMs?: number },
@@ -584,6 +625,28 @@ export async function getAiSummaryRunnerState(
   provider: SummaryAiProvider,
 ): Promise<SummaryRunnerStateSnapshot> {
   const state = await tx.aiSummaryRunnerState.findUnique({
+    where: {
+      provider,
+    },
+  });
+
+  if (!state) {
+    return {
+      cooldownUntil: null,
+      lastCooldownMs: 0,
+      consecutiveRateLimitCount: 0,
+    };
+  }
+
+  return {
+    cooldownUntil: state.cooldownUntil,
+    lastCooldownMs: state.lastCooldownMs,
+    consecutiveRateLimitCount: state.consecutiveRateLimitCount,
+  };
+}
+
+async function getAiSummaryRunnerStateSnapshot(provider: SummaryAiProvider): Promise<SummaryRunnerStateSnapshot> {
+  const state = await prisma.aiSummaryRunnerState.findUnique({
     where: {
       provider,
     },

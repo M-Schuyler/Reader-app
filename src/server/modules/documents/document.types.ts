@@ -165,6 +165,12 @@ export type SummaryRunnerThrottle = {
   cooldownUntil: string | null;
 };
 
+export type SummaryQueueStatusResponseData = {
+  pendingCount: number;
+  isAvailable: boolean;
+  throttle: SummaryRunnerThrottle | null;
+};
+
 export type UpdateDocumentFavoriteInput = {
   isFavorite: boolean;
   regenerateAiSummary?: boolean;
