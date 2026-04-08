@@ -5,6 +5,8 @@ import { RouteError } from "@/server/api/response";
 import {
   buildImportedCuboxDocument,
   buildCuboxHighlightQuoteText,
+  getCuboxApiRequestTimeoutMs,
+  getCuboxImportTransactionOptions,
   normalizeCuboxImportLimit,
   normalizeCuboxSourceUrl,
   parseCuboxApiLink,
@@ -162,4 +164,15 @@ test("buildImportedCuboxDocument prefers source-page publishedAt while keeping R
   assert.equal(importedDocument.updatedAt.toISOString(), importedAt.toISOString());
   assert.equal(importedDocument.publishedAt?.toISOString(), publishedAt.toISOString());
   assert.equal(importedDocument.publishedAtKind, PublishedAtKind.EXACT);
+});
+
+test("Cubox imports use an explicit transaction timeout that is longer than Prisma's default interactive limit", () => {
+  assert.deepEqual(getCuboxImportTransactionOptions(), {
+    maxWait: 10_000,
+    timeout: 60_000,
+  });
+});
+
+test("Cubox API requests use a bounded timeout so one hung card cannot stall the whole batch", () => {
+  assert.equal(getCuboxApiRequestTimeoutMs(), 15_000);
 });

@@ -3,6 +3,7 @@ import test from "node:test";
 import { AiSummaryStatus, IngestionStatus } from "@prisma/client";
 import {
   calculateNextSummaryRateLimitDelayMs,
+  getSummaryQueueStatus,
   getSummaryRuntimeIssues,
   prioritizeDocumentAiSummary,
   runPendingDocumentAiSummaryJobs,
@@ -220,6 +221,45 @@ test("summary runtime accepts CRON_SECRET when INTERNAL_API_SECRET is absent", (
   } finally {
     restoreEnv(previousEnv);
   }
+});
+
+test("getSummaryQueueStatus returns the live pending count and active cooldown window", async () => {
+  const status = await getSummaryQueueStatus({
+    getRuntimeIssues: () => [],
+    countPending: async () => 307,
+    getState: async () => ({
+      cooldownUntil: new Date(6_000),
+      lastCooldownMs: 15_000,
+      consecutiveRateLimitCount: 1,
+    }),
+    now: () => 1_000,
+  });
+
+  assert.deepEqual(status, {
+    pendingCount: 307,
+    isAvailable: true,
+    throttle: {
+      reason: "rate_limited",
+      retryAfterMs: 5_000,
+      cooldownUntil: new Date(6_000).toISOString(),
+    },
+  });
+});
+
+test("getSummaryQueueStatus reports an unavailable queue when summary runtime config is missing", async () => {
+  const status = await getSummaryQueueStatus({
+    getRuntimeIssues: () => ["GEMINI_API_KEY is not configured."],
+    countPending: async () => 12,
+    getState: async () => {
+      throw new Error("getState should not be called when runtime is unavailable.");
+    },
+  });
+
+  assert.deepEqual(status, {
+    pendingCount: 12,
+    isAvailable: false,
+    throttle: null,
+  });
 });
 
 test("calculateNextSummaryRateLimitDelayMs exponentially backs off when provider omits retry-after", () => {
