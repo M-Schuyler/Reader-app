@@ -8,7 +8,10 @@ import { documentDetailArgs, type DocumentDetailRecord } from "@/server/modules/
 
 const CUBOX_HOSTS = new Set(["cubox.pro", "cubox.cc"]);
 const DEFAULT_IMPORT_LIMIT = 20;
+const CUBOX_API_REQUEST_TIMEOUT_MS = 15_000;
 const CUBOX_SOURCE_METADATA_TIMEOUT_MS = 8_000;
+const CUBOX_IMPORT_TRANSACTION_MAX_WAIT_MS = 10_000;
+const CUBOX_IMPORT_TRANSACTION_TIMEOUT_MS = 60_000;
 const IMAGE_HIGHLIGHT_PREFIX = "[Image highlight]";
 const MARKDOWN_URL_FRAGMENT = String.raw`https?:\/\/(?:[^\s()]|\([^)\s]*\))+`;
 const MARKDOWN_IMAGE_PATTERN = new RegExp(String.raw`!\[([^\]]*)\]\((${MARKDOWN_URL_FRAGMENT})\)`, "g");
@@ -168,6 +171,17 @@ export function normalizeCuboxImportLimit(value: number | null | undefined) {
   }
 
   return Math.min(normalized, DEFAULT_IMPORT_LIMIT);
+}
+
+export function getCuboxImportTransactionOptions() {
+  return {
+    maxWait: CUBOX_IMPORT_TRANSACTION_MAX_WAIT_MS,
+    timeout: CUBOX_IMPORT_TRANSACTION_TIMEOUT_MS,
+  } as const;
+}
+
+export function getCuboxApiRequestTimeoutMs() {
+  return CUBOX_API_REQUEST_TIMEOUT_MS;
 }
 
 export function normalizeCuboxSourceUrl(value: string | null | undefined) {
@@ -412,103 +426,106 @@ async function upsertCuboxCard(
   const sourceMetadata = await resolveCuboxSourceMetadata(card.url);
   const importedDocument = buildImportedCuboxDocument(card, markdown, context.tagDirectory, new Date(), sourceMetadata);
 
-  const result = await prisma.$transaction(async (tx) => {
-    const existingDocument = await tx.document.findFirst({
-      where: {
-        type: DocumentType.WEB_PAGE,
-        externalId: card.id,
-      },
-      ...documentDetailArgs,
-    });
-
-    const tagRecords = await ensureCuboxTags(tx, importedDocument.tagNames);
-
-    if (!existingDocument) {
-      const createdDocument = await tx.document.create({
-        data: {
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const existingDocument = await tx.document.findFirst({
+        where: {
           type: DocumentType.WEB_PAGE,
-          title: importedDocument.title,
-          sourceUrl: importedDocument.sourceUrl,
-          canonicalUrl: importedDocument.canonicalUrl,
           externalId: card.id,
-          excerpt: importedDocument.excerpt,
-          publishedAt: importedDocument.publishedAt,
-          publishedAtKind: importedDocument.publishedAtKind,
-          readState: ReadState.UNREAD,
-          isFavorite: false,
-          ingestionStatus: importedDocument.ingestionStatus,
-          createdAt: importedDocument.createdAt,
-          updatedAt: importedDocument.updatedAt,
         },
         ...documentDetailArgs,
       });
 
-      await syncDocumentContent(tx, createdDocument.id, null, importedDocument);
-      await syncDocumentTags(tx, createdDocument.id, [], tagRecords);
-      await syncCuboxHighlights(tx, createdDocument.id, [], importedDocument.highlights);
+      const tagRecords = await ensureCuboxTags(tx, importedDocument.tagNames);
+
+      if (!existingDocument) {
+        const createdDocument = await tx.document.create({
+          data: {
+            type: DocumentType.WEB_PAGE,
+            title: importedDocument.title,
+            sourceUrl: importedDocument.sourceUrl,
+            canonicalUrl: importedDocument.canonicalUrl,
+            externalId: card.id,
+            excerpt: importedDocument.excerpt,
+            publishedAt: importedDocument.publishedAt,
+            publishedAtKind: importedDocument.publishedAtKind,
+            readState: ReadState.UNREAD,
+            isFavorite: false,
+            ingestionStatus: importedDocument.ingestionStatus,
+            createdAt: importedDocument.createdAt,
+            updatedAt: importedDocument.updatedAt,
+          },
+          ...documentDetailArgs,
+        });
+
+        await syncDocumentContent(tx, createdDocument.id, null, importedDocument);
+        await syncDocumentTags(tx, createdDocument.id, [], tagRecords);
+        await syncCuboxHighlights(tx, createdDocument.id, [], importedDocument.highlights);
+
+        const document = await tx.document.findUniqueOrThrow({
+          where: { id: createdDocument.id },
+          ...documentDetailArgs,
+        });
+
+        return {
+          document,
+          status: "imported" as const,
+        };
+      }
+
+      const nextDocumentData = {
+        title: importedDocument.title,
+        sourceUrl: importedDocument.sourceUrl,
+        canonicalUrl: importedDocument.canonicalUrl,
+        excerpt: importedDocument.excerpt,
+        ingestionStatus: importedDocument.ingestionStatus,
+        publishedAt: importedDocument.publishedAt,
+        publishedAtKind: importedDocument.publishedAtKind,
+      };
+
+      const documentChanged =
+        existingDocument.title !== nextDocumentData.title ||
+        existingDocument.sourceUrl !== nextDocumentData.sourceUrl ||
+        existingDocument.canonicalUrl !== nextDocumentData.canonicalUrl ||
+        existingDocument.excerpt !== nextDocumentData.excerpt ||
+        existingDocument.ingestionStatus !== nextDocumentData.ingestionStatus;
+
+      const contentChanged = await syncDocumentContent(tx, existingDocument.id, existingDocument, importedDocument);
+      const tagChanged = await syncDocumentTags(tx, existingDocument.id, existingDocument.tags.map((entry) => entry.tag), tagRecords);
+      const existingHighlights = await tx.highlight.findMany({
+        where: { documentId: existingDocument.id },
+      });
+      const highlightChanged = await syncCuboxHighlights(tx, existingDocument.id, existingHighlights, importedDocument.highlights);
+      const shouldResetSummary = documentChanged || contentChanged;
+
+      if (documentChanged || shouldResetSummary) {
+        await tx.document.update({
+          where: { id: existingDocument.id },
+          data: {
+            ...nextDocumentData,
+            ...(shouldResetSummary
+              ? {
+                  aiSummary: null,
+                  aiSummaryStatus: null,
+                  aiSummaryError: null,
+                }
+              : {}),
+          },
+        });
+      }
 
       const document = await tx.document.findUniqueOrThrow({
-        where: { id: createdDocument.id },
+        where: { id: existingDocument.id },
         ...documentDetailArgs,
       });
 
       return {
         document,
-        status: "imported" as const,
+        status: documentChanged || contentChanged || tagChanged || highlightChanged ? ("updated" as const) : ("skipped" as const),
       };
-    }
-
-    const nextDocumentData = {
-      title: importedDocument.title,
-      sourceUrl: importedDocument.sourceUrl,
-      canonicalUrl: importedDocument.canonicalUrl,
-      excerpt: importedDocument.excerpt,
-      ingestionStatus: importedDocument.ingestionStatus,
-      publishedAt: importedDocument.publishedAt,
-      publishedAtKind: importedDocument.publishedAtKind,
-    };
-
-    const documentChanged =
-      existingDocument.title !== nextDocumentData.title ||
-      existingDocument.sourceUrl !== nextDocumentData.sourceUrl ||
-      existingDocument.canonicalUrl !== nextDocumentData.canonicalUrl ||
-      existingDocument.excerpt !== nextDocumentData.excerpt ||
-      existingDocument.ingestionStatus !== nextDocumentData.ingestionStatus;
-
-    const contentChanged = await syncDocumentContent(tx, existingDocument.id, existingDocument, importedDocument);
-    const tagChanged = await syncDocumentTags(tx, existingDocument.id, existingDocument.tags.map((entry) => entry.tag), tagRecords);
-    const existingHighlights = await tx.highlight.findMany({
-      where: { documentId: existingDocument.id },
-    });
-    const highlightChanged = await syncCuboxHighlights(tx, existingDocument.id, existingHighlights, importedDocument.highlights);
-    const shouldResetSummary = documentChanged || contentChanged;
-
-    if (documentChanged || shouldResetSummary) {
-      await tx.document.update({
-        where: { id: existingDocument.id },
-        data: {
-          ...nextDocumentData,
-          ...(shouldResetSummary
-            ? {
-                aiSummary: null,
-                aiSummaryStatus: null,
-                aiSummaryError: null,
-              }
-            : {}),
-        },
-      });
-    }
-
-    const document = await tx.document.findUniqueOrThrow({
-      where: { id: existingDocument.id },
-      ...documentDetailArgs,
-    });
-
-    return {
-      document,
-      status: documentChanged || contentChanged || tagChanged || highlightChanged ? ("updated" as const) : ("skipped" as const),
-    };
-  });
+    },
+    getCuboxImportTransactionOptions(),
+  );
 
   return result;
 }
@@ -1047,6 +1064,7 @@ class CuboxClient {
         },
         body: init?.body,
         cache: "no-store",
+        signal: init?.signal ?? AbortSignal.timeout(getCuboxApiRequestTimeoutMs()),
       });
     } catch {
       throw new RouteError("CUBOX_API_UNAVAILABLE", 502, "Failed to reach Cubox.");
