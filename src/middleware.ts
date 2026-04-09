@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAllowedSession } from "@/server/auth/access";
 import { getAuthMiddlewareDecision } from "@/server/auth/middleware-gate";
+import { withAuthRequestContext } from "@/server/auth/request-context";
 
 export default auth((request) => {
   const { nextUrl } = request;
   const pathname = nextUrl.pathname;
+  const requestHeaders = withAuthRequestContext(request.headers, {
+    pathname,
+    search: nextUrl.search,
+  });
   const isAuthenticated = isAllowedSession(request.auth);
 
   // This middleware runs in a different runtime than the page and route guards.
@@ -22,7 +27,11 @@ export default auth((request) => {
   });
 
   if (decision.type === "next") {
-    return NextResponse.next();
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
   if (decision.type === "unauthorized") {
