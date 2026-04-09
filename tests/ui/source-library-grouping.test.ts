@@ -3,36 +3,30 @@ import test from "node:test";
 import { AiSummaryStatus, DocumentType, IngestionStatus, PublishedAtKind, ReadState } from "@prisma/client";
 import {
   buildSourceAliasMap,
+  buildSourceLibraryIndexGroups,
   buildSourceLibrarySourceContext,
-  buildSourceShelfSections,
   resolveSourceLibraryPreviewText,
 } from "@/lib/documents/source-library";
-import type { DocumentListItem } from "@/server/modules/documents/document.types";
+import type { DocumentListItem, SourceLibraryIndexRow } from "@/server/modules/documents/document.types";
 
-test("source shelf sections group documents by createdAt recency", () => {
+test("source library index keeps a single recent-7-days source view", () => {
   const now = new Date("2026-03-28T12:00:00.000Z");
-  const sections = buildSourceShelfSections(
+  const groups = buildSourceLibraryIndexGroups(
     [
-      createListItem({
-        id: "recent",
+      createIndexRow({
         createdAt: "2026-03-28T06:30:00.000Z",
-        title: "Recent arrival",
         feed: {
           id: "feed-1",
           title: "Kai Dispatch",
         },
       }),
-      createListItem({
-        id: "week",
+      createIndexRow({
         createdAt: "2026-03-24T08:30:00.000Z",
-        title: "This week",
         canonicalUrl: "https://example.com/article",
         sourceUrl: "https://example.com/article",
       }),
-      createListItem({
-        id: "older",
+      createIndexRow({
         createdAt: "2026-03-10T08:30:00.000Z",
-        title: "Older title",
         canonicalUrl: "https://archive.example.com/article",
         sourceUrl: "https://archive.example.com/article",
       }),
@@ -41,67 +35,83 @@ test("source shelf sections group documents by createdAt recency", () => {
   );
 
   assert.deepEqual(
-    sections.map((section) => ({
-      groups: section.groups.map((group) => ({
-        href: group.href,
-        id: group.id,
-        ids: group.items.map((item) => item.id),
-        kind: group.kind,
-        label: group.label,
-        value: group.value,
-      })),
-      label: section.label,
+    groups.map((group) => ({
+      href: group.href,
+      id: group.id,
+      kind: group.kind,
+      label: group.label,
+      value: group.value,
     })),
     [
       {
-        groups: [
-          {
-            href: "/sources/feed/feed-1",
-            id: "source:feed:feed-1",
-            ids: ["recent"],
-            kind: "feed",
-            label: "Kai Dispatch",
-            value: "feed-1",
-          },
-        ],
-        label: "最近收进来",
+        href: "/sources/feed/feed-1",
+        id: "source:feed:feed-1",
+        kind: "feed",
+        label: "Kai Dispatch",
+        value: "feed-1",
       },
       {
-        groups: [
-          {
-            href: "/sources/domain/example.com",
-            id: "source:domain:example.com",
-            ids: ["week"],
-            kind: "domain",
-            label: "example.com",
-            value: "example.com",
-          },
-        ],
-        label: "近七天",
-      },
-      {
-        groups: [
-          {
-            href: "/sources/domain/archive.example.com",
-            id: "source:domain:archive.example.com",
-            ids: ["older"],
-            kind: "domain",
-            label: "archive.example.com",
-            value: "archive.example.com",
-          },
-        ],
-        label: "更早",
+        href: "/sources/domain/example.com",
+        id: "source:domain:example.com",
+        kind: "domain",
+        label: "example.com",
+        value: "example.com",
       },
     ],
   );
 });
 
-test("source shelf groups prefer feed title and fall back to hostname", () => {
+test("source library index sorts groups by latest arrival by default", () => {
   const now = new Date("2026-03-28T12:00:00.000Z");
-  const [recentSection] = buildSourceShelfSections(
+  const groups = buildSourceLibraryIndexGroups(
     [
-      createListItem({
-        id: "feed-a",
+      createIndexRow({
+        createdAt: "2026-03-28T09:30:00.000Z",
+        canonicalUrl: "https://later.example.com/post-1",
+        sourceUrl: "https://later.example.com/post-1",
+      }),
+      createIndexRow({
+        createdAt: "2026-03-28T08:30:00.000Z",
+        canonicalUrl: "https://earlier.example.com/post-1",
+        sourceUrl: "https://earlier.example.com/post-1",
+      }),
+    ],
+    now,
+    {},
+    "latest",
+  );
+
+  assert.deepEqual(groups.map((group) => group.id), ["source:domain:later.example.com", "source:domain:earlier.example.com"]);
+});
+
+test("source library index supports earliest-first source ordering", () => {
+  const now = new Date("2026-03-28T12:00:00.000Z");
+  const groups = buildSourceLibraryIndexGroups(
+    [
+      createIndexRow({
+        createdAt: "2026-03-28T09:30:00.000Z",
+        canonicalUrl: "https://later.example.com/post-1",
+        sourceUrl: "https://later.example.com/post-1",
+      }),
+      createIndexRow({
+        createdAt: "2026-03-28T08:30:00.000Z",
+        canonicalUrl: "https://earlier.example.com/post-1",
+        sourceUrl: "https://earlier.example.com/post-1",
+      }),
+    ],
+    now,
+    {},
+    "earliest",
+  );
+
+  assert.deepEqual(groups.map((group) => group.id), ["source:domain:earlier.example.com", "source:domain:later.example.com"]);
+});
+
+test("source library index prefers feed title and falls back to hostname", () => {
+  const now = new Date("2026-03-28T12:00:00.000Z");
+  const groups = buildSourceLibraryIndexGroups(
+    [
+      createIndexRow({
         createdAt: "2026-03-28T10:10:00.000Z",
         feed: {
           id: "feed-1",
@@ -110,8 +120,7 @@ test("source shelf groups prefer feed title and fall back to hostname", () => {
         canonicalUrl: "https://mp.weixin.qq.com/s/story-1",
         sourceUrl: "https://mp.weixin.qq.com/s/story-1",
       }),
-      createListItem({
-        id: "feed-b",
+      createIndexRow({
         createdAt: "2026-03-28T08:10:00.000Z",
         feed: {
           id: "feed-1",
@@ -120,10 +129,8 @@ test("source shelf groups prefer feed title and fall back to hostname", () => {
         canonicalUrl: "https://mp.weixin.qq.com/s/story-2",
         sourceUrl: "https://mp.weixin.qq.com/s/story-2",
       }),
-      createListItem({
-        id: "domain-a",
+      createIndexRow({
         createdAt: "2026-03-28T09:10:00.000Z",
-        feed: null,
         canonicalUrl: "https://sspai.com/post/123",
         sourceUrl: "https://sspai.com/post/123",
       }),
@@ -132,39 +139,39 @@ test("source shelf groups prefer feed title and fall back to hostname", () => {
   );
 
   assert.deepEqual(
-    recentSection.groups.map((group) => ({
+    groups.map((group) => ({
       href: group.href,
       id: group.id,
-      ids: group.items.map((item) => item.id),
       kind: group.kind,
       label: group.label,
       meta: group.meta,
+      totalItems: group.totalItems,
       value: group.value,
     })),
     [
       {
         href: "/sources/feed/feed-1",
         id: "source:feed:feed-1",
-        ids: ["feed-a", "feed-b"],
         kind: "feed",
         label: "Kai Dispatch",
         meta: "2 篇文章",
+        totalItems: 2,
         value: "feed-1",
       },
       {
         href: "/sources/domain/sspai.com",
         id: "source:domain:sspai.com",
-        ids: ["domain-a"],
         kind: "domain",
         label: "sspai.com",
         meta: "1 篇文章",
+        totalItems: 1,
         value: "sspai.com",
       },
     ],
   );
 });
 
-test("source aliases override displayed shelf names without changing source identity", () => {
+test("source aliases override displayed source labels without changing source identity", () => {
   const aliasMap = buildSourceAliasMap([
     {
       kind: "domain",
@@ -178,10 +185,9 @@ test("source aliases override displayed shelf names without changing source iden
     },
   ]);
   const now = new Date("2026-03-28T12:00:00.000Z");
-  const [recentSection] = buildSourceShelfSections(
+  const groups = buildSourceLibraryIndexGroups(
     [
-      createListItem({
-        id: "feed-a",
+      createIndexRow({
         createdAt: "2026-03-28T10:10:00.000Z",
         feed: {
           id: "feed-1",
@@ -190,10 +196,8 @@ test("source aliases override displayed shelf names without changing source iden
         canonicalUrl: "https://mp.weixin.qq.com/s/story-1",
         sourceUrl: "https://mp.weixin.qq.com/s/story-1",
       }),
-      createListItem({
-        id: "domain-a",
+      createIndexRow({
         createdAt: "2026-03-28T09:10:00.000Z",
-        feed: null,
         canonicalUrl: "https://mp.weixin.qq.com/s/story-2",
         sourceUrl: "https://mp.weixin.qq.com/s/story-2",
       }),
@@ -203,7 +207,7 @@ test("source aliases override displayed shelf names without changing source iden
   );
 
   assert.deepEqual(
-    recentSection.groups.map((group) => ({
+    groups.map((group) => ({
       customLabel: group.customLabel,
       defaultLabel: group.defaultLabel,
       id: group.id,
@@ -240,12 +244,11 @@ test("source aliases override displayed shelf names without changing source iden
   assert.equal(sourceContext.customLabel, "微信公众号");
 });
 
-test("source shelf keeps one top-level cover per source based on the latest arrival", () => {
+test("source library index keeps one top-level source card based on the latest recent arrival", () => {
   const now = new Date("2026-03-28T12:00:00.000Z");
-  const sections = buildSourceShelfSections(
+  const groups = buildSourceLibraryIndexGroups(
     [
-      createListItem({
-        id: "recent-feed",
+      createIndexRow({
         createdAt: "2026-03-28T10:10:00.000Z",
         feed: {
           id: "feed-1",
@@ -254,8 +257,7 @@ test("source shelf keeps one top-level cover per source based on the latest arri
         canonicalUrl: "https://mp.weixin.qq.com/s/story-1",
         sourceUrl: "https://mp.weixin.qq.com/s/story-1",
       }),
-      createListItem({
-        id: "week-feed",
+      createIndexRow({
         createdAt: "2026-03-24T10:10:00.000Z",
         feed: {
           id: "feed-1",
@@ -264,10 +266,8 @@ test("source shelf keeps one top-level cover per source based on the latest arri
         canonicalUrl: "https://mp.weixin.qq.com/s/story-2",
         sourceUrl: "https://mp.weixin.qq.com/s/story-2",
       }),
-      createListItem({
-        id: "week-domain",
+      createIndexRow({
         createdAt: "2026-03-24T09:10:00.000Z",
-        feed: null,
         canonicalUrl: "https://sspai.com/post/123",
         sourceUrl: "https://sspai.com/post/123",
       }),
@@ -276,74 +276,62 @@ test("source shelf keeps one top-level cover per source based on the latest arri
   );
 
   assert.deepEqual(
-    sections.map((section) => ({
-      groups: section.groups.map((group) => ({
-        id: group.id,
-        ids: group.items.map((item) => item.id),
-      })),
-      label: section.label,
+    groups.map((group) => ({
+      id: group.id,
+      latestCreatedAt: group.latestCreatedAt,
+      meta: group.meta,
+      totalItems: group.totalItems,
     })),
     [
       {
-        groups: [
-          {
-            id: "source:feed:feed-1",
-            ids: ["recent-feed", "week-feed"],
-          },
-        ],
-        label: "最近收进来",
+        id: "source:feed:feed-1",
+        latestCreatedAt: "2026-03-28T10:10:00.000Z",
+        meta: "2 篇文章",
+        totalItems: 2,
       },
       {
-        groups: [
-          {
-            id: "source:domain:sspai.com",
-            ids: ["week-domain"],
-          },
-        ],
-        label: "近七天",
+        id: "source:domain:sspai.com",
+        latestCreatedAt: "2026-03-24T09:10:00.000Z",
+        meta: "1 篇文章",
+        totalItems: 1,
       },
     ],
   );
 });
 
-test("explicit source metadata overrides feed and domain inference", () => {
+test("explicit source metadata overrides feed and domain inference in source index groups", () => {
   const now = new Date("2026-03-28T12:00:00.000Z");
-  const first = createListItem({
-    id: "wechat-1",
-    canonicalUrl: "https://mp.weixin.qq.com/s/story-1",
-    sourceUrl: "https://mp.weixin.qq.com/s/story-1",
-  });
-  const second = createListItem({
-    id: "wechat-2",
-    canonicalUrl: "https://mp.weixin.qq.com/s/story-2",
-    sourceUrl: "https://mp.weixin.qq.com/s/story-2",
-  });
-
-  Object.assign(first as Record<string, unknown>, {
-    source: {
-      id: "source-qbian",
-      kind: "WECHAT_ARCHIVE",
-      title: "请辩",
-      includeCategories: ["Technology", "Policy", "Culture"],
-    },
-  });
-  Object.assign(second as Record<string, unknown>, {
-    source: {
-      id: "source-other",
-      kind: "WECHAT_ARCHIVE",
-      title: "另一份来源",
-      includeCategories: [],
-    },
-  });
-
-  const [recentSection] = buildSourceShelfSections([first, second], now);
+  const groups = buildSourceLibraryIndexGroups(
+    [
+      createIndexRow({
+        createdAt: "2026-03-28T10:10:00.000Z",
+        canonicalUrl: "https://mp.weixin.qq.com/s/story-1",
+        sourceUrl: "https://mp.weixin.qq.com/s/story-1",
+        source: {
+          id: "source-qbian",
+          title: "请辩",
+          includeCategories: ["Technology", "Policy", "Culture"],
+        },
+      }),
+      createIndexRow({
+        createdAt: "2026-03-28T09:10:00.000Z",
+        canonicalUrl: "https://mp.weixin.qq.com/s/story-2",
+        sourceUrl: "https://mp.weixin.qq.com/s/story-2",
+        source: {
+          id: "source-other",
+          title: "另一份来源",
+          includeCategories: [],
+        },
+      }),
+    ],
+    now,
+  );
 
   assert.deepEqual(
-    recentSection.groups.map((group) => ({
+    groups.map((group) => ({
       filterSummary: group.filterSummary,
       href: group.href,
       id: group.id,
-      ids: group.items.map((item) => item.id),
       kind: group.kind,
       label: group.label,
       value: group.value,
@@ -353,7 +341,6 @@ test("explicit source metadata overrides feed and domain inference", () => {
         filterSummary: "分类过滤 · Technology, Policy +1",
         href: "/sources/source-qbian",
         id: "source:source-qbian",
-        ids: ["wechat-1"],
         kind: "source",
         label: "请辩",
         value: "source-qbian",
@@ -362,7 +349,6 @@ test("explicit source metadata overrides feed and domain inference", () => {
         filterSummary: null,
         href: "/sources/source-other",
         id: "source:source-other",
-        ids: ["wechat-2"],
         kind: "source",
         label: "另一份来源",
         value: "source-other",
@@ -371,52 +357,48 @@ test("explicit source metadata overrides feed and domain inference", () => {
   );
 });
 
-test("unknown sources stay grouped but do not generate detail links", () => {
-  const [recentSection] = buildSourceShelfSections(
+test("unknown sources stay grouped and navigate to the dedicated unknown source page", () => {
+  const groups = buildSourceLibraryIndexGroups(
     [
-      createListItem({
-        id: "unknown-source",
+      createIndexRow({
+        createdAt: "2026-03-28T11:30:00.000Z",
         canonicalUrl: null,
         sourceUrl: null,
-        feed: null,
+      }),
+      createIndexRow({
+        createdAt: "2026-03-28T10:30:00.000Z",
+        canonicalUrl: null,
+        sourceUrl: null,
       }),
     ],
     new Date("2026-03-28T12:00:00.000Z"),
   );
 
-  assert.equal(recentSection.groups[0]?.id, "source:url:unknown-source");
-  assert.equal(recentSection.groups[0]?.label, "未知来源");
-  assert.equal(recentSection.groups[0]?.kind, "unknown");
-  assert.equal(recentSection.groups[0]?.value, null);
-  assert.equal(recentSection.groups[0]?.href, null);
-  assert.equal(recentSection.groups[0]?.meta, "1 篇文章");
+  assert.equal(groups[0]?.id, "source:unknown");
+  assert.equal(groups[0]?.label, "未知来源");
+  assert.equal(groups[0]?.kind, "unknown");
+  assert.equal(groups[0]?.value, null);
+  assert.equal(groups[0]?.href, "/sources/unknown");
+  assert.equal(groups[0]?.meta, "2 篇文章");
+  assert.equal(groups[0]?.totalItems, 2);
 });
 
 test("web pages with missing publishedAt still form domain source cards by createdAt recency", () => {
   const now = new Date("2026-03-28T12:00:00.000Z");
-  const [recentSection] = buildSourceShelfSections(
+  const groups = buildSourceLibraryIndexGroups(
     [
-      createListItem({
-        id: "web-new-1",
-        type: DocumentType.WEB_PAGE,
+      createIndexRow({
         createdAt: "2026-03-28T11:20:00.000Z",
-        publishedAt: null,
         canonicalUrl: "https://sspai.com/post/1",
         sourceUrl: "https://sspai.com/post/1",
       }),
-      createListItem({
-        id: "web-new-2",
-        type: DocumentType.WEB_PAGE,
+      createIndexRow({
         createdAt: "2026-03-28T10:10:00.000Z",
-        publishedAt: null,
         canonicalUrl: "https://sspai.com/post/2",
         sourceUrl: "https://sspai.com/post/2",
       }),
-      createListItem({
-        id: "web-other-host",
-        type: DocumentType.WEB_PAGE,
+      createIndexRow({
         createdAt: "2026-03-28T09:10:00.000Z",
-        publishedAt: null,
         canonicalUrl: "https://example.com/article",
         sourceUrl: "https://example.com/article",
       }),
@@ -425,10 +407,9 @@ test("web pages with missing publishedAt still form domain source cards by creat
   );
 
   assert.deepEqual(
-    recentSection.groups.map((group) => ({
+    groups.map((group) => ({
       href: group.href,
       id: group.id,
-      ids: group.items.map((item) => item.id),
       kind: group.kind,
       label: group.label,
       value: group.value,
@@ -437,7 +418,6 @@ test("web pages with missing publishedAt still form domain source cards by creat
       {
         href: "/sources/domain/sspai.com",
         id: "source:domain:sspai.com",
-        ids: ["web-new-1", "web-new-2"],
         kind: "domain",
         label: "sspai.com",
         value: "sspai.com",
@@ -445,7 +425,6 @@ test("web pages with missing publishedAt still form domain source cards by creat
       {
         href: "/sources/domain/example.com",
         id: "source:domain:example.com",
-        ids: ["web-other-host"],
         kind: "domain",
         label: "example.com",
         value: "example.com",
@@ -509,6 +488,17 @@ function createListItem(overrides: Partial<DocumentListItem> = {}): DocumentList
     updatedAt: "2026-03-27T08:30:00.000Z",
     wordCount: 1200,
     tags: [],
+    source: null,
+    feed: null,
+    ...overrides,
+  };
+}
+
+function createIndexRow(overrides: Partial<SourceLibraryIndexRow> = {}): SourceLibraryIndexRow {
+  return {
+    createdAt: "2026-03-27T08:30:00.000Z",
+    sourceUrl: "https://example.com/article",
+    canonicalUrl: "https://example.com/article",
     source: null,
     feed: null,
     ...overrides,

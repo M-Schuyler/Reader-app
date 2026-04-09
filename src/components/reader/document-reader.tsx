@@ -14,6 +14,7 @@ import { usePrioritizedDocumentAiSummary } from "@/components/reader/use-priorit
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/panel";
 import { resolveDocumentLead } from "@/lib/documents/document-lead";
+import { resolveDocumentFailedState } from "@/lib/documents/document-failed-state";
 import { formatPublishedAtLabel, resolveDocumentDateMetaLabel } from "@/lib/documents/published-at";
 import {
   HIGHLIGHT_SAVE_MODE_STORAGE_KEY,
@@ -75,6 +76,7 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
     documentId: readerDocument.id,
   });
   const lead = resolveDocumentLead(readerDocument);
+  const failedState = resolveDocumentFailedState(readerDocument.ingestion?.error);
   const showIngestionBadge = readerDocument.ingestionStatus !== IngestionStatus.READY;
   const markdownDownloadHref = `/api/documents/${readerDocument.id}/download?format=markdown`;
   const htmlDownloadHref = `/api/documents/${readerDocument.id}/download?format=html`;
@@ -435,11 +437,12 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
               <div className="space-y-6">
                 <div className="space-y-3">
                   <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-                    链接已保存，但正文暂不可读
+                    {failedState.title}
                   </h2>
                   <p className="max-w-2xl text-[15px] leading-7 text-[color:var(--text-secondary)]">
-                    正文抓取没有成功，但这篇内容仍然保留在你的阅读流里。
+                    {failedState.description}
                   </p>
+                  <p className="max-w-2xl text-sm leading-7 text-[color:var(--text-tertiary)]">{failedState.nextStep}</p>
                 </div>
 
                 {sourceUrl ? (

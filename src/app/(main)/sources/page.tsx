@@ -1,19 +1,14 @@
 import { SourceLibraryIndex } from "@/components/library/source-library";
-import { SummaryQueuePill } from "@/components/library/summary-queue-pill";
+import { SourceLibraryMoreMenu } from "@/components/library/source-library-more-menu";
 import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   buildSourceContextChips,
-  buildSourceLibraryClearHref,
+  buildSourceLibraryBrowseHref,
   parseSourceLibraryQuery,
   resolveSourceSearchParams,
 } from "@/lib/documents/source-library-query";
-import { collectSourceAliasLookups } from "@/lib/documents/source-library";
-import {
-  getDocuments,
-  getSourceAliasMapForSources,
-  getSummaryQueueStatusForReader,
-} from "@/server/modules/documents/document.service";
-import Link from "next/link";
+import { getSourceLibraryIndex } from "@/server/modules/documents/document.service";
 
 export const dynamic = "force-dynamic";
 
@@ -24,50 +19,42 @@ type SourcesPageProps = {
 export default async function SourcesPage({ searchParams }: SourcesPageProps) {
   const resolvedSearchParams = await resolveSourceSearchParams(searchParams);
   const parsedQuery = parseSourceLibraryQuery(resolvedSearchParams);
-  const data = await getDocuments({
+  const data = await getSourceLibraryIndex({
     ...parsedQuery,
     surface: "source",
   });
-  const sourceAliasMap = await getSourceAliasMapForSources(collectSourceAliasLookups(data.items));
-  const summaryQueueStatus = await getSummaryQueueStatusForReader();
-  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.tag || data.filters.sort !== "latest");
-  const clearHref = buildSourceLibraryClearHref("/sources", data.filters);
-  const contextChips = buildSourceContextChips(data.filters);
+  const allDocumentsHref = buildSourceLibraryBrowseHref("/sources/all", {
+    ...parsedQuery,
+    surface: "source",
+  });
+  const contextChips = buildSourceContextChips(data.filters, { sortContext: "sourceIndex" });
 
   return (
     <section className="space-y-7 md:space-y-8">
-      <div className="flex flex-col gap-4 border-b border-[color:var(--border-subtle)] pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-ui-heading text-[clamp(2.8rem,5vw,4.35rem)] leading-[0.92] tracking-[-0.06em] text-[color:var(--text-primary-strong)]">
-            来源库
-          </h1>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <Link
-            className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
-            href="/sources/import/cubox"
-          >
-            导入 Cubox
-          </Link>
-          <SummaryQueuePill initialStatus={summaryQueueStatus} />
-          <span className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]">
-            {data.pagination.total} 篇
-          </span>
-          {contextChips.map((chip) => (
-            <span
-              className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]"
-              key={chip}
-            >
-              {chip}
+      <PageHeader
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]">
+              {data.documentCount} 篇
             </span>
-          ))}
-        </div>
-      </div>
+            {contextChips.map((chip) => (
+              <span
+                className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]"
+                key={chip}
+              >
+                {chip}
+              </span>
+            ))}
+            <SourceLibraryMoreMenu />
+          </div>
+        }
+        description="这里只展示最近 7 天仍有新内容进入库的来源。要看完整文档流，进入全部文档。"
+        title="来源库"
+      />
 
-      <SourceLibraryToolbar clearHref={clearHref} filters={data.filters} hasActiveFilters={hasActiveFilters} />
+      <SourceLibraryToolbar />
 
-      <SourceLibraryIndex aliasMap={sourceAliasMap} data={data} />
+      <SourceLibraryIndex allDocumentsHref={allDocumentsHref} data={data} />
     </section>
   );
 }

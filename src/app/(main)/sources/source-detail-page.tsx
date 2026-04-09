@@ -6,7 +6,7 @@ import { Panel } from "@/components/ui/panel";
 import { buildSourceLibrarySourceContext } from "@/lib/documents/source-library";
 import {
   buildSourceContextChips,
-  buildSourceLibraryClearHref,
+  buildSourceLibraryBrowseHref,
   parseSourceLibraryQuery,
   resolveSourceSearchParams,
 } from "@/lib/documents/source-library-query";
@@ -20,6 +20,8 @@ type SourceDetailPageProps = {
 };
 
 export async function SourceDetailPage({ basePath, searchParams, source }: SourceDetailPageProps) {
+  void basePath;
+
   const resolvedSearchParams = await resolveSourceSearchParams(searchParams);
   const parsedQuery = parseSourceLibraryQuery(resolvedSearchParams);
 
@@ -45,9 +47,11 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
 
   const sourceAliasMap = await getSourceAliasMapForSources([source]);
   const sourceContext = buildSourceLibrarySourceContext(representativeItem, overviewData.pagination.total, sourceAliasMap);
-  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.tag || data.filters.sort !== "latest");
-  const clearHref = buildSourceLibraryClearHref(basePath, data.filters);
-  const contextChips = buildSourceContextChips(data.filters);
+  const contextChips = buildSourceContextChips(data.filters, { sortContext: "documentList" });
+  const backHref = buildSourceLibraryBrowseHref("/sources", {
+    ...parsedQuery,
+    surface: "source",
+  });
 
   return (
     <section className="space-y-8 md:space-y-10">
@@ -58,7 +62,7 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
         title={sourceContext.label}
       />
 
-      <SourceLibraryToolbar clearHref={clearHref} filters={data.filters} hasActiveFilters={hasActiveFilters} />
+      <SourceLibraryToolbar />
 
       {contextChips.length > 0 ? (
         <Panel
@@ -79,7 +83,7 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
         </Panel>
       ) : null}
 
-      <SourceLibraryDetail data={data} source={sourceContext} />
+      <SourceLibraryDetail backHref={backHref} data={data} source={sourceContext} />
     </section>
   );
 }

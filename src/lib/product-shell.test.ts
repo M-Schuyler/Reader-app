@@ -5,6 +5,8 @@ import { buildReadingViewHref, getMainNavItems, resolveReadingView } from "./pro
 
 test("marks 来源库 and Reading as primary surfaces", () => {
   const sourceItems = getMainNavItems("/sources");
+  const sourceAllItems = getMainNavItems("/sources/all");
+  const sourceUnknownItems = getMainNavItems("/sources/unknown");
   const readingItems = getMainNavItems("/reading");
   const documentItems = getMainNavItems("/documents/doc-123");
 
@@ -28,6 +30,8 @@ test("marks 来源库 and Reading as primary surfaces", () => {
     ],
   );
 
+  assert.equal(sourceAllItems[0]?.isActive, true);
+  assert.equal(sourceUnknownItems[0]?.isActive, true);
   assert.equal(documentItems[1]?.isActive, true);
 });
 

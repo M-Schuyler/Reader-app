@@ -1,8 +1,12 @@
 import { IngestionStatus } from "@prisma/client";
-import type { DocumentListItem } from "@/server/modules/documents/document.types";
+import type {
+  DocumentListItem,
+  DocumentListSort,
+  SourceLibraryIndexGroup,
+  SourceLibraryIndexRow,
+} from "@/server/modules/documents/document.types";
 
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type SourceLibrarySourceKind = "source" | "feed" | "domain" | "unknown";
 export type SourceAliasLookup = {
@@ -26,104 +30,53 @@ export type SourceLibrarySourceIdentity = {
   filterSummary?: string | null;
 };
 
-export type SourceLibrarySourceGroup = {
-  id: SourceLibrarySourceIdentity["id"];
-  label: SourceLibrarySourceIdentity["label"];
-  defaultLabel: SourceLibrarySourceIdentity["defaultLabel"];
-  customLabel: SourceLibrarySourceIdentity["customLabel"];
-  meta: string;
-  host: SourceLibrarySourceIdentity["host"];
-  latestCreatedAt: string;
-  kind: SourceLibrarySourceIdentity["kind"];
-  value: SourceLibrarySourceIdentity["value"];
-  href: SourceLibrarySourceIdentity["href"];
-  filterSummary?: string | null;
-  items: DocumentListItem[];
-};
-
 export type SourceLibrarySourceContext = SourceLibrarySourceIdentity & {
   latestCreatedAt: string;
   meta: string;
   totalItems: number;
 };
 
-export type SourceShelfSection = {
-  key: "recent" | "week" | "older";
-  label: string;
-  description: string;
-  groups: SourceLibrarySourceGroup[];
-};
+type SourceIdentityInput = Pick<SourceLibraryIndexRow, "canonicalUrl" | "feed" | "source" | "sourceUrl">;
 
-const SOURCE_SHELF_META: Record<SourceShelfSection["key"], Omit<SourceShelfSection, "groups">> = {
-  recent: {
-    key: "recent",
-    label: "最近收进来",
-    description: "Fresh arrivals",
-  },
-  week: {
-    key: "week",
-    label: "近七天",
-    description: "This week",
-  },
-  older: {
-    key: "older",
-    label: "更早",
-    description: "Backlist",
-  },
-};
-
-export function buildSourceShelfSections(
-  items: DocumentListItem[],
+// App-layer grouping is acceptable for the current library size. Once matched documents
+// regularly exceed the service threshold, the next step is database-level aggregation,
+// not expanding this scan further in application code.
+export function buildSourceLibraryIndexGroups(
+  rows: SourceLibraryIndexRow[],
   now: Date = new Date(),
   aliasMap: SourceAliasMap = {},
-): SourceShelfSection[] {
-  const sortedItems = [...items].sort((left, right) => {
-    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
-  });
+  sort: DocumentListSort = "latest",
+): SourceLibraryIndexGroup[] {
+  const groupedBySource = new Map<string, SourceLibraryIndexGroup>();
 
-  const groupedBySource = new Map<
-    string,
-    Omit<SourceLibrarySourceGroup, "meta" | "latestCreatedAt" | "items"> & { items: DocumentListItem[] }
-  >();
-
-  for (const item of sortedItems) {
-    const identity = resolveSourceLibrarySourceIdentity(item, aliasMap);
+  for (const row of rows) {
+    const identity = resolveSourceLibrarySourceIdentity(row, aliasMap);
     const group = groupedBySource.get(identity.id);
 
-    if (group) {
-      group.items.push(item);
+    if (!group) {
+      groupedBySource.set(identity.id, {
+        ...identity,
+        latestCreatedAt: row.createdAt,
+        meta: "1 篇文章",
+        totalItems: 1,
+      });
       continue;
     }
 
-    groupedBySource.set(identity.id, {
-      ...identity,
-      items: [item],
-    });
+    if (new Date(row.createdAt).getTime() > new Date(group.latestCreatedAt).getTime()) {
+      group.latestCreatedAt = row.createdAt;
+    }
+
+    group.totalItems += 1;
+    group.meta = `${group.totalItems} 篇文章`;
   }
 
-  const sections: Record<SourceShelfSection["key"], SourceLibrarySourceGroup[]> = {
-    recent: [],
-    week: [],
-    older: [],
-  };
-
-  for (const group of groupedBySource.values()) {
-    const latestCreatedAt = group.items[0]?.createdAt ?? "";
-    const sectionKey = resolveShelfKey(latestCreatedAt, now);
-
-    sections[sectionKey].push({
-      ...group,
-      latestCreatedAt,
-      meta: `${group.items.length} 篇文章`,
+  return [...groupedBySource.values()]
+    .filter((group) => isWithinRecentSevenDays(group.latestCreatedAt, now))
+    .sort((left, right) => {
+      const direction = sort === "earliest" ? 1 : -1;
+      return (new Date(left.latestCreatedAt).getTime() - new Date(right.latestCreatedAt).getTime()) * direction;
     });
-  }
-
-  return (Object.keys(SOURCE_SHELF_META) as Array<SourceShelfSection["key"]>)
-    .map((key) => ({
-      ...SOURCE_SHELF_META[key],
-      groups: sections[key],
-    }))
-    .filter((section) => section.groups.length > 0);
 }
 
 export function resolveSourceLibraryPreviewText(item: DocumentListItem) {
@@ -153,7 +106,7 @@ export function buildSourceAliasMap(aliases: SourceAliasRecord[]): SourceAliasMa
   return Object.fromEntries(aliases.map((alias) => [buildSourceAliasKey(alias.kind, alias.value), alias.name]));
 }
 
-export function collectSourceAliasLookups(items: DocumentListItem[]): SourceAliasLookup[] {
+export function collectSourceAliasLookups(items: SourceIdentityInput[]): SourceAliasLookup[] {
   const unique = new Map<string, SourceAliasLookup>();
 
   for (const item of items) {
@@ -185,32 +138,8 @@ export function buildSourceAliasKey(kind: SourceAliasLookup["kind"], value: stri
   return `${kind}:${value}`;
 }
 
-function resolveShelfKey(createdAt: string, now: Date): SourceShelfSection["key"] {
-  const createdAtTime = new Date(createdAt).getTime();
-  const diffMs = Math.max(0, now.getTime() - createdAtTime);
-
-  if (diffMs < ONE_DAY_MS) {
-    return "recent";
-  }
-
-  if (diffMs < SEVEN_DAYS_MS) {
-    return "week";
-  }
-
-  return "older";
-}
-
-function normalizePreviewText(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 export function resolveSourceLibrarySourceIdentity(
-  item: DocumentListItem,
+  item: SourceIdentityInput,
   aliasMap: SourceAliasMap = {},
 ): SourceLibrarySourceIdentity {
   const explicitSource = getExplicitSourceIdentity(item);
@@ -248,32 +177,20 @@ export function resolveSourceLibrarySourceIdentity(
     };
   }
 
-  const fallbackSource = item.canonicalUrl ?? item.sourceUrl ?? item.id;
-
   return {
-    id: `source:url:${fallbackSource}`,
+    id: "source:unknown",
     label: "未知来源",
     defaultLabel: "未知来源",
     customLabel: null,
     host: null,
     kind: "unknown",
     value: null,
-    href: null,
+    href: "/sources/unknown",
   };
 }
 
-function resolveSourceHost(item: Pick<DocumentListItem, "canonicalUrl" | "sourceUrl">) {
-  return parseHostname(item.canonicalUrl) ?? parseHostname(item.sourceUrl);
-}
-
-function getExplicitSourceIdentity(item: DocumentListItem): SourceLibrarySourceIdentity | null {
-  const source = (item as DocumentListItem & {
-    source?: {
-      id?: string | null;
-      title?: string | null;
-      includeCategories?: string[] | null;
-    } | null;
-  }).source;
+function getExplicitSourceIdentity(item: SourceIdentityInput): SourceLibrarySourceIdentity | null {
+  const source = item.source;
 
   if (!source?.id || !source.title) {
     return null;
@@ -303,6 +220,25 @@ function formatSourceLibraryFilterSummary(includeCategories: string[]) {
 
   const [first, second] = includeCategories;
   return `分类过滤 · ${first}, ${second} +${includeCategories.length - 2}`;
+}
+
+function resolveSourceHost(item: Pick<SourceIdentityInput, "canonicalUrl" | "sourceUrl">) {
+  return parseHostname(item.canonicalUrl) ?? parseHostname(item.sourceUrl);
+}
+
+function isWithinRecentSevenDays(createdAt: string, now: Date) {
+  const createdAtTime = new Date(createdAt).getTime();
+  const diffMs = Math.max(0, now.getTime() - createdAtTime);
+  return diffMs < SEVEN_DAYS_MS;
+}
+
+function normalizePreviewText(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function parseHostname(value: string | null) {

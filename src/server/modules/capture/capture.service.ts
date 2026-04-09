@@ -8,6 +8,7 @@ import {
   backfillHostnamePublishedAtUpperBound,
   createWebDocument,
   createWebDocumentPlaceholder,
+  findLatestCaptureErrorForDocument,
   findWebDocumentByUrlCandidates,
   type DocumentDetailRecord,
 } from "@/server/modules/documents/document.repository";
@@ -242,41 +243,7 @@ function toCaptureIngestionError(error: unknown): CaptureIngestionError {
 }
 
 async function findLatestCaptureError(document: DocumentDetailRecord): Promise<CaptureIngestionError | null> {
-  if (document.ingestionStatus !== IngestionStatus.FAILED) {
-    return null;
-  }
-
-  const orClauses: Array<{ documentId?: string; sourceUrl?: string }> = [{ documentId: document.id }];
-  if (document.sourceUrl) {
-    orClauses.push({ sourceUrl: document.sourceUrl });
-  }
-
-  const failedJob = await prisma.ingestionJob.findFirst({
-    where: {
-      kind: IngestionJobKind.FETCH_WEB_PAGE,
-      status: IngestionJobStatus.FAILED,
-      OR: orClauses,
-    },
-    orderBy: [{ finishedAt: "desc" }, { createdAt: "desc" }],
-    select: {
-      payloadJson: true,
-      errorMessage: true,
-    },
-  });
-
-  const payloadError = extractCaptureErrorFromPayload(failedJob?.payloadJson);
-  if (payloadError) {
-    return payloadError;
-  }
-
-  if (failedJob?.errorMessage) {
-    return {
-      code: "CAPTURE_FAILED",
-      message: failedJob.errorMessage,
-    };
-  }
-
-  return null;
+  return findLatestCaptureErrorForDocument(document);
 }
 
 async function hydrateAutomaticSummaryIfPossible(document: DocumentDetailRecord) {
@@ -290,28 +257,4 @@ async function hydrateAutomaticSummaryIfPossible(document: DocumentDetailRecord)
 
     return document;
   }
-}
-
-function extractCaptureErrorFromPayload(payload: unknown): CaptureIngestionError | null {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return null;
-  }
-
-  const error = (payload as { error?: unknown }).error;
-  if (!error || typeof error !== "object" || Array.isArray(error)) {
-    return null;
-  }
-
-  const code = typeof (error as { code?: unknown }).code === "string" ? (error as { code: string }).code : null;
-  const message =
-    typeof (error as { message?: unknown }).message === "string" ? (error as { message: string }).message : null;
-
-  if (!code || !message) {
-    return null;
-  }
-
-  return {
-    code,
-    message,
-  };
 }

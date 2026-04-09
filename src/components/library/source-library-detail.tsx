@@ -15,6 +15,7 @@ import { getSourceLibraryToneForSeed, SourceLibrarySourceCard } from "./source-l
 type SourceLibraryDetailProps = {
   data: GetDocumentsResponseData;
   source: SourceLibrarySourceContext;
+  backHref?: string;
   includeCategories?: string[];
   sync?: {
     sourceId: string;
@@ -24,7 +25,13 @@ type SourceLibraryDetailProps = {
   };
 };
 
-export function SourceLibraryDetail({ data, source, includeCategories = [], sync }: SourceLibraryDetailProps) {
+export function SourceLibraryDetail({
+  backHref = "/sources",
+  data,
+  source,
+  includeCategories = [],
+  sync,
+}: SourceLibraryDetailProps) {
   const latestLabel = formatCollectedAt(source.latestCreatedAt);
   const visibleTotal = data.pagination.total;
   const tone = getSourceLibraryToneForSeed(source.id);
@@ -33,7 +40,7 @@ export function SourceLibraryDetail({ data, source, includeCategories = [], sync
     <section className="space-y-6">
       <Link
         className="inline-flex items-center gap-2 text-sm text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
-        href="/sources"
+        href={backHref}
       >
         <span aria-hidden="true">←</span>
         <span>返回来源库</span>

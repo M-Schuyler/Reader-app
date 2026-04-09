@@ -13,6 +13,7 @@ test("source detail exposes rename controls and document deletion actions", () =
 
   assert.match(detail, /SourceAliasEditor/);
   assert.match(detail, /重命名书架|自定义命名/);
+  assert.match(detail, /source\.kind === "unknown" \|\| source\.kind === "source" \|\| !source\.value/);
   assert.match(list, /删除/);
   assert.match(list, /window\.confirm/);
   assert.match(list, /method:\s*"DELETE"/);

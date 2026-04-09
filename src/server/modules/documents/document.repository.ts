@@ -1,6 +1,8 @@
 import {
   AiSummaryStatus,
   DocumentType,
+  IngestionJobKind,
+  IngestionJobStatus,
   IngestionStatus,
   Prisma,
   PublishedAtKind,
@@ -8,7 +10,13 @@ import {
   SourceAliasKind,
 } from "@prisma/client";
 import { prisma } from "@/server/db/client";
-import type { DocumentListQuery, DocumentListSort, SourceAliasTargetKind } from "./document.types";
+import type {
+  CaptureIngestionError,
+  DocumentListQuery,
+  DocumentListSort,
+  SourceAliasTargetKind,
+  SourceLibraryIndexRow,
+} from "./document.types";
 
 export const documentListArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
   include: {
@@ -102,8 +110,30 @@ export const documentDetailArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()
   },
 });
 
+export const sourceIndexRowArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
+  select: {
+    createdAt: true,
+    sourceUrl: true,
+    canonicalUrl: true,
+    source: {
+      select: {
+        id: true,
+        title: true,
+        includeCategories: true,
+      },
+    },
+    feed: {
+      select: {
+        id: true,
+        title: true,
+      },
+    },
+  },
+});
+
 export type DocumentListRecord = Prisma.DocumentGetPayload<typeof documentListArgs>;
 export type DocumentDetailRecord = Prisma.DocumentGetPayload<typeof documentDetailArgs>;
+export type SourceIndexRowRecord = Prisma.DocumentGetPayload<typeof sourceIndexRowArgs>;
 
 export async function listDocuments(query: DocumentListQuery) {
   const where = buildDocumentWhere(query);
@@ -123,11 +153,86 @@ export async function listDocuments(query: DocumentListQuery) {
   return { total, items };
 }
 
+export async function listSourceIndexRows(query: DocumentListQuery): Promise<{
+  total: number;
+  rows: SourceLibraryIndexRow[];
+}> {
+  const where = buildDocumentWhere(query);
+
+  const [total, rows] = await prisma.$transaction([
+    prisma.document.count({ where }),
+    prisma.document.findMany({
+      ...sourceIndexRowArgs,
+      where,
+    }),
+  ]);
+
+  return {
+    total,
+    rows: rows.map((row) => ({
+      createdAt: row.createdAt.toISOString(),
+      sourceUrl: row.sourceUrl,
+      canonicalUrl: row.canonicalUrl,
+      source: row.source
+        ? {
+            id: row.source.id,
+            title: row.source.title,
+            includeCategories: row.source.includeCategories,
+          }
+        : null,
+      feed: row.feed
+        ? {
+            id: row.feed.id,
+            title: row.feed.title,
+          }
+        : null,
+    })),
+  };
+}
+
 export async function getDocumentById(id: string) {
   return prisma.document.findUnique({
     where: { id },
     ...documentDetailArgs,
   });
+}
+
+export async function findLatestCaptureErrorForDocument(document: Pick<DocumentDetailRecord, "id" | "sourceUrl" | "ingestionStatus">) {
+  if (document.ingestionStatus !== IngestionStatus.FAILED) {
+    return null;
+  }
+
+  const orClauses: Array<{ documentId?: string; sourceUrl?: string }> = [{ documentId: document.id }];
+  if (document.sourceUrl) {
+    orClauses.push({ sourceUrl: document.sourceUrl });
+  }
+
+  const failedJob = await prisma.ingestionJob.findFirst({
+    where: {
+      kind: IngestionJobKind.FETCH_WEB_PAGE,
+      status: IngestionJobStatus.FAILED,
+      OR: orClauses,
+    },
+    orderBy: [{ finishedAt: "desc" }, { createdAt: "desc" }],
+    select: {
+      payloadJson: true,
+      errorMessage: true,
+    },
+  });
+
+  const payloadError = extractCaptureErrorFromPayload(failedJob?.payloadJson);
+  if (payloadError) {
+    return payloadError;
+  }
+
+  if (failedJob?.errorMessage) {
+    return {
+      code: "CAPTURE_FAILED",
+      message: failedJob.errorMessage,
+    };
+  }
+
+  return null;
 }
 
 export async function deleteDocumentById(id: string) {
@@ -137,6 +242,30 @@ export async function deleteDocumentById(id: string) {
       id: true,
     },
   });
+}
+
+function extractCaptureErrorFromPayload(payload: unknown): CaptureIngestionError | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const error = (payload as { error?: unknown }).error;
+  if (!error || typeof error !== "object" || Array.isArray(error)) {
+    return null;
+  }
+
+  const code = typeof (error as { code?: unknown }).code === "string" ? (error as { code: string }).code : null;
+  const message =
+    typeof (error as { message?: unknown }).message === "string" ? (error as { message: string }).message : null;
+
+  if (!code || !message) {
+    return null;
+  }
+
+  return {
+    code,
+    message,
+  };
 }
 
 export async function markDocumentEnteredReading(id: string) {
@@ -645,7 +774,6 @@ function toSourceAliasKind(kind: SourceAliasTargetKind) {
     case "feed":
       return SourceAliasKind.FEED;
     case "domain":
-    default:
       return SourceAliasKind.DOMAIN;
   }
 }
@@ -685,6 +813,13 @@ function buildDocumentSourceWhere(source: NonNullable<DocumentListQuery["source"
           },
         ],
       };
+    case "unknown":
+      return {
+        sourceId: null,
+        feedId: null,
+        sourceUrl: null,
+        canonicalUrl: null,
+      };
     default:
       return {};
   }
@@ -709,3 +844,7 @@ function buildDocumentOrderBy(sort: DocumentListSort, surface: DocumentListQuery
       ];
   }
 }
+
+export const __documentRepositoryForTests = {
+  buildDocumentSourceWhere,
+};

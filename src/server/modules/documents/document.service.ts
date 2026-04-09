@@ -1,6 +1,6 @@
 import { DocumentType, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
-import { buildSourceAliasMap } from "@/lib/documents/source-library";
+import { buildSourceAliasMap, buildSourceLibraryIndexGroups, collectSourceAliasLookups } from "@/lib/documents/source-library";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
 import {
   getSummaryQueueStatus,
@@ -11,7 +11,10 @@ import {
 import {
   deleteDocumentById,
   deleteSourceAlias,
+  type DocumentDetailRecord,
+  findLatestCaptureErrorForDocument,
   getDocumentById,
+  listSourceIndexRows,
   listQuickSearchDocuments,
   listDocuments,
   listSourceAliases,
@@ -28,6 +31,7 @@ import type {
   GenerateAiSummaryError,
   GetDocumentResponseData,
   GetDocumentsResponseData,
+  GetSourceLibraryIndexResponseData,
   PrioritizeDocumentAiSummaryResponseData,
   QuickSearchResponseData,
   SummaryQueueStatusResponseData,
@@ -45,6 +49,13 @@ const MAX_PAGE_SIZE = 50;
 const MANUAL_SUMMARY_QUEUE_SWEEP_LIMIT = 3;
 const MANUAL_SUMMARY_QUEUE_SWEEP_MAX_RUNS = 4;
 const MANUAL_SUMMARY_QUEUE_SWEEP_MAX_RUNTIME_MS = 12_000;
+export const SOURCE_INDEX_APP_AGGREGATION_WARN_THRESHOLD = 2000;
+
+type DocumentDetailDependencies = {
+  getDocumentById?: typeof getDocumentById;
+  markDocumentEnteredReading?: typeof markDocumentEnteredReading;
+  getLatestCaptureError?: typeof findLatestCaptureErrorForDocument;
+};
 
 export async function getDocuments(query: DocumentListQuery): Promise<GetDocumentsResponseData> {
   const { items, total } = await listDocuments(query);
@@ -69,38 +80,78 @@ export async function getDocuments(query: DocumentListQuery): Promise<GetDocumen
   };
 }
 
-export async function getDocument(id: string): Promise<GetDocumentResponseData | null> {
-  const document = await getDocumentById(id);
+type SourceLibraryIndexDependencies = {
+  listSourceIndexRows?: typeof listSourceIndexRows;
+  getSourceAliasMapForSources?: typeof getSourceAliasMapForSources;
+  now?: () => Date;
+  warn?: (...args: unknown[]) => void;
+};
+
+export async function getSourceLibraryIndex(
+  query: DocumentListQuery,
+  dependencies: SourceLibraryIndexDependencies = {},
+): Promise<GetSourceLibraryIndexResponseData> {
+  const listRows = dependencies.listSourceIndexRows ?? listSourceIndexRows;
+  const getAliasMap = dependencies.getSourceAliasMapForSources ?? getSourceAliasMapForSources;
+  const now = dependencies.now ?? (() => new Date());
+  const warn = dependencies.warn ?? console.warn;
+
+  const { rows, total } = await listRows(query);
+
+  if (total > SOURCE_INDEX_APP_AGGREGATION_WARN_THRESHOLD) {
+    warn(
+      `[SourceLibraryIndex] matchedDocumentCount=${total}; database-level source index aggregation should be the next optimization step.`,
+    );
+  }
+
+  const aliasMap = await getAliasMap(collectSourceAliasLookups(rows));
+  const groups = buildSourceLibraryIndexGroups(rows, now(), aliasMap, query.sort);
+
+  return {
+    groups,
+    documentCount: total,
+    filters: {
+      surface: "source",
+      q: query.q,
+      type: query.type,
+      tag: query.tag,
+      sort: query.sort,
+    },
+    emptyState: total === 0 ? "empty_library" : groups.length === 0 ? "no_recent_sources" : null,
+  };
+}
+
+export async function getDocument(id: string, dependencies: DocumentDetailDependencies = {}): Promise<GetDocumentResponseData | null> {
+  const fetchDocument = dependencies.getDocumentById ?? getDocumentById;
+  const document = await fetchDocument(id);
 
   if (!document) {
     return null;
   }
 
-  return {
-    document: mapDocumentDetail(document),
-  };
+  return buildDocumentDetailResponse(document, dependencies);
 }
 
-export async function openDocument(id: string): Promise<GetDocumentResponseData | null> {
-  const existing = await getDocumentById(id);
+export async function openDocument(id: string, dependencies: DocumentDetailDependencies = {}): Promise<GetDocumentResponseData | null> {
+  const fetchDocument = dependencies.getDocumentById ?? getDocumentById;
+  const markOpened = dependencies.markDocumentEnteredReading ?? markDocumentEnteredReading;
+  const existing = await fetchDocument(id);
 
   if (!existing) {
     return null;
   }
 
   if (!existing.enteredReadingAt) {
-    await markDocumentEnteredReading(id).catch(() => undefined);
+    await markOpened(id).catch(() => undefined);
   }
 
-  const document = await getDocumentById(id);
+  const document = await fetchDocument(id);
 
   if (!document) {
     return null;
   }
 
-  return {
-    document: mapDocumentDetail(document),
-  };
+  return buildDocumentDetailResponse(document, dependencies);
 }
 
 export async function getQuickSearchResults(query: string): Promise<QuickSearchResponseData> {
@@ -189,6 +240,20 @@ export async function prioritizeDocumentAiSummaryForReader(
   return {
     document: mapDocumentDetail(result.document),
     summary: result.summary,
+  };
+}
+
+async function buildDocumentDetailResponse(
+  document: DocumentDetailRecord,
+  dependencies: DocumentDetailDependencies,
+): Promise<GetDocumentResponseData> {
+  const getLatestCaptureError = dependencies.getLatestCaptureError ?? findLatestCaptureErrorForDocument;
+  const ingestionError = await getLatestCaptureError(document);
+
+  return {
+    document: mapDocumentDetail(document, {
+      ingestionError,
+    }),
   };
 }
 
@@ -422,9 +487,13 @@ export const __documentQueryParsersForTests = {
 };
 
 function dedupeSourceInputs(sources: DocumentSourceFilter[]) {
-  const unique = new Map<string, DocumentSourceFilter>();
+  const unique = new Map<string, Extract<DocumentSourceFilter, { value: string }>>();
 
   for (const source of sources) {
+    if (source.kind === "unknown" || source.value === null) {
+      continue;
+    }
+
     const key = `${source.kind}:${source.value}`;
     unique.set(key, source);
   }

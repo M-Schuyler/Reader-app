@@ -28,7 +28,7 @@ export default function QaSourcesPage() {
         </p>
       </Panel>
 
-      <SourceLibraryIndex data={getSourceLibraryQaFixture()} />
+      <SourceLibraryIndex allDocumentsHref="/sources/all" data={getSourceLibraryQaFixture()} />
     </section>
   );
 }

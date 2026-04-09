@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 import {
   buildSourceContextChips,
-  buildSourceLibraryClearHref,
+  buildSourceLibraryBrowseHref,
   parseSourceLibraryQuery,
   resolveSourceSearchParams,
 } from "@/lib/documents/source-library-query";
@@ -33,9 +33,11 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
     surface: "source",
     sourceId,
   });
-  const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.tag || data.filters.sort !== "latest");
-  const clearHref = buildSourceLibraryClearHref(`/sources/${encodeURIComponent(sourceId)}`, data.filters);
-  const contextChips = buildSourceContextChips(data.filters);
+  const contextChips = buildSourceContextChips(data.filters, { sortContext: "documentList" });
+  const backHref = buildSourceLibraryBrowseHref("/sources", {
+    ...parsedQuery,
+    surface: "source",
+  });
   const host = resolveHostname(sourceData.source.siteUrl ?? sourceData.source.locatorUrl);
   const latestCreatedAt = data.items[0]?.createdAt ?? sourceData.source.lastSyncedAt ?? sourceData.source.createdAt;
 
@@ -48,7 +50,7 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
         title={sourceData.source.title}
       />
 
-      <SourceLibraryToolbar clearHref={clearHref} filters={data.filters} hasActiveFilters={hasActiveFilters} />
+      <SourceLibraryToolbar />
 
       {contextChips.length > 0 ? (
         <Panel
@@ -70,6 +72,7 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
       ) : null}
 
       <SourceLibraryDetail
+        backHref={backHref}
         data={data}
         source={{
           id: `source:${sourceData.source.id}`,

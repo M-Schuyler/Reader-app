@@ -6,19 +6,17 @@ function readWorkspaceFile(path: string) {
   return readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 }
 
-test("sources page renders the summary queue pill in the header action row", () => {
+test("sources page uses the overflow menu for cubox import and manual summary sweep", () => {
   const page = readWorkspaceFile("src/app/(main)/sources/page.tsx");
-  const pill = readWorkspaceFile("src/components/library/summary-queue-pill.tsx");
-  const helper = readWorkspaceFile("src/lib/documents/summary-queue-pill.ts");
+  const menu = readWorkspaceFile("src/components/library/source-library-more-menu.tsx");
 
-  assert.match(page, /SummaryQueuePill/);
-  assert.match(page, /summaryQueueStatus/);
-  assert.match(page, /getSummaryQueueStatusForReader/);
+  assert.match(page, /SourceLibraryMoreMenu/);
+  assert.doesNotMatch(page, /SummaryQueuePill/);
+  assert.doesNotMatch(page, /getSummaryQueueStatusForReader/);
 
-  assert.match(pill, /summary-jobs\/status/);
-  assert.match(pill, /summary-jobs\/sweep/);
-  assert.match(helper, /摘要队列/);
-  assert.match(helper, /处理中…/);
-  assert.match(helper, /稍后再试/);
-  assert.match(helper, /摘要已是最新/);
+  assert.match(menu, /导入 Cubox/);
+  assert.match(menu, /补跑摘要/);
+  assert.match(menu, /summary-jobs\/sweep/);
+  assert.match(menu, /运行中…/);
+  assert.match(menu, /完成/);
 });

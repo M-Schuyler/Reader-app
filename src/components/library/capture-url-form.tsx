@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field, TextInput } from "@/components/ui/form-controls";
 import {
   resolveCaptureUrlSubmitSuccess,
+  type CaptureUrlSubmitPayload,
   type CaptureUrlSubmitSuccess,
 } from "@/lib/capture/capture-url-submit-result";
 import { cx } from "@/utils/cx";
@@ -14,12 +15,7 @@ import { cx } from "@/utils/cx";
 type CaptureUrlApiResponse =
   | {
       ok: true;
-      data: {
-        deduped: boolean;
-        document: {
-          id: string;
-        };
-      };
+      data: CaptureUrlSubmitPayload;
     }
   | {
       ok: false;
@@ -60,14 +56,16 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
       const payload = (await response.json()) as CaptureUrlApiResponse;
 
       if (!payload.ok) {
-        setError(localizeCaptureError(payload.error.code));
+        setError(localizeCaptureError(payload.error.code, payload.error.message));
         return;
       }
 
       const submitResult = resolveCaptureUrlSubmitSuccess(payload.data);
-      if (submitResult.kind === "deduped") {
+      if (submitResult.kind === "deduped" || submitResult.kind === "failed") {
         setSuccess(submitResult);
-        setUrl("");
+        if (submitResult.kind === "deduped") {
+          setUrl("");
+        }
         return;
       }
 
@@ -128,8 +126,15 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
         </p>
       ) : null}
 
-      {success?.kind === "deduped" ? (
-        <div className="rounded-[18px] border border-[color:var(--badge-success-bg)] bg-[color:var(--badge-success-bg)] px-4 py-3 text-sm text-[color:var(--badge-success-text)]">
+      {success?.kind === "deduped" || success?.kind === "failed" ? (
+        <div
+          className={cx(
+            "rounded-[18px] border px-4 py-3 text-sm",
+            success.kind === "failed"
+              ? "border-[color:var(--badge-danger-bg)] bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]"
+              : "border-[color:var(--badge-success-bg)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-text)]",
+          )}
+        >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p>{success.message}</p>
             <Link
@@ -145,15 +150,21 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
   );
 }
 
-function localizeCaptureError(code: string) {
+function localizeCaptureError(code: string, message: string) {
   switch (code) {
     case "INVALID_URL":
       return "链接格式不正确，请检查后再试。";
+    case "SOURCE_VERIFICATION_REQUIRED":
+      return "这篇微信文章触发了来源验证，当前环境下还抓不到正文。";
+    case "EXTRACTION_EMPTY":
+      return "页面打开了，但没有提取到可阅读正文。";
+    case "EXTRACTION_UNREADABLE":
+      return message;
     case "FETCH_FAILED":
       return "抓取原始链接失败，请稍后再试。";
     case "CAPTURE_FAILED":
       return "保存链接失败，请稍后再试。";
     default:
-      return "保存链接失败，请稍后再试。";
+      return message || "保存链接失败，请稍后再试。";
   }
 }

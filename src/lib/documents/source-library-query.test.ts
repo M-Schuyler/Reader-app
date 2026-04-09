@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSourceContextChips, buildSourceLibraryClearHref } from "./source-library-query";
+import {
+  buildSourceContextChips,
+  buildSourceLibraryBrowseHref,
+  buildSourceLibraryClearHref,
+} from "./source-library-query";
 
 test("buildSourceLibraryClearHref keeps search text but clears tag filters", () => {
   assert.equal(
@@ -29,5 +33,35 @@ test("buildSourceContextChips includes active tag filters", () => {
       sort: "latest",
     }),
     ["标签 ai"],
+  );
+});
+
+test("buildSourceLibraryBrowseHref preserves q type tag and sort when entering all documents", () => {
+  assert.equal(
+    buildSourceLibraryBrowseHref("/sources/all", {
+      surface: "source",
+      q: "agent",
+      tag: "ai",
+      type: "WEB_PAGE",
+      sort: "earliest",
+      page: 4,
+      pageSize: 20,
+    }),
+    "/sources/all?q=agent&type=WEB_PAGE&tag=ai&sort=earliest",
+  );
+});
+
+test("buildSourceLibraryBrowseHref drops page when returning to the source index", () => {
+  assert.equal(
+    buildSourceLibraryBrowseHref("/sources", {
+      surface: "source",
+      q: "agent",
+      tag: "ai",
+      type: "WEB_PAGE",
+      sort: "latest",
+      page: 7,
+      pageSize: 50,
+    }),
+    "/sources?q=agent&type=WEB_PAGE&tag=ai",
   );
 });

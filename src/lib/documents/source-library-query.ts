@@ -1,5 +1,5 @@
 import { parseDocumentListQuery } from "@/server/modules/documents/document.service";
-import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
+import type { DocumentListQuery, GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 
 export const parseSourceLibraryQuery = parseDocumentListQuery;
 
@@ -31,7 +31,38 @@ export function buildSourceLibraryClearHref(basePath: string, filters: GetDocume
   return filters.q ? `${basePath}?q=${encodeURIComponent(filters.q)}` : basePath;
 }
 
-export function buildSourceContextChips(filters: GetDocumentsResponseData["filters"]) {
+export function buildSourceLibraryBrowseHref(
+  basePath: string,
+  query: Pick<DocumentListQuery, "q" | "sort" | "surface" | "tag" | "type"> &
+    Partial<Pick<DocumentListQuery, "page" | "pageSize">>,
+) {
+  const params = new URLSearchParams();
+
+  if (query.q) {
+    params.set("q", query.q);
+  }
+
+  if (query.type) {
+    params.set("type", query.type);
+  }
+
+  if (query.tag) {
+    params.set("tag", query.tag);
+  }
+
+  if (query.sort === "earliest") {
+    params.set("sort", query.sort);
+  }
+
+  const nextQuery = params.toString();
+  return nextQuery ? `${basePath}?${nextQuery}` : basePath;
+}
+
+export function buildSourceContextChips(
+  filters: GetDocumentsResponseData["filters"],
+  options: { sortContext?: "sourceIndex" | "documentList" } = {},
+) {
+  const sortContext = options.sortContext ?? "documentList";
   const chips: string[] = [];
 
   if (filters.q) {
@@ -47,7 +78,7 @@ export function buildSourceContextChips(filters: GetDocumentsResponseData["filte
   }
 
   if (filters.sort === "earliest") {
-    chips.push("最早收进来优先");
+    chips.push(sortContext === "sourceIndex" ? "较早有新文档优先" : "最早收进来优先");
   }
 
   return chips;

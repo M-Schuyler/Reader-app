@@ -11,10 +11,15 @@ import type {
 export type DocumentListSort = "latest" | "earliest";
 export type DocumentSurface = "source" | "reading";
 export type SourceAliasTargetKind = "feed" | "domain";
-export type DocumentSourceFilter = {
-  kind: SourceAliasTargetKind;
-  value: string;
-};
+export type DocumentSourceFilter =
+  | {
+      kind: SourceAliasTargetKind;
+      value: string;
+    }
+  | {
+      kind: "unknown";
+      value: null;
+    };
 
 export type DocumentTagLabel = {
   name: string;
@@ -91,6 +96,49 @@ export type GetDocumentsResponseData = {
   };
 };
 
+export type SourceLibraryIndexRow = {
+  createdAt: string;
+  sourceUrl: string | null;
+  canonicalUrl: string | null;
+  source: {
+    id: string;
+    title: string;
+    includeCategories: string[];
+  } | null;
+  feed: {
+    id: string;
+    title: string;
+  } | null;
+};
+
+export type SourceLibraryIndexGroup = {
+  id: string;
+  label: string;
+  defaultLabel: string;
+  customLabel: string | null;
+  meta: string;
+  host: string | null;
+  latestCreatedAt: string;
+  totalItems: number;
+  kind: "source" | "feed" | "domain" | "unknown";
+  value: string | null;
+  href: string | null;
+  filterSummary?: string | null;
+};
+
+export type GetSourceLibraryIndexResponseData = {
+  groups: SourceLibraryIndexGroup[];
+  documentCount: number;
+  filters: {
+    surface: "source";
+    q?: string;
+    type?: DocumentType;
+    tag?: string;
+    sort: DocumentListSort;
+  };
+  emptyState: "empty_library" | "no_recent_sources" | null;
+};
+
 export type DocumentDetail = {
   id: string;
   type: DocumentType;
@@ -134,6 +182,9 @@ export type DocumentDetail = {
     sizeBytes: number;
     pageCount: number | null;
   } | null;
+  ingestion?: {
+    error: CaptureIngestionError | null;
+  };
   content: {
     contentHtml: string | null;
     plainText: string;

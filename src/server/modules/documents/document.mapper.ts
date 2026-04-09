@@ -1,5 +1,5 @@
 import type { DocumentDetailRecord, DocumentListRecord } from "./document.repository";
-import type { DocumentDetail, DocumentListItem } from "./document.types";
+import type { CaptureIngestionError, DocumentDetail, DocumentListItem } from "./document.types";
 
 export function mapDocumentListItem(record: DocumentListRecord): DocumentListItem {
   return {
@@ -47,7 +47,12 @@ export function mapDocumentListItem(record: DocumentListRecord): DocumentListIte
   };
 }
 
-export function mapDocumentDetail(record: DocumentDetailRecord): DocumentDetail {
+export function mapDocumentDetail(
+  record: DocumentDetailRecord,
+  options?: {
+    ingestionError?: CaptureIngestionError | null;
+  },
+): DocumentDetail {
   return {
     id: record.id,
     type: record.type,
@@ -100,6 +105,9 @@ export function mapDocumentDetail(record: DocumentDetailRecord): DocumentDetail 
           pageCount: record.file.pageCount,
         }
       : null,
+    ingestion: {
+      error: options?.ingestionError ?? null,
+    },
     content: record.content
       ? {
           contentHtml: record.content.contentHtml,
