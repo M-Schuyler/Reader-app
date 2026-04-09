@@ -7,7 +7,7 @@ function readWorkspaceFile(path: string) {
   return readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 }
 
-test("deduped capture responses surface an existing-article jump action", () => {
+test("deduped capture responses now redirect straight into the existing article", () => {
   assert.deepEqual(
     resolveCaptureUrlSubmitSuccess({
       deduped: true,
@@ -19,15 +19,13 @@ test("deduped capture responses surface an existing-article jump action", () => 
       },
     }),
     {
-      actionHref: "/documents/doc-existing",
-      actionLabel: "前往已有文章",
-      kind: "deduped",
-      message: "这篇文章已收藏，不再重复导入。",
+      href: "/documents/doc-existing",
+      kind: "redirect",
     },
   );
 });
 
-test("new capture responses keep redirecting back to sources", () => {
+test("new capture responses redirect straight into the imported article", () => {
   assert.deepEqual(
     resolveCaptureUrlSubmitSuccess({
       deduped: false,
@@ -39,7 +37,7 @@ test("new capture responses keep redirecting back to sources", () => {
       },
     }),
     {
-      href: "/sources",
+      href: "/documents/doc-new",
       kind: "redirect",
     },
   );
@@ -68,15 +66,18 @@ test("failed capture responses surface the specific reason with a recovery actio
   );
 });
 
-test("capture form renders the dedupe recovery action instead of silently redirecting", () => {
+test("capture form only keeps failed imports in place and redirects successful imports into the document", () => {
   const captureUrlForm = readWorkspaceFile("src/components/library/capture-url-form.tsx");
   const submitResult = readWorkspaceFile("src/lib/capture/capture-url-submit-result.ts");
 
   assert.match(captureUrlForm, /resolveCaptureUrlSubmitSuccess/);
-  assert.match(captureUrlForm, /success\.actionHref/);
   assert.match(captureUrlForm, /submitResult\.kind === "failed"/);
-  assert.match(submitResult, /前往已有文章/);
-  assert.match(submitResult, /这篇文章已收藏，不再重复导入。/);
+  assert.match(captureUrlForm, /router\.push\(submitResult\.href\)/);
+  assert.doesNotMatch(captureUrlForm, /submitResult\.kind === "deduped"/);
+  assert.match(submitResult, /\/documents\/\$\{encodeURIComponent\(data\.document\.id\)\}/);
+  assert.doesNotMatch(submitResult, /前往已有文章/);
+  assert.doesNotMatch(submitResult, /这篇文章已收藏，不再重复导入。/);
+  assert.match(captureUrlForm, /submitResult\.kind === "failed"/);
   assert.match(submitResult, /查看失败记录/);
   assert.match(submitResult, /来源验证/);
 });

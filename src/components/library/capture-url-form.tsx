@@ -61,11 +61,8 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
       }
 
       const submitResult = resolveCaptureUrlSubmitSuccess(payload.data);
-      if (submitResult.kind === "deduped" || submitResult.kind === "failed") {
+      if (submitResult.kind === "failed") {
         setSuccess(submitResult);
-        if (submitResult.kind === "deduped") {
-          setUrl("");
-        }
         return;
       }
 
@@ -126,13 +123,11 @@ export function CaptureUrlForm({ variant = "panel" }: CaptureUrlFormProps) {
         </p>
       ) : null}
 
-      {success?.kind === "deduped" || success?.kind === "failed" ? (
+      {success?.kind === "failed" ? (
         <div
           className={cx(
             "rounded-[18px] border px-4 py-3 text-sm",
-            success.kind === "failed"
-              ? "border-[color:var(--badge-danger-bg)] bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]"
-              : "border-[color:var(--badge-success-bg)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-text)]",
+            "border-[color:var(--badge-danger-bg)] bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]",
           )}
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
