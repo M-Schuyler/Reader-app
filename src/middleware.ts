@@ -1,47 +1,31 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAllowedSession, sanitizeCallbackUrl } from "@/server/auth/access";
-
-const LOGIN_PATH = "/login";
+import { isAllowedSession } from "@/server/auth/access";
+import { getAuthMiddlewareDecision } from "@/server/auth/middleware-gate";
 
 export default auth((request) => {
   const { nextUrl } = request;
   const pathname = nextUrl.pathname;
   const isAuthenticated = isAllowedSession(request.auth);
-  const isInternalApiPath = pathname.startsWith("/api/internal/");
-  const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/");
-  const isQaFixtureApiPath =
-    pathname === "/api/documents/qa-highlights-document/highlights" || pathname.startsWith("/api/highlights/qa-highlight-");
-  const isQaRealDocumentApiPath =
-    pathname.startsWith("/api/documents/qa-real-document--") && pathname.endsWith("/highlights");
-  const isQaRealHighlightApiPath = pathname.startsWith("/api/highlights/qa-real-highlight--");
 
-  if (isQaPath && process.env.NODE_ENV !== "production") {
+  // This middleware runs in a different runtime than the page and route guards.
+  // In local development, keeping auth redirects here creates split-brain behavior:
+  // the server-side guards see DEV_LOCAL_AUTH_EMAIL, but middleware may not.
+  // We accept the tradeoff of making middleware a no-op outside production so
+  // local auth flows stay coherent. Production still enforces the redirect gate here.
+  const decision = getAuthMiddlewareDecision({
+    pathname,
+    search: nextUrl.search,
+    origin: nextUrl.origin,
+    isAuthenticated,
+    nodeEnv: process.env.NODE_ENV,
+  });
+
+  if (decision.type === "next") {
     return NextResponse.next();
   }
 
-  if ((isQaFixtureApiPath || isQaRealDocumentApiPath || isQaRealHighlightApiPath) && process.env.NODE_ENV !== "production") {
-    return NextResponse.next();
-  }
-
-  if (pathname === LOGIN_PATH) {
-    if (!isAuthenticated) {
-      return NextResponse.next();
-    }
-
-    const callbackUrl = sanitizeCallbackUrl(nextUrl.searchParams.get("callbackUrl"));
-    return NextResponse.redirect(new URL(callbackUrl, nextUrl.origin));
-  }
-
-  if (isAuthenticated) {
-    return NextResponse.next();
-  }
-
-  if (isInternalApiPath) {
-    return NextResponse.next();
-  }
-
-  if (pathname.startsWith("/api/")) {
+  if (decision.type === "unauthorized") {
     return NextResponse.json(
       {
         ok: false,
@@ -54,9 +38,7 @@ export default auth((request) => {
     );
   }
 
-  const loginUrl = new URL(LOGIN_PATH, nextUrl.origin);
-  loginUrl.searchParams.set("callbackUrl", `${pathname}${nextUrl.search}`);
-  return NextResponse.redirect(loginUrl);
+  return NextResponse.redirect(new URL(decision.location));
 });
 
 export const config = {

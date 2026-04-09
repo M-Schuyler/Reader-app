@@ -2,7 +2,12 @@ import { DocumentType, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
 import { buildSourceAliasMap } from "@/lib/documents/source-library";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
-import { prioritizeDocumentAiSummary } from "./document-ai-summary-jobs.service";
+import {
+  getSummaryQueueStatus,
+  getSummaryRuntimeIssues,
+  prioritizeDocumentAiSummary,
+  sweepPendingDocumentAiSummaryJobs,
+} from "./document-ai-summary-jobs.service";
 import {
   deleteDocumentById,
   deleteSourceAlias,
@@ -25,7 +30,9 @@ import type {
   GetDocumentsResponseData,
   PrioritizeDocumentAiSummaryResponseData,
   QuickSearchResponseData,
+  SummaryQueueStatusResponseData,
   SourceAliasTargetKind,
+  SweepDocumentAiSummaryJobsResponseData,
   UpdateSourceAliasInput,
   UpdateSourceAliasResponseData,
   UpdateDocumentFavoriteInput,
@@ -35,6 +42,9 @@ import type {
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
+const MANUAL_SUMMARY_QUEUE_SWEEP_LIMIT = 3;
+const MANUAL_SUMMARY_QUEUE_SWEEP_MAX_RUNS = 4;
+const MANUAL_SUMMARY_QUEUE_SWEEP_MAX_RUNTIME_MS = 12_000;
 
 export async function getDocuments(query: DocumentListQuery): Promise<GetDocumentsResponseData> {
   const { items, total } = await listDocuments(query);
@@ -180,6 +190,23 @@ export async function prioritizeDocumentAiSummaryForReader(
     document: mapDocumentDetail(result.document),
     summary: result.summary,
   };
+}
+
+export async function getSummaryQueueStatusForReader(): Promise<SummaryQueueStatusResponseData> {
+  return getSummaryQueueStatus();
+}
+
+export async function sweepSummaryQueueForReader(): Promise<SweepDocumentAiSummaryJobsResponseData> {
+  const runtimeIssues = getSummaryRuntimeIssues({ requireInternalApiSecret: false });
+  if (runtimeIssues.length > 0) {
+    throw new RouteError("AI_SUMMARY_UNAVAILABLE", 409, "AI 摘要当前不可用。");
+  }
+
+  return sweepPendingDocumentAiSummaryJobs({
+    limit: MANUAL_SUMMARY_QUEUE_SWEEP_LIMIT,
+    maxRuns: MANUAL_SUMMARY_QUEUE_SWEEP_MAX_RUNS,
+    maxRuntimeMs: MANUAL_SUMMARY_QUEUE_SWEEP_MAX_RUNTIME_MS,
+  });
 }
 
 export async function getSourceAliasMapForSources(sources: DocumentSourceFilter[]) {

@@ -1,4 +1,5 @@
 import { SourceLibraryIndex } from "@/components/library/source-library";
+import { SummaryQueuePill } from "@/components/library/summary-queue-pill";
 import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
 import {
   buildSourceContextChips,
@@ -7,7 +8,11 @@ import {
   resolveSourceSearchParams,
 } from "@/lib/documents/source-library-query";
 import { collectSourceAliasLookups } from "@/lib/documents/source-library";
-import { getDocuments, getSourceAliasMapForSources } from "@/server/modules/documents/document.service";
+import {
+  getDocuments,
+  getSourceAliasMapForSources,
+  getSummaryQueueStatusForReader,
+} from "@/server/modules/documents/document.service";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +29,7 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
     surface: "source",
   });
   const sourceAliasMap = await getSourceAliasMapForSources(collectSourceAliasLookups(data.items));
+  const summaryQueueStatus = await getSummaryQueueStatusForReader();
   const hasActiveFilters = Boolean(data.filters.q || data.filters.type || data.filters.tag || data.filters.sort !== "latest");
   const clearHref = buildSourceLibraryClearHref("/sources", data.filters);
   const contextChips = buildSourceContextChips(data.filters);
@@ -44,6 +50,7 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
           >
             导入 Cubox
           </Link>
+          <SummaryQueuePill initialStatus={summaryQueueStatus} />
           <span className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]">
             {data.pagination.total} 篇
           </span>
