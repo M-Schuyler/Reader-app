@@ -24,30 +24,3 @@ export async function findWechatSubsourceByBiz(biz: string): Promise<WechatSubso
     select: wechatSubsourceSelect,
   });
 }
-
-export async function createWechatSubsource(input: {
-  biz: string;
-  displayName: string;
-  isPlaceholder: boolean;
-}): Promise<WechatSubsourceRecord> {
-  return prisma.wechatSubsource.create({
-    data: input,
-    select: wechatSubsourceSelect,
-  });
-}
-
-export async function updateWechatSubsource(
-  biz: string,
-  input: {
-    displayName: string;
-    isPlaceholder: boolean;
-  },
-): Promise<WechatSubsourceRecord> {
-  return prisma.wechatSubsource.update({
-    where: {
-      biz,
-    },
-    data: input,
-    select: wechatSubsourceSelect,
-  });
-}

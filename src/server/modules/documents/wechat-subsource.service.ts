@@ -1,9 +1,6 @@
 import type { WechatSubsourceRecord } from "./wechat-subsource.repository";
-import {
-  createWechatSubsource as defaultCreateWechatSubsource,
-  findWechatSubsourceByBiz as defaultFindWechatSubsourceByBiz,
-  updateWechatSubsource as defaultUpdateWechatSubsource,
-} from "./wechat-subsource.repository";
+import { prisma } from "@/server/db/client";
+import { findWechatSubsourceByBiz as defaultFindWechatSubsourceByBiz } from "./wechat-subsource.repository";
 
 const WECHAT_PLACEHOLDER_LABEL_PREFIX = "未命名公众号";
 const WECHAT_BIZ_PREFIX_LENGTH = 6;
@@ -15,8 +12,8 @@ export type UpsertWechatSubsourceInput = {
 
 export type UpsertWechatSubsourceDependencies = {
   findWechatSubsourceByBiz?: typeof defaultFindWechatSubsourceByBiz;
-  createWechatSubsource?: typeof defaultCreateWechatSubsource;
-  updateWechatSubsource?: typeof defaultUpdateWechatSubsource;
+  createWechatSubsource?: (input: PersistWechatSubsourceInput) => Promise<WechatSubsourceRecord>;
+  updateWechatSubsource?: PersistWechatSubsourceUpdateFn;
 };
 
 type PersistWechatSubsourceInput = {
@@ -25,13 +22,21 @@ type PersistWechatSubsourceInput = {
   isPlaceholder: boolean;
 };
 
+type PersistWechatSubsourceUpdateFn = (
+  biz: string,
+  input: {
+    displayName: string;
+    isPlaceholder: boolean;
+  },
+) => Promise<WechatSubsourceRecord>;
+
 export async function upsertWechatSubsource(
   input: UpsertWechatSubsourceInput,
   deps: UpsertWechatSubsourceDependencies = {},
 ): Promise<WechatSubsourceRecord> {
   const findWechatSubsourceByBiz = deps.findWechatSubsourceByBiz ?? defaultFindWechatSubsourceByBiz;
-  const createWechatSubsource = deps.createWechatSubsource ?? defaultCreateWechatSubsource;
-  const updateWechatSubsource = deps.updateWechatSubsource ?? defaultUpdateWechatSubsource;
+  const createWechatSubsource = deps.createWechatSubsource ?? persistWechatSubsourceCreate;
+  const updateWechatSubsource = deps.updateWechatSubsource ?? persistWechatSubsourceUpdate;
   const biz = normalizeBiz(input.biz);
   const displayName = normalizeDisplayName(input.displayName);
   const next = buildNextSubsourceState(biz, displayName);
@@ -60,7 +65,7 @@ export async function upsertWechatSubsource(
 function reconcileExistingSubsource(
   existing: WechatSubsourceRecord,
   next: PersistWechatSubsourceInput,
-  updateWechatSubsource: typeof defaultUpdateWechatSubsource,
+  updateWechatSubsource: PersistWechatSubsourceUpdateFn,
 ) {
   if (next.isPlaceholder) {
     return existing;
@@ -105,3 +110,34 @@ function buildPlaceholderDisplayName(biz: string) {
 function isUniqueConstraintViolation(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002";
 }
+
+async function persistWechatSubsourceCreate(input: PersistWechatSubsourceInput): Promise<WechatSubsourceRecord> {
+  return prisma.wechatSubsource.create({
+    data: input,
+    select: wechatSubsourceSelect,
+  });
+}
+
+async function persistWechatSubsourceUpdate(
+  biz: string,
+  input: {
+    displayName: string;
+    isPlaceholder: boolean;
+  },
+): Promise<WechatSubsourceRecord> {
+  return prisma.wechatSubsource.update({
+    where: {
+      biz,
+    },
+    data: input,
+    select: wechatSubsourceSelect,
+  });
+}
+
+const wechatSubsourceSelect = {
+  biz: true,
+  displayName: true,
+  isPlaceholder: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
