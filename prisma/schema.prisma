@@ -130,6 +130,15 @@ model SourceAlias {
   @@index([kind, name])
 }
 
+model WechatSubsource {
+  biz           String   @id
+  displayName   String
+  isPlaceholder Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model Document {
   id              String           @id @default(cuid())
   type            DocumentType
@@ -144,6 +153,8 @@ model Document {
   lang            String?
   excerpt         String?
   author          String?
+  contentOriginKey String?
+  contentOriginLabel String?
   publishedAt     DateTime?
   publishedAtKind PublishedAtKind  @default(UNKNOWN)
   enteredReadingAt DateTime?
@@ -174,6 +185,7 @@ model Document {
   @@index([publishedAtKind, publishedAt])
   @@index([canonicalUrl])
   @@index([sourceUrl])
+  @@index([contentOriginKey])
   @@index([type, externalId])
   @@index([sourceId, publishedAt])
 }
