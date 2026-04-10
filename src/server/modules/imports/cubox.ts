@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 import { AiSummaryStatus, DocumentType, IngestionStatus, Prisma, PublishedAtKind, ReadState } from "@prisma/client";
+import { deriveContentOriginMetadata, syncWechatSubsourceFromContentOrigin } from "@/lib/documents/content-origin";
 import { RouteError } from "@/server/api/response";
 import { prisma } from "@/server/db/client";
 import { extractWebPageMetadata, type ExtractedWebPageMetadata } from "@/server/extractors/web/extract-web-page";
 import { getSummaryRuntimeIssues, queueAutomaticDocumentAiSummary } from "@/server/modules/documents/document-ai-summary-jobs.service";
 import { documentDetailArgs, type DocumentDetailRecord } from "@/server/modules/documents/document.repository";
+import { upsertWechatSubsource } from "@/server/modules/documents/wechat-subsource.service";
 
 const CUBOX_HOSTS = new Set(["cubox.pro", "cubox.cc"]);
 const DEFAULT_IMPORT_LIMIT = 20;
@@ -108,6 +110,9 @@ type ImportedCuboxDocument = {
   sourceUrl: string | null;
   canonicalUrl: string | null;
   excerpt: string | null;
+  author: string | null;
+  contentOriginKey: string | null;
+  contentOriginLabel: string | null;
   content: CuboxDocumentContent | null;
   wordCount: number | null;
   ingestionStatus: IngestionStatus;
@@ -130,6 +135,12 @@ type CuboxTagRecord = {
   id: string;
   name: string;
   slug: string;
+};
+
+export type CuboxSourceMetadata = Pick<ExtractedWebPageMetadata, "author" | "canonicalUrl" | "finalUrl" | "publishedAt"> & {
+  wechatAccountName?: string | null;
+  contentOriginKey?: string | null;
+  contentOriginLabel?: string | null;
 };
 
 export function parseCuboxApiLink(input: string): ParsedCuboxApiLink {
@@ -424,6 +435,19 @@ async function upsertCuboxCard(
 ): Promise<ImportedCuboxDocumentResult> {
   const markdown = await context.client.getCardContent(card.id);
   const sourceMetadata = await resolveCuboxSourceMetadata(card.url);
+  if (sourceMetadata) {
+    await syncWechatSubsourceFromContentOrigin(
+      {
+        isWechat: Boolean(sourceMetadata.contentOriginKey?.startsWith("wechat:biz:")),
+        key: sourceMetadata.contentOriginKey ?? null,
+        label: sourceMetadata.contentOriginLabel ?? null,
+      },
+      {
+        wechatAccountName: sourceMetadata.wechatAccountName ?? null,
+      },
+      upsertWechatSubsource,
+    );
+  }
   const importedDocument = buildImportedCuboxDocument(card, markdown, context.tagDirectory, new Date(), sourceMetadata);
 
   const result = await prisma.$transaction(
@@ -447,6 +471,9 @@ async function upsertCuboxCard(
             canonicalUrl: importedDocument.canonicalUrl,
             externalId: card.id,
             excerpt: importedDocument.excerpt,
+            author: importedDocument.author,
+            contentOriginKey: importedDocument.contentOriginKey,
+            contentOriginLabel: importedDocument.contentOriginLabel,
             publishedAt: importedDocument.publishedAt,
             publishedAtKind: importedDocument.publishedAtKind,
             readState: ReadState.UNREAD,
@@ -476,8 +503,11 @@ async function upsertCuboxCard(
       const nextDocumentData = {
         title: importedDocument.title,
         sourceUrl: importedDocument.sourceUrl,
-        canonicalUrl: importedDocument.canonicalUrl,
+        canonicalUrl: existingDocument.canonicalUrl ?? importedDocument.canonicalUrl,
         excerpt: importedDocument.excerpt,
+        author: existingDocument.author ?? importedDocument.author,
+        contentOriginKey: existingDocument.contentOriginKey ?? importedDocument.contentOriginKey,
+        contentOriginLabel: existingDocument.contentOriginLabel ?? importedDocument.contentOriginLabel,
         ingestionStatus: importedDocument.ingestionStatus,
         publishedAt: importedDocument.publishedAt,
         publishedAtKind: importedDocument.publishedAtKind,
@@ -488,6 +518,11 @@ async function upsertCuboxCard(
         existingDocument.sourceUrl !== nextDocumentData.sourceUrl ||
         existingDocument.canonicalUrl !== nextDocumentData.canonicalUrl ||
         existingDocument.excerpt !== nextDocumentData.excerpt ||
+        existingDocument.author !== nextDocumentData.author ||
+        existingDocument.contentOriginKey !== nextDocumentData.contentOriginKey ||
+        existingDocument.contentOriginLabel !== nextDocumentData.contentOriginLabel ||
+        existingDocument.publishedAt?.toISOString() !== nextDocumentData.publishedAt?.toISOString() ||
+        existingDocument.publishedAtKind !== nextDocumentData.publishedAtKind ||
         existingDocument.ingestionStatus !== nextDocumentData.ingestionStatus;
 
       const contentChanged = await syncDocumentContent(tx, existingDocument.id, existingDocument, importedDocument);
@@ -535,12 +570,20 @@ export function buildImportedCuboxDocument(
   markdown: string | null,
   tagDirectory: CuboxTag[],
   importedAt: Date,
-  sourceMetadata?: Pick<ExtractedWebPageMetadata, "publishedAt"> | null,
+  sourceMetadata?: CuboxSourceMetadata | null,
 ): ImportedCuboxDocument {
   const renderedContent = markdown?.trim() ? renderCuboxMarkdownToDocumentContent(markdown) : null;
   const excerpt = resolveCuboxExcerpt(card.description, renderedContent?.excerpt);
   const title = resolveCuboxDocumentTitle(card, [renderedContent?.plainText ?? "", excerpt ?? ""].join("\n"));
   const sourceUrl = normalizeCuboxSourceUrl(card.url);
+  const canonicalUrl = sourceMetadata?.canonicalUrl ?? sourceMetadata?.finalUrl ?? sourceUrl;
+  const contentOrigin = deriveContentOriginMetadata({
+    author: sourceMetadata?.author ?? null,
+    canonicalUrl,
+    finalUrl: sourceMetadata?.finalUrl ?? null,
+    sourceUrl,
+    wechatAccountName: sourceMetadata?.wechatAccountName ?? null,
+  });
   const { createdAt, updatedAt } = resolveCuboxDocumentTimestamps(card, importedAt);
   const publishedAt = sourceMetadata?.publishedAt ?? null;
   const tagNames = resolveCuboxTagNames(card.tags, tagDirectory);
@@ -552,8 +595,11 @@ export function buildImportedCuboxDocument(
   return {
     title,
     sourceUrl,
-    canonicalUrl: sourceUrl,
+    canonicalUrl,
     excerpt,
+    author: sourceMetadata?.author ?? null,
+    contentOriginKey: sourceMetadata?.contentOriginKey ?? contentOrigin.key,
+    contentOriginLabel: sourceMetadata?.contentOriginLabel ?? contentOrigin.label,
     content: renderedContent,
     wordCount: resolveCuboxWordCount(card, renderedContent?.plainText ?? ""),
     ingestionStatus: hasReadablePayload ? IngestionStatus.READY : IngestionStatus.FAILED,
@@ -573,9 +619,22 @@ async function resolveCuboxSourceMetadata(sourceUrl: string | null | undefined) 
   }
 
   try {
-    return await extractWebPageMetadata(normalizedSourceUrl, {
+    const metadata = await extractWebPageMetadata(normalizedSourceUrl, {
       signal: AbortSignal.timeout(CUBOX_SOURCE_METADATA_TIMEOUT_MS),
     });
+    const contentOrigin = deriveContentOriginMetadata({
+      author: metadata.author,
+      canonicalUrl: metadata.canonicalUrl,
+      finalUrl: metadata.finalUrl,
+      sourceUrl: normalizedSourceUrl,
+      wechatAccountName: metadata.wechatAccountName,
+    });
+
+    return {
+      ...metadata,
+      contentOriginKey: contentOrigin.key,
+      contentOriginLabel: contentOrigin.label,
+    };
   } catch {
     return null;
   }

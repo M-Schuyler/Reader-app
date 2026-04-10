@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PublishedAtKind } from "@prisma/client";
+import { deriveContentOriginMetadata, syncWechatSubsourceFromContentOrigin } from "@/lib/documents/content-origin";
 import { RouteError } from "@/server/api/response";
 import {
   buildImportedCuboxDocument,
   buildCuboxHighlightQuoteText,
+  type CuboxSourceMetadata,
   getCuboxApiRequestTimeoutMs,
   getCuboxImportTransactionOptions,
   normalizeCuboxImportLimit,
@@ -156,6 +158,9 @@ test("buildImportedCuboxDocument prefers source-page publishedAt while keeping R
     [],
     importedAt,
     {
+      author: null,
+      canonicalUrl: null,
+      finalUrl: "https://mp.weixin.qq.com/s/wechat-time-demo",
       publishedAt,
     },
   );
@@ -164,6 +169,67 @@ test("buildImportedCuboxDocument prefers source-page publishedAt while keeping R
   assert.equal(importedDocument.updatedAt.toISOString(), importedAt.toISOString());
   assert.equal(importedDocument.publishedAt?.toISOString(), publishedAt.toISOString());
   assert.equal(importedDocument.publishedAtKind, PublishedAtKind.EXACT);
+});
+
+test("buildImportedCuboxDocument keeps the article author while using the wechat account name for content-origin labels", () => {
+  const sourceMetadata = {
+    author: "蔡垒磊",
+    canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    finalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    publishedAt: null,
+    wechatAccountName: "请辩",
+  } satisfies CuboxSourceMetadata;
+
+  const importedDocument = buildImportedCuboxDocument(
+    {
+      id: "card-2",
+      title: "请辩的新文章",
+      article_title: "请辩的新文章",
+      description: null,
+      url: "https://mp.weixin.qq.com/s/pretty-link",
+      create_time: "2025-03-22T16:02:44.979+0800",
+      update_time: "2025-03-23T08:15:01.000+0800",
+      tags: [],
+      highlights: [],
+    },
+    "正文",
+    [],
+    new Date("2026-04-07T02:30:00.000Z"),
+    sourceMetadata,
+  );
+
+  assert.equal(importedDocument.author, "蔡垒磊");
+  assert.equal(importedDocument.canonicalUrl, "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc");
+  assert.equal(importedDocument.contentOriginKey, "wechat:biz:MzI0MDg5ODA2NQ==");
+  assert.equal(importedDocument.contentOriginLabel, "请辩");
+});
+
+test("syncWechatSubsourceFromContentOrigin keeps Cubox WeChat imports on the biz registry path and never uses the article author", async () => {
+  const importedOrigin = deriveContentOriginMetadata({
+    author: "蔡垒磊",
+    canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    finalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    sourceUrl: "https://mp.weixin.qq.com/s/pretty-link",
+    wechatAccountName: "请辩",
+  });
+
+  const calls: Array<{ biz: string; displayName: string | null }> = [];
+
+  await syncWechatSubsourceFromContentOrigin(
+    importedOrigin,
+    { wechatAccountName: "请辩" },
+    async (input) => {
+      calls.push(input);
+      return input;
+    },
+  );
+
+  assert.deepEqual(calls, [
+    {
+      biz: "MzI0MDg5ODA2NQ==",
+      displayName: "请辩",
+    },
+  ]);
 });
 
 test("Cubox imports use an explicit transaction timeout that is longer than Prisma's default interactive limit", () => {
