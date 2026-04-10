@@ -43,53 +43,163 @@ test("document origin rows select persisted content-origin fields and the legacy
 test("wechat content-origin backfill targets missing keys and suspicious persisted labels without retrying explicit unknown keys", () => {
   assert.deepEqual(__documentRepositoryForTests.buildWechatContentOriginBackfillWhere(), {
     type: "WEB_PAGE",
-    OR: [
-      {
-        canonicalUrl: {
-          startsWith: "https://mp.weixin.qq.com",
-        },
-      },
-      {
-        canonicalUrl: {
-          startsWith: "http://mp.weixin.qq.com",
-        },
-      },
-      {
-        sourceUrl: {
-          startsWith: "https://mp.weixin.qq.com",
-        },
-      },
-      {
-        sourceUrl: {
-          startsWith: "http://mp.weixin.qq.com",
-        },
-      },
-    ],
     AND: [
       {
         OR: [
           {
-            contentOriginKey: null,
+            AND: [
+              {
+                contentOriginKey: null,
+              },
+              {
+                OR: [
+                  {
+                    canonicalUrl: {
+                      startsWith: "https://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    canonicalUrl: {
+                      startsWith: "http://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      startsWith: "https://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      startsWith: "http://mp.weixin.qq.com",
+                    },
+                  },
+                ],
+              },
+            ],
           },
           {
-            contentOriginKey: "wechat:unknown",
+            AND: [
+              {
+                contentOriginKey: "wechat:unknown",
+              },
+              {
+                OR: [
+                  {
+                    canonicalUrl: {
+                      contains: "__biz=",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      contains: "__biz=",
+                    },
+                  },
+                ],
+              },
+              {
+                OR: [
+                  {
+                    canonicalUrl: {
+                      startsWith: "https://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    canonicalUrl: {
+                      startsWith: "http://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      startsWith: "https://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      startsWith: "http://mp.weixin.qq.com",
+                    },
+                  },
+                ],
+              },
+            ],
           },
           {
-            contentOriginKey: {
-              not: "wechat:unknown",
-            },
-            contentOriginLabel: "未识别公众号",
+            AND: [
+              {
+                contentOriginKey: {
+                  not: "wechat:unknown",
+                },
+              },
+              {
+                contentOriginLabel: "未识别公众号",
+              },
+              {
+                OR: [
+                  {
+                    canonicalUrl: {
+                      startsWith: "https://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    canonicalUrl: {
+                      startsWith: "http://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      startsWith: "https://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      startsWith: "http://mp.weixin.qq.com",
+                    },
+                  },
+                ],
+              },
+            ],
           },
           {
-            contentOriginKey: {
-              not: "wechat:unknown",
-            },
-            author: {
-              not: null,
-            },
-            contentOriginLabel: {
-              not: null,
-            },
+            AND: [
+              {
+                contentOriginKey: {
+                  not: "wechat:unknown",
+                },
+              },
+              {
+                author: {
+                  not: null,
+                },
+              },
+              {
+                contentOriginLabel: {
+                  not: null,
+                },
+              },
+              {
+                OR: [
+                  {
+                    canonicalUrl: {
+                      startsWith: "https://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    canonicalUrl: {
+                      startsWith: "http://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      startsWith: "https://mp.weixin.qq.com",
+                    },
+                  },
+                  {
+                    sourceUrl: {
+                      startsWith: "http://mp.weixin.qq.com",
+                    },
+                  },
+                ],
+              },
+            ],
           },
         ],
       },

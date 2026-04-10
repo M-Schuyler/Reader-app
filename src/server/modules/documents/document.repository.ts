@@ -943,37 +943,70 @@ export const __documentRepositoryForTests = {
 };
 
 function buildWechatContentOriginBackfillWhere(): Prisma.DocumentWhereInput {
-  return {
-    type: DocumentType.WEB_PAGE,
+  const mpWeixinUrlWhere = {
     OR: [
       { canonicalUrl: { startsWith: "https://mp.weixin.qq.com" } },
       { canonicalUrl: { startsWith: "http://mp.weixin.qq.com" } },
       { sourceUrl: { startsWith: "https://mp.weixin.qq.com" } },
       { sourceUrl: { startsWith: "http://mp.weixin.qq.com" } },
     ],
+  };
+
+  return {
+    type: DocumentType.WEB_PAGE,
     AND: [
       {
         OR: [
-          { contentOriginKey: null },
           {
-            contentOriginKey: "wechat:unknown",
+            AND: [
+              { contentOriginKey: null },
+              mpWeixinUrlWhere,
+            ],
           },
           {
-            contentOriginKey: {
-              not: "wechat:unknown",
-            },
-            contentOriginLabel: "未识别公众号",
+            AND: [
+              { contentOriginKey: "wechat:unknown" },
+              {
+                OR: [
+                  { canonicalUrl: { contains: "__biz=" } },
+                  { sourceUrl: { contains: "__biz=" } },
+                ],
+              },
+              mpWeixinUrlWhere,
+            ],
           },
           {
-            contentOriginKey: {
-              not: "wechat:unknown",
-            },
-            author: {
-              not: null,
-            },
-            contentOriginLabel: {
-              not: null,
-            },
+            AND: [
+              {
+                contentOriginKey: {
+                  not: "wechat:unknown",
+                },
+              },
+              {
+                contentOriginLabel: "未识别公众号",
+              },
+              mpWeixinUrlWhere,
+            ],
+          },
+          {
+            AND: [
+              {
+                contentOriginKey: {
+                  not: "wechat:unknown",
+                },
+              },
+              {
+                author: {
+                  not: null,
+                },
+              },
+              {
+                contentOriginLabel: {
+                  not: null,
+                },
+              },
+              mpWeixinUrlWhere,
+            ],
           },
         ],
       },

@@ -1,4 +1,4 @@
-import { deriveContentOriginMetadata, syncWechatSubsourceFromContentOrigin } from "@/lib/documents/content-origin";
+import { deriveContentOriginMetadata } from "@/lib/documents/content-origin";
 import { extractWebPageMetadata, type ExtractedWebPageMetadata } from "@/server/extractors/web/extract-web-page";
 import { listWechatContentOriginBackfillCandidates, updateDocumentContentOrigin } from "./document.repository";
 import { upsertWechatSubsource as defaultUpsertWechatSubsource } from "./wechat-subsource.service";
@@ -65,6 +65,27 @@ export async function backfillWechatContentOrigins(
   for (const candidate of items) {
     const targetUrl = candidate.canonicalUrl ?? candidate.sourceUrl;
     const candidateBizOrigin = resolveWechatBizOrigin(candidate);
+    let persistedContentOriginKey = candidate.contentOriginKey;
+    let persistedContentOriginLabel = candidate.contentOriginLabel;
+
+    if (candidateBizOrigin) {
+      const repairedLabel = await ensureWechatBizDisplayName(
+        readWeChatBizFromOriginKey(candidateBizOrigin.key),
+        normalizeWechatDisplayName(candidate.contentOriginLabel),
+        upsertWechatSubsource,
+      );
+
+      if (persistedContentOriginKey !== candidateBizOrigin.key || persistedContentOriginLabel !== repairedLabel) {
+        await persistOrigin(candidate.id, {
+          contentOriginKey: candidateBizOrigin.key,
+          contentOriginLabel: repairedLabel,
+        });
+        persistedContentOriginKey = candidateBizOrigin.key;
+        persistedContentOriginLabel = repairedLabel;
+        updated += 1;
+      }
+    }
+
     if (!targetUrl) {
       if (candidate.contentOriginKey === null) {
         await persistOrigin(candidate.id, {
@@ -88,24 +109,48 @@ export async function backfillWechatContentOrigins(
           sourceUrl: targetUrl,
           wechatAccountName: metadata.wechatAccountName,
         });
-        const contentOriginLabel = contentOrigin.key?.startsWith("wechat:biz:")
-          ? await resolveWechatContentOriginLabel(
-              {
-                isWechat: true,
-                key: contentOrigin.key,
-                label: contentOrigin.label,
-              },
-              metadata.wechatAccountName,
-              upsertWechatSubsource,
-            )
-          : contentOrigin.label ?? "未识别公众号";
 
-        await persistOrigin(candidate.id, {
-          contentOriginKey: contentOrigin.key ?? "wechat:unknown",
-          contentOriginLabel,
-          ...(candidate.author ? {} : metadata.author ? { author: metadata.author } : {}),
-        });
-        updated += 1;
+        if (contentOrigin.key?.startsWith("wechat:biz:")) {
+          const promotedDisplayName = normalizeWechatDisplayName(metadata.wechatAccountName);
+          const contentOriginLabel = await ensureWechatBizDisplayName(
+            readWeChatBizFromOriginKey(contentOrigin.key),
+            promotedDisplayName,
+            upsertWechatSubsource,
+          );
+          const nextAuthor = candidate.author ? null : metadata.author ?? null;
+          const hasOriginChange =
+            persistedContentOriginKey !== contentOrigin.key || persistedContentOriginLabel !== contentOriginLabel;
+          const hasAuthorChange = nextAuthor !== null;
+
+          if (hasOriginChange || hasAuthorChange) {
+            await persistOrigin(candidate.id, {
+              contentOriginKey: contentOrigin.key,
+              contentOriginLabel,
+              ...(hasAuthorChange ? { author: nextAuthor } : {}),
+            });
+            persistedContentOriginKey = contentOrigin.key;
+            persistedContentOriginLabel = contentOriginLabel;
+            updated += 1;
+          }
+        } else {
+          const nextAuthor = candidate.author ? null : metadata.author ?? null;
+          const contentOriginKey = contentOrigin.key ?? "wechat:unknown";
+          const contentOriginLabel = contentOrigin.label ?? "未识别公众号";
+          const hasOriginChange =
+            persistedContentOriginKey !== contentOriginKey || persistedContentOriginLabel !== contentOriginLabel;
+          const hasAuthorChange = nextAuthor !== null;
+
+          if (hasOriginChange || hasAuthorChange) {
+            await persistOrigin(candidate.id, {
+              contentOriginKey,
+              contentOriginLabel,
+              ...(hasAuthorChange ? { author: nextAuthor } : {}),
+            });
+            persistedContentOriginKey = contentOriginKey;
+            persistedContentOriginLabel = contentOriginLabel;
+            updated += 1;
+          }
+        }
         lastError = null;
         break;
       } catch (error) {
@@ -114,19 +159,16 @@ export async function backfillWechatContentOrigins(
     }
 
     if (lastError) {
-      if (candidateBizOrigin && candidate.contentOriginKey !== candidateBizOrigin.key) {
-        const contentOriginLabel = await resolveWechatContentOriginLabel(candidateBizOrigin, null, upsertWechatSubsource);
-        await persistOrigin(candidate.id, {
-          contentOriginKey: candidateBizOrigin.key,
-          contentOriginLabel,
-        });
-        updated += 1;
-      } else if (candidate.contentOriginKey === null) {
+      if (candidateBizOrigin) {
+        failed += 1;
+        continue;
+      }
+
+      if (candidate.contentOriginKey === null) {
         await persistOrigin(candidate.id, {
           contentOriginKey: "wechat:unknown",
           contentOriginLabel: "未识别公众号",
         });
-        updated += 1;
       }
       failed += 1;
     }
@@ -180,22 +222,32 @@ function resolveWechatBizOriginFromUrl(url: string | null): WechatBizOrigin | nu
     : null;
 }
 
-async function resolveWechatContentOriginLabel(
-  origin: WechatBizOrigin,
-  wechatAccountName: string | null,
+async function ensureWechatBizDisplayName(
+  biz: string | null,
+  displayName: string | null,
   upsertWechatSubsource: typeof defaultUpsertWechatSubsource,
 ) {
-  const subsource = (await syncWechatSubsourceFromContentOrigin(
-    {
-      key: origin.key,
-      label: origin.label,
-      isWechat: true,
-    },
-    {
-      wechatAccountName,
-    },
-    upsertWechatSubsource,
-  )) as { displayName: string } | null;
+  if (!biz) {
+    return displayName ?? "未识别公众号";
+  }
 
-  return subsource?.displayName ?? origin.label ?? "未识别公众号";
+  const subsource = await upsertWechatSubsource({
+    biz,
+    displayName,
+  });
+
+  return subsource.displayName;
+}
+
+function normalizeWechatDisplayName(value: string | null) {
+  const normalized = value?.trim() ?? null;
+  if (!normalized || normalized === "未识别公众号") {
+    return null;
+  }
+
+  return normalized;
+}
+
+function readWeChatBizFromOriginKey(value: string) {
+  return value.startsWith("wechat:biz:") ? value.slice("wechat:biz:".length) : null;
 }
