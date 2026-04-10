@@ -57,6 +57,22 @@ export const documentListArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
   },
 });
 
+export const documentOriginRowArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
+  select: {
+    id: true,
+    author: true,
+    sourceUrl: true,
+    canonicalUrl: true,
+    contentOriginKey: true,
+    contentOriginLabel: true,
+    content: {
+      select: {
+        rawHtml: true,
+      },
+    },
+  },
+});
+
 export const documentDetailArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
   include: {
     source: {
@@ -134,6 +150,7 @@ export const sourceIndexRowArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()
 export type DocumentListRecord = Prisma.DocumentGetPayload<typeof documentListArgs>;
 export type DocumentDetailRecord = Prisma.DocumentGetPayload<typeof documentDetailArgs>;
 export type SourceIndexRowRecord = Prisma.DocumentGetPayload<typeof sourceIndexRowArgs>;
+export type DocumentOriginRowRecord = Prisma.DocumentGetPayload<typeof documentOriginRowArgs>;
 
 export async function listDocuments(query: DocumentListQuery) {
   const where = buildDocumentWhere(query);
@@ -151,6 +168,32 @@ export async function listDocuments(query: DocumentListQuery) {
   ]);
 
   return { total, items };
+}
+
+export async function listDocumentsByIds(ids: string[]) {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  return prisma.document.findMany({
+    ...documentListArgs,
+    where: {
+      id: {
+        in: ids,
+      },
+    },
+  });
+}
+
+export async function listDocumentOriginRows(query: DocumentListQuery) {
+  return prisma.document.findMany({
+    ...documentOriginRowArgs,
+    where: buildDocumentWhere({
+      ...query,
+      origin: undefined,
+    }),
+    orderBy: buildDocumentOrderBy(query.sort, query.surface),
+  });
 }
 
 export async function listSourceIndexRows(query: DocumentListQuery): Promise<{
@@ -376,6 +419,8 @@ type CreateWebDocumentInput = {
   lang: string | null;
   excerpt: string;
   author: string | null;
+  contentOriginKey: string | null;
+  contentOriginLabel: string | null;
   publishedAt: Date | null;
   publishedAtKind: PublishedAtKind;
   ingestionStatus: IngestionStatus;
@@ -419,6 +464,8 @@ export async function createWebDocument(input: CreateWebDocumentInput) {
       lang: input.lang,
       excerpt: input.excerpt,
       author: input.author,
+      contentOriginKey: input.contentOriginKey,
+      contentOriginLabel: input.contentOriginLabel,
       publishedAt: input.publishedAt,
       publishedAtKind: input.publishedAtKind,
       ingestionStatus: input.ingestionStatus,
@@ -540,6 +587,50 @@ export async function createWebDocumentPlaceholder(input: CreateWebDocumentPlace
       sourceId: input.sourceId ?? null,
       publishedAtKind: PublishedAtKind.UNKNOWN,
       ingestionStatus: input.ingestionStatus,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function listWechatContentOriginBackfillCandidates(limit: number) {
+  const scanLimit = limit * 10;
+  const candidates = await prisma.document.findMany({
+    where: buildWechatContentOriginBackfillWhere(),
+    orderBy: {
+      createdAt: "asc",
+    },
+    take: scanLimit + 1,
+    select: {
+      id: true,
+      author: true,
+      sourceUrl: true,
+      canonicalUrl: true,
+      contentOriginKey: true,
+      contentOriginLabel: true,
+    },
+  });
+  const repairableCandidates = candidates.filter(isRepairableWechatContentOriginCandidate);
+
+  return {
+    hasMore: repairableCandidates.length > limit || candidates.length > scanLimit,
+    items: repairableCandidates.slice(0, limit),
+  };
+}
+
+export async function updateDocumentContentOrigin(
+  id: string,
+  input: {
+    contentOriginKey: string;
+    contentOriginLabel: string;
+    author?: string | null;
+  },
+) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      contentOriginKey: input.contentOriginKey,
+      contentOriginLabel: input.contentOriginLabel,
+      ...(typeof input.author === "undefined" ? {} : { author: input.author }),
     },
     ...documentDetailArgs,
   });
@@ -847,4 +938,87 @@ function buildDocumentOrderBy(sort: DocumentListSort, surface: DocumentListQuery
 
 export const __documentRepositoryForTests = {
   buildDocumentSourceWhere,
+  buildWechatContentOriginBackfillWhere,
+  isRepairableWechatContentOriginCandidate,
 };
+
+function buildWechatContentOriginBackfillWhere(): Prisma.DocumentWhereInput {
+  return {
+    type: DocumentType.WEB_PAGE,
+    OR: [
+      { canonicalUrl: { startsWith: "https://mp.weixin.qq.com" } },
+      { canonicalUrl: { startsWith: "http://mp.weixin.qq.com" } },
+      { sourceUrl: { startsWith: "https://mp.weixin.qq.com" } },
+      { sourceUrl: { startsWith: "http://mp.weixin.qq.com" } },
+    ],
+    AND: [
+      {
+        OR: [
+          { contentOriginKey: null },
+          {
+            contentOriginKey: "wechat:unknown",
+          },
+          {
+            contentOriginKey: {
+              not: "wechat:unknown",
+            },
+            contentOriginLabel: "未识别公众号",
+          },
+          {
+            contentOriginKey: {
+              not: "wechat:unknown",
+            },
+            author: {
+              not: null,
+            },
+            contentOriginLabel: {
+              not: null,
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function isRepairableWechatContentOriginCandidate(candidate: {
+  author: string | null;
+  contentOriginKey: string | null;
+  contentOriginLabel: string | null;
+  canonicalUrl: string | null;
+  sourceUrl: string | null;
+}) {
+  if (candidate.contentOriginKey === null) {
+    return true;
+  }
+
+  if (candidate.contentOriginKey === "wechat:unknown") {
+    return hasWechatBizInCandidateUrls(candidate);
+  }
+
+  if (candidate.contentOriginLabel === "未识别公众号") {
+    return true;
+  }
+
+  return Boolean(candidate.author && candidate.contentOriginLabel === candidate.author);
+}
+
+function hasWechatBizInCandidateUrls(candidate: {
+  canonicalUrl: string | null;
+  sourceUrl: string | null;
+}) {
+  return hasWechatBizInUrl(candidate.canonicalUrl) || hasWechatBizInUrl(candidate.sourceUrl);
+}
+
+function hasWechatBizInUrl(value: string | null) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.hostname === "mp.weixin.qq.com" && url.searchParams.has("__biz");
+  } catch {
+    return false;
+  }
+}
