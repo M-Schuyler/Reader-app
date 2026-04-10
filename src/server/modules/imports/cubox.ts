@@ -435,20 +435,8 @@ async function upsertCuboxCard(
 ): Promise<ImportedCuboxDocumentResult> {
   const markdown = await context.client.getCardContent(card.id);
   const sourceMetadata = await resolveCuboxSourceMetadata(card.url);
-  if (sourceMetadata) {
-    await syncWechatSubsourceFromContentOrigin(
-      {
-        isWechat: Boolean(sourceMetadata.contentOriginKey?.startsWith("wechat:biz:")),
-        key: sourceMetadata.contentOriginKey ?? null,
-        label: sourceMetadata.contentOriginLabel ?? null,
-      },
-      {
-        wechatAccountName: sourceMetadata.wechatAccountName ?? null,
-      },
-      upsertWechatSubsource,
-    );
-  }
   const importedDocument = buildImportedCuboxDocument(card, markdown, context.tagDirectory, new Date(), sourceMetadata);
+  await syncCuboxWechatSubsource(importedDocument, sourceMetadata);
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -610,6 +598,28 @@ export function buildImportedCuboxDocument(
     tagNames,
     highlights,
   };
+}
+
+export async function syncCuboxWechatSubsource(
+  importedDocument: Pick<ImportedCuboxDocument, "contentOriginKey" | "contentOriginLabel">,
+  sourceMetadata: CuboxSourceMetadata | null,
+  deps: {
+    upsertWechatSubsource?: typeof upsertWechatSubsource;
+  } = {},
+) {
+  const upsert = deps.upsertWechatSubsource ?? upsertWechatSubsource;
+
+  return syncWechatSubsourceFromContentOrigin(
+    {
+      isWechat: Boolean(importedDocument.contentOriginKey?.startsWith("wechat:biz:")),
+      key: importedDocument.contentOriginKey ?? null,
+      label: importedDocument.contentOriginLabel ?? null,
+    },
+    {
+      wechatAccountName: sourceMetadata?.wechatAccountName ?? null,
+    },
+    upsert,
+  );
 }
 
 async function resolveCuboxSourceMetadata(sourceUrl: string | null | undefined) {
