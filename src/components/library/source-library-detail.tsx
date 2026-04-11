@@ -11,7 +11,6 @@ import type { GetDocumentsResponseData } from "@/server/modules/documents/docume
 import type { SourceLibrarySourceContext } from "@/lib/documents/source-library";
 import { SourceLibraryDocumentList } from "./source-library-document-list";
 import { SourceLibraryDetailFilters } from "./source-library-detail-filters";
-import { getSourceLibraryToneForSeed, SourceLibrarySourceCard } from "./source-library-source-card";
 
 type SourceLibraryDetailProps = {
   data: GetDocumentsResponseData;
@@ -19,13 +18,6 @@ type SourceLibraryDetailProps = {
   backHref?: string;
   clearHref?: string;
   hasActiveFilters?: boolean;
-  includeCategories?: string[];
-  sync?: {
-    sourceId: string;
-    lastSyncedAt: string | null;
-    lastSyncStatus: IngestionJobStatus | null;
-    lastSyncError: string | null;
-  };
 };
 
 export function SourceLibraryDetail({
@@ -34,15 +26,9 @@ export function SourceLibraryDetail({
   data,
   hasActiveFilters = false,
   source,
-  includeCategories = [],
-  sync,
 }: SourceLibraryDetailProps) {
-  const latestLabel = formatCollectedAt(source.latestCreatedAt);
-  const visibleTotal = data.pagination.total;
-  const tone = getSourceLibraryToneForSeed(source.id);
-
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
       <Link
         className="inline-flex items-center gap-2 text-sm text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
         href={backHref}
@@ -50,70 +36,6 @@ export function SourceLibraryDetail({
         <span aria-hidden="true">←</span>
         <span>返回来源库</span>
       </Link>
-
-      <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-stretch">
-        <SourceLibrarySourceCard
-          host={source.host}
-          href={null}
-          kind={source.kind}
-          label={source.label}
-          latestLabel={latestLabel}
-          meta={source.meta}
-          tone={tone}
-          variant="hero"
-        />
-
-        <Panel className="flex h-full flex-col justify-between gap-5 rounded-[32px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-6 py-6" tone="muted">
-          <div className="space-y-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">Source detail</p>
-            <div className="space-y-2">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-2">
-                  <h2 className="max-w-full font-ui-heading text-[clamp(2rem,4.4vw,3.1rem)] leading-[0.96] tracking-[-0.05em] text-[color:var(--text-primary)] [overflow-wrap:anywhere]">
-                    {source.label}
-                  </h2>
-                  {source.customLabel ? (
-                    <p className="text-sm text-[color:var(--text-tertiary)] [overflow-wrap:anywhere]">{source.defaultLabel}</p>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-col items-start gap-3">
-                  {sync ? <SourceSyncButton sourceId={sync.sourceId} /> : null}
-                  <SourceAliasEditor source={source} />
-                </div>
-              </div>
-              <p className="max-w-2xl text-[15px] leading-7 text-[color:var(--text-secondary)]">
-                这个来源下共有 {source.totalItems} 篇内容。当前筛选下能看到 {visibleTotal} 篇，保留同一来源的阅读脉络，不再被总书架打散。
-              </p>
-              {includeCategories.length > 0 ? (
-                <div className="space-y-2 pt-2">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">分类过滤</p>
-                  <p className="text-sm text-[color:var(--text-secondary)]">当前来源同步时只会保留这些分类，避免把整条 feed 的内容一股脑收进来。</p>
-                  <div className="flex flex-wrap gap-2">
-                    {includeCategories.map((category) => (
-                      <span
-                        className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
-                        key={category}
-                      >
-                        {category}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="grid gap-3 border-t border-[color:var(--border-subtle)] pt-4 sm:grid-cols-4">
-            <Metric label="来源类型" value={formatKind(source.kind)} />
-            <Metric label="篇数" value={source.meta} />
-            <Metric label="最近收入库" value={latestLabel} />
-            {sync ? <Metric label="同步状态" value={formatSyncMeta(sync.lastSyncStatus, sync.lastSyncedAt)} /> : null}
-          </div>
-
-          {sync?.lastSyncError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{sync.lastSyncError}</p> : null}
-        </Panel>
-      </div>
 
       <SourceLibraryDetailFilters
         clearHref={clearHref}
@@ -127,7 +49,6 @@ export function SourceLibraryDetail({
       ) : (
         <Panel className="px-8 py-12 text-center" tone="muted">
           <div className="mx-auto max-w-lg space-y-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">Source detail</p>
             <h3 className="font-ui-heading text-[2rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)]">
               这个来源下暂时没有符合当前筛选的内容
             </h3>
@@ -141,7 +62,88 @@ export function SourceLibraryDetail({
   );
 }
 
-function SourceAliasEditor({ source }: { source: SourceLibrarySourceContext }) {
+export function SourceLibraryDetailHeaderMeta({
+  includeCategories = [],
+  source,
+  sync,
+}: {
+  source: SourceLibrarySourceContext;
+  includeCategories?: string[];
+  sync?: {
+    sourceId: string;
+    lastSyncedAt: string | null;
+    lastSyncStatus: IngestionJobStatus | null;
+    lastSyncError: string | null;
+  };
+}) {
+  const latestLabel = formatCollectedAt(source.latestCreatedAt);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-[color:var(--text-secondary)]">
+        <span>{formatKind(source.kind)}</span>
+        <span aria-hidden="true" className="text-[color:var(--text-tertiary)]">
+          ·
+        </span>
+        <span>{source.meta}</span>
+        <span aria-hidden="true" className="text-[color:var(--text-tertiary)]">
+          ·
+        </span>
+        <span>最近收入库 {latestLabel}</span>
+        {sync ? (
+          <>
+            <span aria-hidden="true" className="text-[color:var(--text-tertiary)]">
+              ·
+            </span>
+            <span>{formatSyncMeta(sync.lastSyncStatus, sync.lastSyncedAt)}</span>
+          </>
+        ) : null}
+      </div>
+
+      {source.customLabel ? (
+        <p className="text-sm text-[color:var(--text-tertiary)] [overflow-wrap:anywhere]">默认名称 · {source.defaultLabel}</p>
+      ) : null}
+
+      {includeCategories.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">同步分类</span>
+          {includeCategories.map((category) => (
+            <span
+              className="inline-flex min-h-7 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-2.5 text-xs text-[color:var(--text-secondary)]"
+              key={category}
+            >
+              {category}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {sync?.lastSyncError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{sync.lastSyncError}</p> : null}
+    </div>
+  );
+}
+
+export function SourceLibraryDetailFilterState({ contextChips }: { contextChips: string[] }) {
+  if (contextChips.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <p className="text-sm text-[color:var(--text-secondary)]">当前正在这一来源里查看筛选后的结果。</p>
+      {contextChips.map((chip) => (
+        <span
+          className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
+          key={chip}
+        >
+          {chip}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function SourceAliasEditor({ source }: { source: SourceLibrarySourceContext }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(source.customLabel ?? source.label);
@@ -192,7 +194,7 @@ function SourceAliasEditor({ source }: { source: SourceLibrarySourceContext }) {
   }
 
   return (
-    <div className="space-y-2 lg:max-w-[17rem]">
+    <div className="space-y-2 sm:max-w-[17rem]">
       {isEditing ? (
         <>
           <TextInput
@@ -229,18 +231,9 @@ function SourceAliasEditor({ source }: { source: SourceLibrarySourceContext }) {
           <Button onClick={() => setIsEditing(true)} size="sm" variant="secondary">
             {source.customLabel ? "重命名书架" : "自定义命名"}
           </Button>
-          <p className="text-xs leading-6 text-[color:var(--text-tertiary)]">可以给这个一级书架起一个你更容易识别的名字。</p>
+          <p className="text-xs leading-6 text-[color:var(--text-tertiary)]">给这个来源起一个你更容易识别的名字。</p>
         </div>
       )}
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">{label}</p>
-      <p className="text-sm text-[color:var(--text-secondary)]">{value}</p>
     </div>
   );
 }
@@ -288,7 +281,7 @@ function formatSyncMeta(status: IngestionJobStatus | null, lastSyncedAt: string 
   }).format(new Date(lastSyncedAt))}`;
 }
 
-function SourceSyncButton({ sourceId }: { sourceId: string }) {
+export function SourceSyncButton({ sourceId }: { sourceId: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
