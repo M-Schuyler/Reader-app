@@ -1,5 +1,10 @@
 import { DocumentType, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
+import {
+  buildContentOriginIndex,
+  collectWechatBizFromContentOriginRows,
+  resolveDocumentContentOrigin,
+} from "@/lib/documents/content-origin";
 import { buildSourceAliasMap, buildSourceLibraryIndexGroups, collectSourceAliasLookups } from "@/lib/documents/source-library";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
 import {
@@ -14,6 +19,8 @@ import {
   type DocumentDetailRecord,
   findLatestCaptureErrorForDocument,
   getDocumentById,
+  listDocumentOriginRows,
+  listDocumentsByIds,
   listSourceIndexRows,
   listQuickSearchDocuments,
   listDocuments,
@@ -22,7 +29,9 @@ import {
   upsertSourceAlias,
   updateDocumentFavorite,
 } from "./document.repository";
+import { listWechatSubsourcesByBiz } from "./wechat-subsource.repository";
 import type {
+  CaptureIngestionError,
   DeleteDocumentResponseData,
   DocumentListQuery,
   DocumentListSort,
@@ -50,34 +59,72 @@ const MANUAL_SUMMARY_QUEUE_SWEEP_LIMIT = 3;
 const MANUAL_SUMMARY_QUEUE_SWEEP_MAX_RUNS = 4;
 const MANUAL_SUMMARY_QUEUE_SWEEP_MAX_RUNTIME_MS = 12_000;
 export const SOURCE_INDEX_APP_AGGREGATION_WARN_THRESHOLD = 2000;
+export const CONTENT_ORIGIN_APP_FILTER_WARN_THRESHOLD = 500;
 
 type DocumentDetailDependencies = {
   getDocumentById?: typeof getDocumentById;
   markDocumentEnteredReading?: typeof markDocumentEnteredReading;
   getLatestCaptureError?: typeof findLatestCaptureErrorForDocument;
+  listWechatSubsourcesByBiz?: typeof listWechatSubsourcesByBiz;
 };
 
-export async function getDocuments(query: DocumentListQuery): Promise<GetDocumentsResponseData> {
-  const { items, total } = await listDocuments(query);
+type GetDocumentsDependencies = {
+  listDocuments?: typeof listDocuments;
+  listDocumentsByIds?: typeof listDocumentsByIds;
+  listDocumentOriginRows?: typeof listDocumentOriginRows;
+  listWechatSubsourcesByBiz?: typeof listWechatSubsourcesByBiz;
+  warn?: (...args: unknown[]) => void;
+};
 
-  return {
-    items: items.map(mapDocumentListItem),
-    pagination: {
-      page: query.page,
-      pageSize: query.pageSize,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+export async function getDocuments(
+  query: DocumentListQuery,
+  dependencies: GetDocumentsDependencies = {},
+): Promise<GetDocumentsResponseData> {
+  const listPagedDocuments = dependencies.listDocuments ?? listDocuments;
+  const listOriginDocuments = dependencies.listDocumentOriginRows ?? listDocumentOriginRows;
+  const listDocumentsForIds = dependencies.listDocumentsByIds ?? listDocumentsByIds;
+  const listWechatSubsources = dependencies.listWechatSubsourcesByBiz ?? listWechatSubsourcesByBiz;
+  const warn = dependencies.warn ?? console.warn;
+
+  if (!supportsContentOriginFiltering(query)) {
+    const { items, total } = await listPagedDocuments(query);
+    return buildDocumentListResponse(query, items.map(mapDocumentListItem), total);
+  }
+
+  const originRows = await listOriginDocuments(query);
+  const contentOriginRows = originRows.map(mapRecordToContentOriginRow);
+
+  if (contentOriginRows.length > CONTENT_ORIGIN_APP_FILTER_WARN_THRESHOLD) {
+    warn(
+      `[DocumentContentOrigin] matchedDocumentCount=${contentOriginRows.length}; database-level content-origin filtering should be the next optimization step.`,
+    );
+  }
+
+  const contentOrigin = buildContentOriginIndex(
+    contentOriginRows,
+    {
+      wechatBizLabels: await loadWechatBizLabelMap(
+        collectWechatBizFromContentOriginRows(contentOriginRows),
+        listWechatSubsources,
+      ),
     },
-    filters: {
-      surface: query.surface,
-      q: query.q,
-      type: query.type,
-      readState: query.readState,
-      isFavorite: query.isFavorite,
-      tag: query.tag,
-      sort: query.sort,
-    },
-  };
+  );
+
+  if (!query.origin) {
+    const { items, total } = await listPagedDocuments(query);
+    return buildDocumentListResponse(query, items.map(mapDocumentListItem), total, contentOrigin.options);
+  }
+
+  const filteredIds = originRows
+    .filter((row) => contentOrigin.documentOriginById[row.id] === query.origin)
+    .map((row) => row.id);
+  const start = (query.page - 1) * query.pageSize;
+  const pageIds = filteredIds.slice(start, start + query.pageSize);
+  const pageItems = await listDocumentsForIds(pageIds);
+  const pageItemMap = new Map(pageItems.map((item) => [item.id, item]));
+  const orderedItems = pageIds.map((id) => pageItemMap.get(id)).filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  return buildDocumentListResponse(query, orderedItems.map(mapDocumentListItem), filteredIds.length, contentOrigin.options);
 }
 
 type SourceLibraryIndexDependencies = {
@@ -198,7 +245,9 @@ export async function updateDocumentFavoriteStatus(
 
   if (!input.isFavorite) {
     return {
-      document: mapDocumentDetail(document),
+      document: await mapDocumentDetailWithResolvedContentOrigin(document, {
+        listWechatSubsourcesByBiz,
+      }),
       summary: {
         status: "not_requested",
         source: null,
@@ -208,7 +257,9 @@ export async function updateDocumentFavoriteStatus(
   }
 
   return {
-    document: mapDocumentDetail(document),
+    document: await mapDocumentDetailWithResolvedContentOrigin(document, {
+      listWechatSubsourcesByBiz,
+    }),
     summary: {
       status: "not_requested",
       source: null,
@@ -238,8 +289,47 @@ export async function prioritizeDocumentAiSummaryForReader(
   }
 
   return {
-    document: mapDocumentDetail(result.document),
+    document: await mapDocumentDetailWithResolvedContentOrigin(result.document, {
+      listWechatSubsourcesByBiz,
+    }),
     summary: result.summary,
+  };
+}
+
+function supportsContentOriginFiltering(query: DocumentListQuery) {
+  const enableContentOrigin = (query as DocumentListQuery & { enableContentOrigin?: boolean }).enableContentOrigin;
+  if (!enableContentOrigin || query.surface !== "source") {
+    return false;
+  }
+
+  return Boolean(query.source || query.sourceId);
+}
+
+function buildDocumentListResponse(
+  query: DocumentListQuery,
+  items: GetDocumentsResponseData["items"],
+  total: number,
+  contentOriginOptions: NonNullable<GetDocumentsResponseData["contentOrigin"]>["options"] = [],
+): GetDocumentsResponseData {
+  return {
+    items,
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    },
+    filters: {
+      surface: query.surface,
+      q: query.q,
+      type: query.type,
+      origin: query.origin,
+      readState: query.readState,
+      isFavorite: query.isFavorite,
+      tag: query.tag,
+      sort: query.sort,
+    },
+    contentOrigin: contentOriginOptions.length > 0 ? { options: contentOriginOptions } : undefined,
   };
 }
 
@@ -251,9 +341,73 @@ async function buildDocumentDetailResponse(
   const ingestionError = await getLatestCaptureError(document);
 
   return {
-    document: mapDocumentDetail(document, {
+    document: await mapDocumentDetailWithResolvedContentOrigin(document, {
       ingestionError,
+      listWechatSubsourcesByBiz: dependencies.listWechatSubsourcesByBiz,
     }),
+  };
+}
+
+async function mapDocumentDetailWithResolvedContentOrigin(
+  document: DocumentDetailRecord,
+  options: {
+    ingestionError?: CaptureIngestionError | null;
+    listWechatSubsourcesByBiz?: typeof listWechatSubsourcesByBiz;
+  } = {},
+) {
+  const listWechatSubsources = options.listWechatSubsourcesByBiz ?? listWechatSubsourcesByBiz;
+  const contentOriginOverride = await resolveDocumentContentOriginForDetail(document, listWechatSubsources);
+
+  return mapDocumentDetail(document, {
+    ingestionError: options.ingestionError,
+    contentOriginOverride,
+  });
+}
+
+async function resolveDocumentContentOriginForDetail(
+  document: DocumentDetailRecord,
+  listWechatSubsources: typeof listWechatSubsourcesByBiz,
+) {
+  const contentOriginRow = mapRecordToContentOriginRow(document);
+  const labelMap = await loadWechatBizLabelMap(collectWechatBizFromContentOriginRows([contentOriginRow]), listWechatSubsources);
+  return resolveDocumentContentOrigin(contentOriginRow, {
+    wechatBizLabels: labelMap,
+  });
+}
+
+async function loadWechatBizLabelMap(
+  bizValues: string[],
+  listWechatSubsources: typeof listWechatSubsourcesByBiz,
+) {
+  if (bizValues.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const subsources = await listWechatSubsources(bizValues);
+  return new Map(subsources.map((subsource) => [subsource.biz, subsource.displayName]));
+}
+
+function mapRecordToContentOriginRow(
+  record: {
+    id: string;
+    author: string | null;
+    sourceUrl: string | null;
+    canonicalUrl: string | null;
+    contentOriginKey: string | null;
+    contentOriginLabel: string | null;
+    content?: {
+      rawHtml: string | null;
+    } | null;
+  },
+) {
+  return {
+    id: record.id,
+    author: record.author,
+    sourceUrl: record.sourceUrl,
+    canonicalUrl: record.canonicalUrl,
+    contentOriginKey: record.contentOriginKey,
+    contentOriginLabel: record.contentOriginLabel,
+    rawHtml: record.content?.rawHtml ?? null,
   };
 }
 
@@ -321,6 +475,7 @@ export function parseDocumentListQuery(searchParams: URLSearchParams): DocumentL
     surface: parseDocumentSurface(searchParams.get("surface")),
     q: parseOptionalString(searchParams.get("q")),
     type: parseDocumentType(searchParams.get("type")),
+    origin: parseOptionalString(searchParams.get("origin")),
     readState: parseReadState(searchParams.get("readState")),
     isFavorite: parseOptionalBoolean(searchParams.get("isFavorite")),
     tag: parseOptionalString(searchParams.get("tag")),

@@ -1,45 +1,42 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 
-export const wechatSubsourceRecordArgs = Prisma.validator<Prisma.WechatSubsourceDefaultArgs>()({
-  select: {
-    biz: true,
-    displayName: true,
-    isPlaceholder: true,
-    createdAt: true,
-    updatedAt: true,
-  },
-});
+export type WechatSubsourceRecord = {
+  biz: string;
+  displayName: string;
+  isPlaceholder: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
-export type WechatSubsourceRecord = Prisma.WechatSubsourceGetPayload<typeof wechatSubsourceRecordArgs>;
+const wechatSubsourceSelect = {
+  biz: true,
+  displayName: true,
+  isPlaceholder: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
-export async function findWechatSubsourceByBiz(biz: string) {
+export async function findWechatSubsourceByBiz(biz: string): Promise<WechatSubsourceRecord | null> {
   return prisma.wechatSubsource.findUnique({
     where: {
       biz,
     },
-    ...wechatSubsourceRecordArgs,
+    select: wechatSubsourceSelect,
   });
 }
 
-export async function upsertWechatSubsourceRecord(input: {
-  biz: string;
-  displayName: string;
-  isPlaceholder: boolean;
-}) {
-  return prisma.wechatSubsource.upsert({
+export async function listWechatSubsourcesByBiz(bizValues: string[]): Promise<WechatSubsourceRecord[]> {
+  const normalizedBizValues = [...new Set(bizValues.map((biz) => biz.trim()).filter(Boolean))];
+  if (normalizedBizValues.length === 0) {
+    return [];
+  }
+
+  return prisma.wechatSubsource.findMany({
     where: {
-      biz: input.biz,
+      biz: {
+        in: normalizedBizValues,
+      },
     },
-    create: {
-      biz: input.biz,
-      displayName: input.displayName,
-      isPlaceholder: input.isPlaceholder,
-    },
-    update: {
-      displayName: input.displayName,
-      isPlaceholder: input.isPlaceholder,
-    },
-    ...wechatSubsourceRecordArgs,
+    select: wechatSubsourceSelect,
   });
 }

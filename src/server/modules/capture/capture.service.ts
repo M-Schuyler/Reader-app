@@ -1,4 +1,5 @@
 import { IngestionJobKind, IngestionJobStatus, IngestionStatus, PublishedAtKind } from "@prisma/client";
+import { deriveContentOriginMetadata, syncWechatSubsourceFromContentOrigin } from "@/lib/documents/content-origin";
 import { RouteError } from "@/server/api/response";
 import { prisma } from "@/server/db/client";
 import { extractWebPage } from "@/server/extractors/web/extract-web-page";
@@ -12,6 +13,7 @@ import {
   findWebDocumentByUrlCandidates,
   type DocumentDetailRecord,
 } from "@/server/modules/documents/document.repository";
+import { upsertWechatSubsource } from "@/server/modules/documents/wechat-subsource.service";
 import type { CaptureIngestionError, CaptureUrlResponseData } from "@/server/modules/documents/document.types";
 
 export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseData> {
@@ -49,6 +51,22 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
     });
 
     const extracted = await extractWebPage(normalizedUrl);
+    const derivedContentOrigin = deriveContentOriginMetadata({
+      author: extracted.author,
+      canonicalUrl: extracted.canonicalUrl,
+      finalUrl: extracted.finalUrl,
+      rawHtml: extracted.rawHtml,
+      sourceUrl: normalizedUrl,
+      wechatAccountName: extracted.wechatAccountName,
+    });
+    await syncWechatSubsourceFromContentOrigin(
+      derivedContentOrigin,
+      {
+        wechatAccountName: extracted.wechatAccountName,
+      },
+      upsertWechatSubsource,
+    );
+
     const sourceHostname = resolveSourceHostname(extracted.canonicalUrl ?? extracted.finalUrl ?? normalizedUrl);
     const urlCandidates = Array.from(
       new Set([normalizedUrl, extracted.finalUrl, extracted.canonicalUrl].filter((value): value is string => Boolean(value))),
@@ -83,6 +101,8 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
     }
 
     const document = await createWebDocument({
+      contentOriginKey: derivedContentOrigin.key,
+      contentOriginLabel: derivedContentOrigin.label,
       title: extracted.title,
       sourceUrl: normalizedUrl,
       canonicalUrl: extracted.canonicalUrl ?? extracted.finalUrl,

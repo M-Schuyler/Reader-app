@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  deriveContentOriginMetadata,
+  syncWechatSubsourceFromContentOrigin,
+} from "@/lib/documents/content-origin";
 import { RouteError } from "@/server/api/response";
 import { normalizeCaptureInputUrl } from "@/server/modules/capture/capture.service";
 
@@ -25,4 +29,70 @@ test("normalizeCaptureInputUrl rejects non-http protocols", () => {
     () => normalizeCaptureInputUrl("javascript:alert(1)"),
     (error) => error instanceof RouteError && error.code === "INVALID_URL",
   );
+});
+
+test("deriveContentOriginMetadata prefers an explicit WeChat account name over raw HTML nickname", () => {
+  const result = deriveContentOriginMetadata({
+    canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    finalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    rawHtml: "<script>var profile_nickname = \"旧昵称\";</script>",
+    sourceUrl: "https://mp.weixin.qq.com/s/u5b-5ihEDEIFvykN_HDZig",
+    wechatAccountName: "请辩",
+  });
+
+  assert.equal(result.label, "请辩");
+});
+
+test("syncWechatSubsourceFromContentOrigin only writes biz-backed WeChat rows and uses the explicit account name when present", async () => {
+  const origin = deriveContentOriginMetadata({
+    canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    finalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    rawHtml: "<script>var profile_nickname = \"旧昵称\";</script>",
+    sourceUrl: "https://mp.weixin.qq.com/s/u5b-5ihEDEIFvykN_HDZig",
+    wechatAccountName: "请辩",
+  });
+
+  const calls: Array<{ biz: string; displayName: string | null }> = [];
+
+  await syncWechatSubsourceFromContentOrigin(
+    origin,
+    { wechatAccountName: "请辩" },
+    async (input) => {
+      calls.push(input);
+      return input;
+    },
+  );
+
+  await syncWechatSubsourceFromContentOrigin(
+    {
+      isWechat: true,
+      key: "wechat:nickname:请辩",
+      label: "请辩",
+    },
+    { wechatAccountName: "请辩" },
+    async (input) => {
+      calls.push(input);
+      return input;
+    },
+  );
+
+  await syncWechatSubsourceFromContentOrigin(
+    {
+      isWechat: false,
+      key: null,
+      label: null,
+    },
+    { wechatAccountName: "请辩" },
+    async (input) => {
+      calls.push(input);
+      return input;
+    },
+  );
+
+  assert.deepEqual(calls, [
+    {
+      biz: "MzI0MDg5ODA2NQ==",
+      displayName: "请辩",
+    },
+  ]);
 });

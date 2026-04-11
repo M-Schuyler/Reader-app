@@ -3,7 +3,7 @@ import test from "node:test";
 import { upsertWechatSubsource } from "./wechat-subsource.service";
 
 test("creates a placeholder subsource when no display name is provided", async () => {
-  const calls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const createCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
 
   const record = await upsertWechatSubsource(
     {
@@ -12,18 +12,21 @@ test("creates a placeholder subsource when no display name is provided", async (
     },
     {
       findWechatSubsourceByBiz: async () => null,
-      upsertWechatSubsourceRecord: async (input) => {
-        calls.push(input);
+      createWechatSubsource: async (input) => {
+        createCalls.push(input);
         return {
           ...input,
           createdAt: new Date("2026-04-10T00:00:00.000Z"),
           updatedAt: new Date("2026-04-10T00:00:00.000Z"),
         };
       },
+      updateWechatSubsource: async () => {
+        throw new Error("placeholder writes should not update an existing row");
+      },
     },
   );
 
-  assert.deepEqual(calls, [
+  assert.deepEqual(createCalls, [
     {
       biz: "MzI0MDg5ODA2NQ==",
       displayName: "未命名公众号 MzI0MD…",
@@ -35,7 +38,8 @@ test("creates a placeholder subsource when no display name is provided", async (
 });
 
 test("promotes an existing placeholder to a real display name", async () => {
-  const calls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const createCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const updateCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
 
   const record = await upsertWechatSubsource(
     {
@@ -50,9 +54,18 @@ test("promotes an existing placeholder to a real display name", async () => {
         createdAt: new Date("2026-04-10T00:00:00.000Z"),
         updatedAt: new Date("2026-04-10T00:00:00.000Z"),
       }),
-      upsertWechatSubsourceRecord: async (input) => {
-        calls.push(input);
+      createWechatSubsource: async (input) => {
+        createCalls.push(input);
         return {
+          ...input,
+          createdAt: new Date("2026-04-10T00:00:00.000Z"),
+          updatedAt: new Date("2026-04-10T00:00:00.000Z"),
+        };
+      },
+      updateWechatSubsource: async (biz, input) => {
+        updateCalls.push({ biz, ...input });
+        return {
+          biz,
           ...input,
           createdAt: new Date("2026-04-10T00:00:00.000Z"),
           updatedAt: new Date("2026-04-10T00:00:00.000Z"),
@@ -61,7 +74,8 @@ test("promotes an existing placeholder to a real display name", async () => {
     },
   );
 
-  assert.deepEqual(calls, [
+  assert.deepEqual(createCalls, []);
+  assert.deepEqual(updateCalls, [
     {
       biz: "MzI0MDg5ODA2NQ==",
       displayName: "请辩",
@@ -73,7 +87,8 @@ test("promotes an existing placeholder to a real display name", async () => {
 });
 
 test("does not overwrite an existing real display name with a later placeholder write", async () => {
-  const calls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const createCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const updateCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
   const existing = {
     biz: "MzI0MDg5ODA2NQ==",
     displayName: "请辩",
@@ -89,9 +104,18 @@ test("does not overwrite an existing real display name with a later placeholder 
     },
     {
       findWechatSubsourceByBiz: async () => existing,
-      upsertWechatSubsourceRecord: async (input) => {
-        calls.push(input);
+      createWechatSubsource: async (input) => {
+        createCalls.push(input);
         return {
+          ...input,
+          createdAt: existing.createdAt,
+          updatedAt: existing.updatedAt,
+        };
+      },
+      updateWechatSubsource: async (biz, input) => {
+        updateCalls.push({ biz, ...input });
+        return {
+          biz,
           ...input,
           createdAt: existing.createdAt,
           updatedAt: existing.updatedAt,
@@ -100,13 +124,65 @@ test("does not overwrite an existing real display name with a later placeholder 
     },
   );
 
-  assert.deepEqual(calls, []);
+  assert.deepEqual(createCalls, []);
+  assert.deepEqual(updateCalls, []);
+  assert.equal(record.displayName, "请辩");
+  assert.equal(record.isPlaceholder, false);
+});
+
+test("creates and re-reads instead of overwriting when a placeholder write races with a real name", async () => {
+  const createCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const updateCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const existing = {
+    biz: "MzI0MDg5ODA2NQ==",
+    displayName: "请辩",
+    isPlaceholder: false,
+    createdAt: new Date("2026-04-10T00:00:00.000Z"),
+    updatedAt: new Date("2026-04-10T00:00:00.000Z"),
+  };
+  let findCount = 0;
+
+  const record = await upsertWechatSubsource(
+    {
+      biz: "MzI0MDg5ODA2NQ==",
+      displayName: null,
+    },
+    {
+      findWechatSubsourceByBiz: async () => {
+        findCount += 1;
+        return findCount === 1 ? null : existing;
+      },
+      createWechatSubsource: async (input) => {
+        createCalls.push(input);
+        throw makeUniqueConstraintError();
+      },
+      updateWechatSubsource: async (biz, input) => {
+        updateCalls.push({ biz, ...input });
+        return {
+          biz,
+          ...input,
+          createdAt: existing.createdAt,
+          updatedAt: existing.updatedAt,
+        };
+      },
+    },
+  );
+
+  assert.deepEqual(createCalls, [
+    {
+      biz: "MzI0MDg5ODA2NQ==",
+      displayName: "未命名公众号 MzI0MD…",
+      isPlaceholder: true,
+    },
+  ]);
+  assert.deepEqual(updateCalls, []);
   assert.equal(record.displayName, "请辩");
   assert.equal(record.isPlaceholder, false);
 });
 
 test("updates an existing non-placeholder record when a real display name changes", async () => {
-  const calls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const createCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
+  const updateCalls: Array<{ biz: string; displayName: string; isPlaceholder: boolean }> = [];
 
   const record = await upsertWechatSubsource(
     {
@@ -121,9 +197,18 @@ test("updates an existing non-placeholder record when a real display name change
         createdAt: new Date("2026-04-10T00:00:00.000Z"),
         updatedAt: new Date("2026-04-10T00:00:00.000Z"),
       }),
-      upsertWechatSubsourceRecord: async (input) => {
-        calls.push(input);
+      createWechatSubsource: async (input) => {
+        createCalls.push(input);
         return {
+          ...input,
+          createdAt: new Date("2026-04-10T00:00:00.000Z"),
+          updatedAt: new Date("2026-04-10T00:00:00.000Z"),
+        };
+      },
+      updateWechatSubsource: async (biz, input) => {
+        updateCalls.push({ biz, ...input });
+        return {
+          biz,
           ...input,
           createdAt: new Date("2026-04-10T00:00:00.000Z"),
           updatedAt: new Date("2026-04-10T00:00:00.000Z"),
@@ -132,7 +217,8 @@ test("updates an existing non-placeholder record when a real display name change
     },
   );
 
-  assert.deepEqual(calls, [
+  assert.deepEqual(createCalls, []);
+  assert.deepEqual(updateCalls, [
     {
       biz: "MzI0MDg5ODA2NQ==",
       displayName: "请辩的新名字",
@@ -142,3 +228,7 @@ test("updates an existing non-placeholder record when a real display name change
   assert.equal(record.displayName, "请辩的新名字");
   assert.equal(record.isPlaceholder, false);
 });
+
+function makeUniqueConstraintError() {
+  return { code: "P2002" };
+}

@@ -1,8 +1,6 @@
 import type { WechatSubsourceRecord } from "./wechat-subsource.repository";
-import {
-  findWechatSubsourceByBiz as defaultFindWechatSubsourceByBiz,
-  upsertWechatSubsourceRecord as defaultUpsertWechatSubsourceRecord,
-} from "./wechat-subsource.repository";
+import { prisma } from "@/server/db/client";
+import { findWechatSubsourceByBiz as defaultFindWechatSubsourceByBiz } from "./wechat-subsource.repository";
 
 const WECHAT_PLACEHOLDER_LABEL_PREFIX = "未命名公众号";
 const WECHAT_BIZ_PREFIX_LENGTH = 6;
@@ -14,48 +12,81 @@ export type UpsertWechatSubsourceInput = {
 
 export type UpsertWechatSubsourceDependencies = {
   findWechatSubsourceByBiz?: typeof defaultFindWechatSubsourceByBiz;
-  upsertWechatSubsourceRecord?: typeof defaultUpsertWechatSubsourceRecord;
+  createWechatSubsource?: (input: PersistWechatSubsourceInput) => Promise<WechatSubsourceRecord>;
+  updateWechatSubsource?: PersistWechatSubsourceUpdateFn;
 };
+
+type PersistWechatSubsourceInput = {
+  biz: string;
+  displayName: string;
+  isPlaceholder: boolean;
+};
+
+type PersistWechatSubsourceUpdateFn = (
+  biz: string,
+  input: {
+    displayName: string;
+    isPlaceholder: boolean;
+  },
+) => Promise<WechatSubsourceRecord>;
 
 export async function upsertWechatSubsource(
   input: UpsertWechatSubsourceInput,
   deps: UpsertWechatSubsourceDependencies = {},
 ): Promise<WechatSubsourceRecord> {
   const findWechatSubsourceByBiz = deps.findWechatSubsourceByBiz ?? defaultFindWechatSubsourceByBiz;
-  const upsertWechatSubsourceRecord = deps.upsertWechatSubsourceRecord ?? defaultUpsertWechatSubsourceRecord;
+  const createWechatSubsource = deps.createWechatSubsource ?? persistWechatSubsourceCreate;
+  const updateWechatSubsource = deps.updateWechatSubsource ?? persistWechatSubsourceUpdate;
   const biz = normalizeBiz(input.biz);
   const displayName = normalizeDisplayName(input.displayName);
+  const next = buildNextSubsourceState(biz, displayName);
+
   const existing = await findWechatSubsourceByBiz(biz);
-
-  if (!existing) {
-    return upsertWechatSubsourceRecord({
-      biz,
-      displayName: displayName ?? buildPlaceholderDisplayName(biz),
-      isPlaceholder: displayName === null,
-    });
+  if (existing) {
+    return reconcileExistingSubsource(existing, next, updateWechatSubsource);
   }
 
-  if (existing.isPlaceholder) {
-    if (displayName === null) {
-      return existing;
+  try {
+    return await createWechatSubsource(next);
+  } catch (error) {
+    if (!isUniqueConstraintViolation(error)) {
+      throw error;
     }
-
-    return upsertWechatSubsourceRecord({
-      biz,
-      displayName,
-      isPlaceholder: false,
-    });
   }
 
-  if (displayName === null || existing.displayName === displayName) {
+  const conflicted = await findWechatSubsourceByBiz(biz);
+  if (!conflicted) {
+    throw new Error(`Wechat subsource ${biz} conflicted during create but could not be reloaded.`);
+  }
+
+  return reconcileExistingSubsource(conflicted, next, updateWechatSubsource);
+}
+
+function reconcileExistingSubsource(
+  existing: WechatSubsourceRecord,
+  next: PersistWechatSubsourceInput,
+  updateWechatSubsource: PersistWechatSubsourceUpdateFn,
+) {
+  if (next.isPlaceholder) {
     return existing;
   }
 
-  return upsertWechatSubsourceRecord({
-    biz,
-    displayName,
+  if (existing.displayName === next.displayName && existing.isPlaceholder === false) {
+    return existing;
+  }
+
+  return updateWechatSubsource(existing.biz, {
+    displayName: next.displayName,
     isPlaceholder: false,
   });
+}
+
+function buildNextSubsourceState(biz: string, displayName: string | null): PersistWechatSubsourceInput {
+  return {
+    biz,
+    displayName: displayName ?? buildPlaceholderDisplayName(biz),
+    isPlaceholder: displayName === null,
+  };
 }
 
 function normalizeBiz(value: string) {
@@ -75,3 +106,38 @@ function normalizeDisplayName(value: string | null | undefined) {
 function buildPlaceholderDisplayName(biz: string) {
   return `${WECHAT_PLACEHOLDER_LABEL_PREFIX} ${biz.slice(0, WECHAT_BIZ_PREFIX_LENGTH)}…`;
 }
+
+function isUniqueConstraintViolation(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002";
+}
+
+async function persistWechatSubsourceCreate(input: PersistWechatSubsourceInput): Promise<WechatSubsourceRecord> {
+  return prisma.wechatSubsource.create({
+    data: input,
+    select: wechatSubsourceSelect,
+  });
+}
+
+async function persistWechatSubsourceUpdate(
+  biz: string,
+  input: {
+    displayName: string;
+    isPlaceholder: boolean;
+  },
+): Promise<WechatSubsourceRecord> {
+  return prisma.wechatSubsource.update({
+    where: {
+      biz,
+    },
+    data: input,
+    select: wechatSubsourceSelect,
+  });
+}
+
+const wechatSubsourceSelect = {
+  biz: true,
+  displayName: true,
+  isPlaceholder: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;

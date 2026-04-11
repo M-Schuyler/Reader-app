@@ -93,10 +93,15 @@ test("source detail routes and unknown source route use the dedicated detail sur
   assert.match(unknownPage, /kind: "unknown"/);
   assert.match(namedSourcePage, /SourceLibraryDetail/);
   assert.match(namedSourcePage, /sourceId/);
+  assert.match(namedSourcePage, /shouldEnableContentOriginForSourceDetail/);
+  assert.match(namedSourcePage, /enableContentOrigin/);
   assert.match(namedSourcePage, /sync=\{/);
   assert.match(namedSourcePage, /includeCategories=\{/);
   assert.match(detailPage, /SourceLibraryDetail/);
   assert.match(detailPage, /getDocuments/);
+  assert.match(detailPage, /shouldEnableContentOriginForSourceDetail/);
+  assert.match(detailPage, /enableContentOrigin/);
+  assert.doesNotMatch(detailPage, /SourceLibraryToolbar/);
   assert.match(detailComponent, /SourceLibraryDocumentList/);
   assert.match(detailComponent, /getSourceLibraryToneForSeed\(source\.id\)/);
   assert.match(detailComponent, /toneSeed=\{source\.id\}/);
