@@ -55,7 +55,7 @@ export function mapDocumentDetail(
   },
 ): DocumentDetail {
   const contentOrigin =
-    options && "contentOriginOverride" in options
+    options?.contentOriginOverride !== undefined
       ? options.contentOriginOverride
       : record.contentOriginKey && record.contentOriginLabel
         ? {

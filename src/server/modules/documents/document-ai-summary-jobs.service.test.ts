@@ -704,6 +704,8 @@ function createSummaryDocumentRecord(
     lang: "zh-CN",
     excerpt: "就是各种Agent现在太火了。",
     author: "Kai",
+    contentOriginKey: null,
+    contentOriginLabel: null,
     publishedAt: new Date("2026-03-31T02:09:33.000Z"),
     publishedAtKind: "EXACT",
     enteredReadingAt: now,
@@ -715,6 +717,7 @@ function createSummaryDocumentRecord(
     content: {
       contentHtml: "<p>最近看到一个现象，我觉得挺值得聊聊的。</p>",
       plainText: "最近看到一个现象，我觉得挺值得聊聊的。",
+      rawHtml: null,
       textHash: null,
       wordCount: 1200,
       extractedAt: now,
