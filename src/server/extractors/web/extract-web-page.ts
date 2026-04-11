@@ -141,6 +141,7 @@ export type ExtractedWebPage = {
   title: string;
   lang: string | null;
   author: string | null;
+  wechatAccountName: string | null;
   publishedAt: Date | null;
   excerpt: string;
   contentHtml: string | null;
@@ -150,7 +151,10 @@ export type ExtractedWebPage = {
   textHash: string;
 };
 
-export type ExtractedWebPageMetadata = Pick<ExtractedWebPage, "finalUrl" | "canonicalUrl" | "author" | "publishedAt">;
+export type ExtractedWebPageMetadata = Pick<
+  ExtractedWebPage,
+  "finalUrl" | "canonicalUrl" | "author" | "wechatAccountName" | "publishedAt"
+>;
 
 export async function extractWebPage(url: string): Promise<ExtractedWebPage> {
   const fetchedPage = await fetchWebPageDocument(url);
@@ -190,6 +194,7 @@ export function extractWebPageMetadataFromHtml(input: {
     finalUrl,
     canonicalUrl: extractCanonicalUrl($, finalUrl),
     author: extractAuthor($, finalUrl, rawHtml),
+    wechatAccountName: extractWeChatAccountName($, finalUrl, rawHtml),
     publishedAt: extractPublishedAt($, finalUrl, rawHtml),
   };
 }
@@ -215,7 +220,8 @@ export function extractWebPageFromHtml(input: {
   const title = extractTitle($, finalUrl) ?? weChatInlineReadablePayload?.title ?? new URL(finalUrl).hostname;
   const lang = extractLang($);
   const canonicalUrl = extractCanonicalUrl($, finalUrl);
-  const author = extractAuthor($, finalUrl, rawHtml) ?? weChatInlineReadablePayload?.author ?? null;
+  const author = extractAuthor($, finalUrl, rawHtml);
+  const wechatAccountName = extractWeChatAccountName($, finalUrl, rawHtml) ?? weChatInlineReadablePayload?.wechatAccountName ?? null;
   const publishedAt = extractPublishedAt($, finalUrl, rawHtml) ?? weChatInlineReadablePayload?.publishedAt ?? null;
   const contentHtml = shouldUseWeChatInlineReadablePayload
     ? trimReadableHtml(buildParagraphHtmlFromPlainText(weChatInlineReadablePayload?.plainText ?? ""), title, finalUrl)
@@ -238,6 +244,7 @@ export function extractWebPageFromHtml(input: {
     title,
     lang,
     author,
+    wechatAccountName,
     publishedAt,
     excerpt,
     contentHtml: contentHtml || null,
@@ -868,6 +875,40 @@ function extractAuthor($: CheerioAPI, finalUrl: string, rawHtml: string) {
   return null;
 }
 
+function extractWeChatAccountName($: CheerioAPI, finalUrl: string, rawHtml: string) {
+  if (!isWeChatHost(safeParseUrl(finalUrl))) {
+    return null;
+  }
+
+  const scriptNickname =
+    rawHtml.match(/\bnick_name\s*:\s*JsDecode\(\s*'([\s\S]{1,160}?)'\s*\)/i)?.[1] ??
+    rawHtml.match(/\bprofile_nickname\s*[:=]\s*["']([^"'\\\n]{1,80})["']/i)?.[1] ??
+    rawHtml.match(/\bnickname\s*[:=]\s*(?:htmlDecode\()?["']([^"'\\\n]{1,80})["']\)?/i)?.[1] ??
+    null;
+  const decodedScriptNickname = normalizeAuthorCandidate(decodeWeChatJsString(scriptNickname));
+
+  if (decodedScriptNickname) {
+    return decodedScriptNickname;
+  }
+
+  const selectorCandidates = [
+    "#meta_content .rich_media_meta_text",
+    "#js_name",
+    ".profile_nickname",
+    ".rich_media_meta.rich_media_meta_nickname",
+    ".rich_media_meta.rich_media_meta_text",
+  ];
+
+  for (const selector of selectorCandidates) {
+    const candidate = normalizeAuthorCandidate(cleanText($(selector).first().text()));
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function extractAuthorFromSelectors($: CheerioAPI, $root: Cheerio<Element>) {
   const selectors = [
     "[itemprop='author'] [itemprop='name']",
@@ -1003,32 +1044,6 @@ function parseJsonLdAuthorValue(value: unknown): string | null {
 }
 
 function extractWeChatAuthor($: CheerioAPI, rawHtml: string) {
-  const scriptNickname =
-    rawHtml.match(/\bnick_name\s*:\s*JsDecode\(\s*'([\s\S]{1,160}?)'\s*\)/i)?.[1] ??
-    rawHtml.match(/\bprofile_nickname\s*[:=]\s*["']([^"'\\\n]{1,80})["']/i)?.[1] ??
-    rawHtml.match(/\bnickname\s*[:=]\s*(?:htmlDecode\()?["']([^"'\\\n]{1,80})["']\)?/i)?.[1] ??
-    null;
-  const decodedScriptNickname = normalizeAuthorCandidate(decodeWeChatJsString(scriptNickname));
-
-  if (decodedScriptNickname) {
-    return decodedScriptNickname;
-  }
-
-  const selectorCandidates = [
-    "#meta_content .rich_media_meta_text",
-    "#js_name",
-    ".profile_nickname",
-    ".rich_media_meta.rich_media_meta_nickname",
-    ".rich_media_meta.rich_media_meta_text",
-  ];
-
-  for (const selector of selectorCandidates) {
-    const candidate = normalizeAuthorCandidate(cleanText($(selector).first().text()));
-    if (candidate) {
-      return candidate;
-    }
-  }
-
   const bylineSelectors = ["#js_content > section", "#js_content > p", "#img-content > section", "#img-content > p"];
   for (const selector of bylineSelectors) {
     for (const element of $(selector).slice(0, 3).toArray()) {
@@ -1039,7 +1054,12 @@ function extractWeChatAuthor($: CheerioAPI, rawHtml: string) {
     }
   }
 
-  return null;
+  const rawHtmlByline =
+    rawHtml.match(/(?:^|[\r\n>])\s*(?:文|作者|撰文|By|BY|by)\s*[:：]\s*([^<\r\n]{1,60})/i)?.[1] ??
+    rawHtml.match(/(?:^|[\r\n>])\s*(?:作者|By|BY|by)\s+([^<\r\n]{1,60})/i)?.[1] ??
+    null;
+
+  return normalizeAuthorCandidate(rawHtmlByline);
 }
 
 function parseAuthorFromByline(value: string) {
@@ -1588,7 +1608,7 @@ function extractWeChatInlineReadablePayload(rawHtml: string) {
 
   return {
     title: cleanText(decodeWeChatJsString(rawHtml.match(/\btitle\s*:\s*JsDecode\(\s*'([\s\S]*?)'\s*\)/i)?.[1] ?? null)),
-    author: normalizeAuthorCandidate(
+    wechatAccountName: normalizeAuthorCandidate(
       decodeWeChatJsString(rawHtml.match(/\bnick_name\s*:\s*JsDecode\(\s*'([\s\S]*?)'\s*\)/i)?.[1] ?? null),
     ),
     publishedAt: parseDateValue(

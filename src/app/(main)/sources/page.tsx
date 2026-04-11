@@ -27,7 +27,7 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
     ...parsedQuery,
     surface: "source",
   });
-  const contextChips = buildSourceContextChips(data.filters, { sortContext: "sourceIndex" });
+  const contextChips = buildSourceContextChips(data.filters, undefined, { sortContext: "sourceIndex" });
 
   return (
     <section className="space-y-7 md:space-y-8">

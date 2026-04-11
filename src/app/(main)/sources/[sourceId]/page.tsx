@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { SourceLibraryDetail } from "@/components/library/source-library-detail";
-import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 import { shouldEnableContentOriginForSourceDetail } from "@/lib/documents/content-origin";
 import {
   buildSourceContextChips,
   buildSourceLibraryBrowseHref,
+  buildSourceLibraryClearHref,
   parseSourceLibraryQuery,
   resolveSourceSearchParams,
 } from "@/lib/documents/source-library-query";
@@ -43,6 +43,9 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
     ...parsedQuery,
     surface: "source",
   });
+  const detailHref = `/sources/${encodeURIComponent(sourceId)}`;
+  const clearHref = buildSourceLibraryClearHref(detailHref, data.filters);
+  const hasActiveFilters = Boolean(data.filters.q || data.filters.tag || data.filters.origin || data.filters.sort !== "latest");
   const host = resolveHostname(sourceData.source.siteUrl ?? sourceData.source.locatorUrl);
   const latestCreatedAt = data.items[0]?.createdAt ?? sourceData.source.lastSyncedAt ?? sourceData.source.createdAt;
 
@@ -54,8 +57,6 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
         eyebrow="Source detail"
         title={sourceData.source.title}
       />
-
-      <SourceLibraryToolbar />
 
       {contextChips.length > 0 ? (
         <Panel
@@ -78,7 +79,9 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
 
       <SourceLibraryDetail
         backHref={backHref}
+        clearHref={clearHref}
         data={data}
+        hasActiveFilters={hasActiveFilters}
         source={{
           id: `source:${sourceData.source.id}`,
           label: sourceData.source.title,

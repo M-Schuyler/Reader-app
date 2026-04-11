@@ -29,6 +29,7 @@ function createDocument(overrides: Partial<DocumentDetail> = {}): DocumentDetail
     excerpt: "这是一段不应该替代正文的摘要。",
     lang: "zh-CN",
     author: "Kai",
+    contentOrigin: null,
     publishedAt: "2026-04-03T09:30:00.000Z",
     publishedAtKind: PublishedAtKind.EXACT,
     enteredReadingAt: null,

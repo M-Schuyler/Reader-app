@@ -34,7 +34,7 @@ export function buildSourceLibraryClearHref(basePath: string, filters: GetDocume
 export function buildSourceLibraryBrowseHref(
   basePath: string,
   query: Pick<DocumentListQuery, "q" | "sort" | "surface" | "tag" | "type"> &
-    Partial<Pick<DocumentListQuery, "page" | "pageSize">>,
+    Partial<Pick<DocumentListQuery, "origin" | "page" | "pageSize">>,
 ) {
   const params = new URLSearchParams();
 
@@ -50,6 +50,10 @@ export function buildSourceLibraryBrowseHref(
     params.set("tag", query.tag);
   }
 
+  if (query.origin) {
+    params.set("origin", query.origin);
+  }
+
   if (query.sort === "earliest") {
     params.set("sort", query.sort);
   }
@@ -60,6 +64,7 @@ export function buildSourceLibraryBrowseHref(
 
 export function buildSourceContextChips(
   filters: GetDocumentsResponseData["filters"],
+  contentOriginOptions: NonNullable<GetDocumentsResponseData["contentOrigin"]>["options"] = [],
   options: { sortContext?: "sourceIndex" | "documentList" } = {},
 ) {
   const sortContext = options.sortContext ?? "documentList";
@@ -71,6 +76,11 @@ export function buildSourceContextChips(
 
   if (filters.type) {
     chips.push(`类型 ${formatDocumentType(filters.type)}`);
+  }
+
+  if (filters.origin) {
+    const activeOrigin = contentOriginOptions.find((option) => option.value === filters.origin);
+    chips.push(`创作来源 ${activeOrigin?.label ?? filters.origin}`);
   }
 
   if (filters.tag) {

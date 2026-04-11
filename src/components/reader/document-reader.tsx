@@ -78,6 +78,7 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
   const lead = resolveDocumentLead(readerDocument);
   const failedState = resolveDocumentFailedState(readerDocument.ingestion?.error);
   const showIngestionBadge = readerDocument.ingestionStatus !== IngestionStatus.READY;
+  const documentAttribution = resolveDocumentAttribution(readerDocument);
   const markdownDownloadHref = `/api/documents/${readerDocument.id}/download?format=markdown`;
   const htmlDownloadHref = `/api/documents/${readerDocument.id}/download?format=html`;
 
@@ -406,6 +407,9 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
           <h1 className="font-display text-[2.85rem] leading-[1.02] tracking-[-0.045em] text-[color:var(--text-primary)] sm:text-[4.1rem]">
             {readerDocument.title}
           </h1>
+          {documentAttribution ? (
+            <p className="text-sm text-[color:var(--text-tertiary)]">{`${documentAttribution.label} · ${documentAttribution.value}`}</p>
+          ) : null}
           {lead.text ? (
             <div className="max-w-[38rem] space-y-2">
               {lead.label ? (
@@ -641,6 +645,7 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
                         readerDocument.createdAt,
                       )}
                     />
+                    {documentAttribution ? <MetaRow label={documentAttribution.label} value={documentAttribution.value} /> : null}
                     {readerDocument.lang ? <MetaRow label="语言" value={readerDocument.lang} /> : null}
                     {isReadable && readerDocument.content?.wordCount ? (
                       <MetaRow label="字数" value={formatWordCount(readerDocument.content.wordCount)} />
@@ -703,6 +708,24 @@ function MetaRow({ label, value }: { label: string; value: string }) {
       </dd>
     </div>
   );
+}
+
+function resolveDocumentAttribution(document: DocumentDetail) {
+  if (document.contentOrigin?.label) {
+    return {
+      label: "公众号",
+      value: document.contentOrigin.label,
+    };
+  }
+
+  if (document.author) {
+    return {
+      label: "作者",
+      value: document.author,
+    };
+  }
+
+  return null;
 }
 
 function formatIngestionStatus(status: IngestionStatus) {

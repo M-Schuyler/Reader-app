@@ -10,12 +10,15 @@ import { Panel } from "@/components/ui/panel";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
 import type { SourceLibrarySourceContext } from "@/lib/documents/source-library";
 import { SourceLibraryDocumentList } from "./source-library-document-list";
+import { SourceLibraryDetailFilters } from "./source-library-detail-filters";
 import { getSourceLibraryToneForSeed, SourceLibrarySourceCard } from "./source-library-source-card";
 
 type SourceLibraryDetailProps = {
   data: GetDocumentsResponseData;
   source: SourceLibrarySourceContext;
   backHref?: string;
+  clearHref?: string;
+  hasActiveFilters?: boolean;
   includeCategories?: string[];
   sync?: {
     sourceId: string;
@@ -27,7 +30,9 @@ type SourceLibraryDetailProps = {
 
 export function SourceLibraryDetail({
   backHref = "/sources",
+  clearHref = "/sources",
   data,
+  hasActiveFilters = false,
   source,
   includeCategories = [],
   sync,
@@ -110,6 +115,13 @@ export function SourceLibraryDetail({
         </Panel>
       </div>
 
+      <SourceLibraryDetailFilters
+        clearHref={clearHref}
+        contentOrigin={data.contentOrigin}
+        filters={data.filters}
+        hasActiveFilters={hasActiveFilters}
+      />
+
       {data.items.length > 0 ? (
         <SourceLibraryDocumentList emptyRedirectHref="/sources" items={data.items} sourceTotalItems={source.totalItems} toneSeed={source.id} />
       ) : (
@@ -120,7 +132,7 @@ export function SourceLibraryDetail({
               这个来源下暂时没有符合当前筛选的内容
             </h3>
             <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-              来源还在，只是当前关键词或类型把结果收窄了。你可以清空筛选，再回来看这一架完整的内容。
+              来源还在，只是当前筛选条件把结果收窄了。你可以清空筛选，再回来看这一架完整的内容。
             </p>
           </div>
         </Panel>

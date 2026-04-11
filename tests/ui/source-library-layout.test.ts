@@ -84,6 +84,7 @@ test("source detail routes and unknown source route use the dedicated detail sur
   const detailComponent = readWorkspaceFile("src/components/library/source-library-detail.tsx");
   const documentList = readWorkspaceFile("src/components/library/source-library-document-list.tsx");
   const detailPage = readWorkspaceFile("src/app/(main)/sources/source-detail-page.tsx");
+  const detailFilters = readWorkspaceFile("src/components/library/source-library-detail-filters.tsx");
 
   assert.match(feedPage, /SourceDetailPage/);
   assert.match(feedPage, /kind: "feed"/);
@@ -97,17 +98,26 @@ test("source detail routes and unknown source route use the dedicated detail sur
   assert.match(namedSourcePage, /enableContentOrigin/);
   assert.match(namedSourcePage, /sync=\{/);
   assert.match(namedSourcePage, /includeCategories=\{/);
+  assert.doesNotMatch(namedSourcePage, /SourceLibraryToolbar/);
   assert.match(detailPage, /SourceLibraryDetail/);
   assert.match(detailPage, /getDocuments/);
   assert.match(detailPage, /shouldEnableContentOriginForSourceDetail/);
   assert.match(detailPage, /enableContentOrigin/);
   assert.doesNotMatch(detailPage, /SourceLibraryToolbar/);
   assert.match(detailComponent, /SourceLibraryDocumentList/);
+  assert.match(detailComponent, /SourceLibraryDetailFilters/);
   assert.match(detailComponent, /getSourceLibraryToneForSeed\(source\.id\)/);
   assert.match(detailComponent, /toneSeed=\{source\.id\}/);
   assert.match(detailComponent, /返回来源库/);
   assert.match(documentList, /toneSeed\?: string/);
   assert.match(documentList, /getSourceLibraryToneForSeed\(toneSeed\)/);
+  assert.match(detailFilters, /创作来源/);
+  assert.match(detailFilters, /排序/);
+  assert.match(detailFilters, /应用筛选/);
+  assert.match(detailFilters, /清空/);
+  assert.doesNotMatch(detailFilters, /文档类型/);
+  assert.doesNotMatch(detailFilters, /CaptureUrlForm/);
+  assert.doesNotMatch(detailFilters, /CreateSourceForm/);
 });
 
 test("qa sources page previews the real source library with dev-only fixture data", () => {

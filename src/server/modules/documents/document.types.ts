@@ -31,6 +31,7 @@ export type DocumentListQuery = {
   sourceId?: string;
   q?: string;
   type?: DocumentType;
+  origin?: string;
   readState?: ReadState;
   isFavorite?: boolean;
   tag?: string;
@@ -89,10 +90,18 @@ export type GetDocumentsResponseData = {
     surface: DocumentSurface;
     q?: string;
     type?: DocumentType;
+    origin?: string;
     readState?: ReadState;
     isFavorite?: boolean;
     tag?: string;
     sort: DocumentListSort;
+  };
+  contentOrigin?: {
+    options: Array<{
+      value: string;
+      label: string;
+      count: number;
+    }>;
   };
 };
 
@@ -151,6 +160,10 @@ export type DocumentDetail = {
   excerpt: string | null;
   lang: string | null;
   author: string | null;
+  contentOrigin: {
+    key: string;
+    label: string;
+  } | null;
   publishedAt: string | null;
   publishedAtKind: PublishedAtKind;
   enteredReadingAt: string | null;
