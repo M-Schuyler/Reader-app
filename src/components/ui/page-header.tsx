@@ -5,11 +5,12 @@ type PageHeaderProps = {
   eyebrow?: string;
   title: string;
   description?: string;
+  meta?: ReactNode;
   actions?: ReactNode;
   className?: string;
 };
 
-export function PageHeader({ actions, className, description, eyebrow, title }: PageHeaderProps) {
+export function PageHeader({ actions, className, description, eyebrow, meta, title }: PageHeaderProps) {
   return (
     <header className={cx("flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between", className)}>
       <div className="space-y-3">
@@ -25,10 +26,11 @@ export function PageHeader({ actions, className, description, eyebrow, title }: 
           {description ? (
             <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{description}</p>
           ) : null}
+          {meta ? <div className="max-w-4xl">{meta}</div> : null}
         </div>
       </div>
 
-      {actions ? <div className="flex shrink-0 items-center gap-3">{actions}</div> : null}
+      {actions ? <div className="flex shrink-0 flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-start lg:justify-end">{actions}</div> : null}
     </header>
   );
 }
