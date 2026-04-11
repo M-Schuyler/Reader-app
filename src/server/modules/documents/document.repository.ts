@@ -966,18 +966,6 @@ function buildWechatContentOriginBackfillWhere(): Prisma.DocumentWhereInput {
           },
           {
             AND: [
-              { contentOriginKey: "wechat:unknown" },
-              {
-                OR: [
-                  { canonicalUrl: { contains: "__biz=" } },
-                  { sourceUrl: { contains: "__biz=" } },
-                ],
-              },
-              mpWeixinUrlWhere,
-            ],
-          },
-          {
-            AND: [
               {
                 contentOriginKey: {
                   not: "wechat:unknown",
@@ -985,26 +973,6 @@ function buildWechatContentOriginBackfillWhere(): Prisma.DocumentWhereInput {
               },
               {
                 contentOriginLabel: "未识别公众号",
-              },
-              mpWeixinUrlWhere,
-            ],
-          },
-          {
-            AND: [
-              {
-                contentOriginKey: {
-                  not: "wechat:unknown",
-                },
-              },
-              {
-                author: {
-                  not: null,
-                },
-              },
-              {
-                contentOriginLabel: {
-                  not: null,
-                },
               },
               mpWeixinUrlWhere,
             ],
@@ -1026,15 +994,11 @@ function isRepairableWechatContentOriginCandidate(candidate: {
     return true;
   }
 
-  if (candidate.contentOriginKey === "wechat:unknown") {
-    return hasWechatBizInCandidateUrls(candidate);
-  }
-
-  if (candidate.contentOriginLabel === "未识别公众号") {
+  if (candidate.contentOriginKey !== "wechat:unknown" && candidate.contentOriginLabel === "未识别公众号") {
     return true;
   }
 
-  return Boolean(candidate.author && candidate.contentOriginLabel === candidate.author);
+  return false;
 }
 
 function hasWechatBizInCandidateUrls(candidate: {

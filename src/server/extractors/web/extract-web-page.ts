@@ -151,10 +151,15 @@ export type ExtractedWebPage = {
   textHash: string;
 };
 
+export type WechatPageKind = "verification" | "migration";
+
 export type ExtractedWebPageMetadata = Pick<
   ExtractedWebPage,
   "finalUrl" | "canonicalUrl" | "author" | "wechatAccountName" | "publishedAt"
->;
+> & {
+  wechatPageKind?: WechatPageKind | null;
+  wechatTargetUrl?: string | null;
+};
 
 export async function extractWebPage(url: string): Promise<ExtractedWebPage> {
   const fetchedPage = await fetchWebPageDocument(url);
@@ -189,6 +194,15 @@ export function extractWebPageMetadataFromHtml(input: {
   const finalUrl = input.finalUrl || input.requestUrl;
   const rawHtml = input.rawHtml;
   const $ = load(rawHtml);
+  const requestUrl = safeParseUrl(input.requestUrl);
+  const parsedFinalUrl = safeParseUrl(finalUrl);
+  const bodyText = normalizeWhitespace($("body").text()) ?? "";
+  const wechatPageHints = extractWechatPageHints($, {
+    bodyText,
+    finalUrl: parsedFinalUrl,
+    rawHtml,
+    requestUrl,
+  });
 
   return {
     finalUrl,
@@ -196,6 +210,8 @@ export function extractWebPageMetadataFromHtml(input: {
     author: extractAuthor($, finalUrl, rawHtml),
     wechatAccountName: extractWeChatAccountName($, finalUrl, rawHtml),
     publishedAt: extractPublishedAt($, finalUrl, rawHtml),
+    wechatPageKind: wechatPageHints.kind,
+    wechatTargetUrl: wechatPageHints.targetUrl,
   };
 }
 
@@ -1524,7 +1540,7 @@ function isWeChatHost(url: URL | null) {
   return url?.hostname === "mp.weixin.qq.com";
 }
 
-function isWeChatVerificationPage(requestUrl: URL, finalUrl: URL | null, bodyText: string, rawHtml: string) {
+function isWeChatVerificationPage(requestUrl: URL | null, finalUrl: URL | null, bodyText: string, rawHtml: string) {
   const isWeChatRequest = isWeChatHost(requestUrl) || isWeChatHost(finalUrl);
   if (!isWeChatRequest) {
     return false;
@@ -1573,6 +1589,111 @@ function isWeChatIntermediatePage($: CheerioAPI, finalUrl: URL | null, bodyText:
   const readableUnitCount = countReadableUnits(bodyText);
 
   return readableUnitCount < 180 && (WECHAT_INTERMEDIATE_TEXT_PATTERNS.test(title) || WECHAT_INTERMEDIATE_TEXT_PATTERNS.test(bodyText));
+}
+
+function extractWechatPageHints(
+  $: CheerioAPI,
+  input: {
+    requestUrl: URL | null;
+    finalUrl: URL | null;
+    bodyText: string;
+    rawHtml: string;
+  },
+): {
+  kind: WechatPageKind | null;
+  targetUrl: string | null;
+} {
+  const targetUrl = extractWechatTargetUrl($, input);
+
+  if (isWeChatVerificationPage(input.requestUrl, input.finalUrl, input.bodyText, input.rawHtml)) {
+    return {
+      kind: "verification",
+      targetUrl,
+    };
+  }
+
+  if (isWeChatIntermediatePage($, input.finalUrl, input.bodyText)) {
+    return {
+      kind: "migration",
+      targetUrl,
+    };
+  }
+
+  return {
+    kind: null,
+    targetUrl,
+  };
+}
+
+function extractWechatTargetUrl(
+  $: CheerioAPI,
+  input: {
+    requestUrl: URL | null;
+    finalUrl: URL | null;
+    rawHtml: string;
+  },
+) {
+  const baseUrl = input.finalUrl?.toString() ?? input.requestUrl?.toString() ?? "https://mp.weixin.qq.com/";
+  const urlCandidates = [
+    input.finalUrl?.searchParams.get("target_url") ?? null,
+    input.requestUrl?.searchParams.get("target_url") ?? null,
+    input.rawHtml.match(/\btarget_url\s*[:=]\s*["']([^"'<>]+)["']/i)?.[1] ?? null,
+  ];
+
+  for (const candidate of urlCandidates) {
+    const normalized = normalizeWechatTargetUrl(candidate, baseUrl);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  for (const element of $("a[href]").toArray()) {
+    const href = $(element).attr("href") ?? null;
+    const normalized = normalizeWechatTargetUrl(href, baseUrl);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+function normalizeWechatTargetUrl(value: string | null, baseUrl: string) {
+  if (!value) {
+    return null;
+  }
+
+  let candidate = value.trim();
+  if (!candidate) {
+    return null;
+  }
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      candidate = decodeURIComponent(candidate);
+    } catch {
+      break;
+    }
+  }
+
+  try {
+    const url = new URL(candidate, baseUrl);
+    if (!isWeChatHost(url)) {
+      return null;
+    }
+
+    if (url.pathname === "/mp/wappoc_appmsgcaptcha") {
+      return normalizeWechatTargetUrl(url.searchParams.get("target_url"), baseUrl);
+    }
+
+    if (url.pathname.startsWith("/s") || url.searchParams.has("__biz")) {
+      return url.toString();
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function hasWeChatReadableContentContainer($: CheerioAPI) {

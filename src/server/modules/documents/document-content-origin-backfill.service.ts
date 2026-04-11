@@ -117,7 +117,7 @@ export async function backfillWechatContentOrigins(
 
     for (let attempt = 1; attempt <= WECHAT_FETCH_MAX_ATTEMPTS; attempt += 1) {
       try {
-        const metadata = await fetchMetadata(targetUrl);
+        const metadata = await fetchMetadataFollowingWechatTargetUrl(targetUrl, fetchMetadata);
         const contentOrigin = candidateBizOrigin ?? deriveContentOriginMetadata({
           author: metadata.author,
           canonicalUrl: metadata.canonicalUrl,
@@ -205,6 +205,28 @@ export async function backfillWechatContentOrigins(
   };
 }
 
+async function fetchMetadataFollowingWechatTargetUrl(
+  initialUrl: string,
+  fetchMetadata: (url: string) => Promise<ExtractedWebPageMetadata>,
+) {
+  let currentUrl = initialUrl;
+  let metadata = await fetchMetadata(currentUrl);
+  const visited = new Set<string>([currentUrl]);
+
+  while (metadata.wechatTargetUrl && metadata.wechatPageKind) {
+    const nextUrl = metadata.wechatTargetUrl;
+    if (visited.has(nextUrl)) {
+      break;
+    }
+
+    visited.add(nextUrl);
+    currentUrl = nextUrl;
+    metadata = await fetchMetadata(currentUrl);
+  }
+
+  return metadata;
+}
+
 function normalizeBackfillLimit(value: number | null | undefined) {
   if (!Number.isFinite(value)) {
     return DEFAULT_BACKFILL_LIMIT;
@@ -277,7 +299,7 @@ function chooseWechatDocumentLabel(input: {
     return input.trustedAccountName;
   }
 
-  if (input.currentKey === input.bizKey && currentLabel) {
+  if (input.currentKey === input.bizKey && currentLabel && currentLabel !== "未识别公众号") {
     return currentLabel;
   }
 

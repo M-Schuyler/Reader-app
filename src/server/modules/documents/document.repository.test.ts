@@ -40,7 +40,7 @@ test("document origin rows select persisted content-origin fields and the legacy
   assert.equal("tags" in (documentOriginRowArgs.select ?? {}), false);
 });
 
-test("wechat content-origin backfill targets missing keys and suspicious persisted labels without retrying explicit unknown keys", () => {
+test("wechat content-origin backfill targets only unresolved persisted wechat origins", () => {
   assert.deepEqual(__documentRepositoryForTests.buildWechatContentOriginBackfillWhere(), {
     type: "WEB_PAGE",
     AND: [
@@ -50,51 +50,6 @@ test("wechat content-origin backfill targets missing keys and suspicious persist
             AND: [
               {
                 contentOriginKey: null,
-              },
-              {
-                OR: [
-                  {
-                    canonicalUrl: {
-                      startsWith: "https://mp.weixin.qq.com",
-                    },
-                  },
-                  {
-                    canonicalUrl: {
-                      startsWith: "http://mp.weixin.qq.com",
-                    },
-                  },
-                  {
-                    sourceUrl: {
-                      startsWith: "https://mp.weixin.qq.com",
-                    },
-                  },
-                  {
-                    sourceUrl: {
-                      startsWith: "http://mp.weixin.qq.com",
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            AND: [
-              {
-                contentOriginKey: "wechat:unknown",
-              },
-              {
-                OR: [
-                  {
-                    canonicalUrl: {
-                      contains: "__biz=",
-                    },
-                  },
-                  {
-                    sourceUrl: {
-                      contains: "__biz=",
-                    },
-                  },
-                ],
               },
               {
                 OR: [
@@ -158,49 +113,6 @@ test("wechat content-origin backfill targets missing keys and suspicious persist
               },
             ],
           },
-          {
-            AND: [
-              {
-                contentOriginKey: {
-                  not: "wechat:unknown",
-                },
-              },
-              {
-                author: {
-                  not: null,
-                },
-              },
-              {
-                contentOriginLabel: {
-                  not: null,
-                },
-              },
-              {
-                OR: [
-                  {
-                    canonicalUrl: {
-                      startsWith: "https://mp.weixin.qq.com",
-                    },
-                  },
-                  {
-                    canonicalUrl: {
-                      startsWith: "http://mp.weixin.qq.com",
-                    },
-                  },
-                  {
-                    sourceUrl: {
-                      startsWith: "https://mp.weixin.qq.com",
-                    },
-                  },
-                  {
-                    sourceUrl: {
-                      startsWith: "http://mp.weixin.qq.com",
-                    },
-                  },
-                ],
-              },
-            ],
-          },
         ],
       },
     ],
@@ -214,7 +126,7 @@ test("wechat content-origin backfill targets missing keys and suspicious persist
       canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
       sourceUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
     }),
-    true,
+    false,
   );
   assert.equal(
     __documentRepositoryForTests.isRepairableWechatContentOriginCandidate({
@@ -230,6 +142,16 @@ test("wechat content-origin backfill targets missing keys and suspicious persist
     __documentRepositoryForTests.isRepairableWechatContentOriginCandidate({
       author: "蔡垒磊",
       contentOriginKey: "wechat:unknown",
+      contentOriginLabel: "未识别公众号",
+      canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+      sourceUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+    }),
+    false,
+  );
+  assert.equal(
+    __documentRepositoryForTests.isRepairableWechatContentOriginCandidate({
+      author: null,
+      contentOriginKey: "wechat:biz:MzI0MDg5ODA2NQ==",
       contentOriginLabel: "未识别公众号",
       canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
       sourceUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
