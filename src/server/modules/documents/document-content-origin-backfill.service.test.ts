@@ -64,7 +64,7 @@ test("backfillWechatContentOrigins marks a document as unknown after the fourth 
   ]);
 });
 
-test("backfillWechatContentOrigins fills missing author only when metadata provides it and the document currently lacks it", async () => {
+test("backfillWechatContentOrigins fills missing author without seeding the registry from author when the account name is missing", async () => {
   const updates: Array<{
     documentId: string;
     input: {
@@ -84,17 +84,17 @@ test("backfillWechatContentOrigins fills missing author only when metadata provi
       canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
       finalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
       publishedAt: null,
-      wechatAccountName: "请辩",
+      wechatAccountName: null,
     }),
     listCandidates: async () => ({
       items: [
         {
           author: null,
-          canonicalUrl: "https://mp.weixin.qq.com/s/example",
-          contentOriginKey: null,
-          contentOriginLabel: null,
+          canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
+          contentOriginKey: "wechat:biz:MzI0MDg5ODA2NQ==",
+          contentOriginLabel: "现有标签",
           id: "doc-1",
-          sourceUrl: "https://mp.weixin.qq.com/s/example",
+          sourceUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
         },
       ],
       hasMore: false,
@@ -116,7 +116,7 @@ test("backfillWechatContentOrigins fills missing author only when metadata provi
       subsourceCalls.push(input);
       return {
         biz: input.biz,
-        displayName: input.displayName ?? "请辩",
+        displayName: input.displayName ?? "未命名公众号 MzI0MD…",
         isPlaceholder: input.displayName === null || typeof input.displayName === "undefined",
         createdAt: new Date("2026-04-10T00:00:00.000Z"),
         updatedAt: new Date("2026-04-10T00:00:00.000Z"),
@@ -133,7 +133,7 @@ test("backfillWechatContentOrigins fills missing author only when metadata provi
   assert.deepEqual(subsourceCalls, [
     {
       biz: "MzI0MDg5ODA2NQ==",
-      displayName: "请辩",
+      displayName: null,
     },
   ]);
   assert.deepEqual(updates, [
@@ -142,14 +142,13 @@ test("backfillWechatContentOrigins fills missing author only when metadata provi
       input: {
         author: "蔡垒磊",
         contentOriginKey: "wechat:biz:MzI0MDg5ODA2NQ==",
-        contentOriginLabel: "请辩",
+        contentOriginLabel: "现有标签",
       },
     },
   ]);
 });
 
-test("backfillWechatContentOrigins repairs a polluted biz label before retrying fetches when the URL already yields the same biz", async () => {
-  const trace: string[] = [];
+test("backfillWechatContentOrigins keeps an existing non-empty biz label when repair fetches fail and only seeds a placeholder registry entry", async () => {
   const updates: Array<{
     documentId: string;
     input: {
@@ -162,21 +161,18 @@ test("backfillWechatContentOrigins repairs a polluted biz label before retrying 
     biz: string;
     displayName?: string | null;
   }> = [];
-  let fetchCount = 0;
 
   const result = await backfillWechatContentOrigins(10, {
     fetchMetadata: async () => {
-      fetchCount += 1;
-      trace.push(`fetch:${fetchCount}`);
       throw new Error("wechat blocked");
     },
     listCandidates: async () => ({
       items: [
         {
-          author: null,
+          author: "蔡垒磊",
           canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
           contentOriginKey: "wechat:biz:MzI0MDg5ODA2NQ==",
-          contentOriginLabel: "蔡垒磊",
+          contentOriginLabel: "请辩",
           id: "doc-1",
           sourceUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
         },
@@ -191,51 +187,39 @@ test("backfillWechatContentOrigins repairs a polluted biz label before retrying 
         contentOriginLabel: string;
       },
     ) => {
-      trace.push("update");
       updates.push({
         documentId,
         input,
       });
     },
     upsertWechatSubsource: async (input: { biz: string; displayName?: string | null }) => {
-      trace.push("upsert");
       subsourceCalls.push(input);
       return {
         biz: input.biz,
-        displayName: "请辩",
+        displayName: "未命名公众号 MzI0MD…",
         isPlaceholder: false,
         createdAt: new Date("2026-04-10T00:00:00.000Z"),
         updatedAt: new Date("2026-04-10T00:00:00.000Z"),
       };
     },
-  } as any);
+  });
 
   assert.deepEqual(result, {
     failed: 1,
     hasMore: false,
     scanned: 1,
-    updated: 1,
+    updated: 0,
   });
-  assert.equal(fetchCount, 4);
-  assert.deepEqual(trace, ["upsert", "update", "fetch:1", "fetch:2", "fetch:3", "fetch:4"]);
   assert.deepEqual(subsourceCalls, [
     {
       biz: "MzI0MDg5ODA2NQ==",
       displayName: null,
     },
   ]);
-  assert.deepEqual(updates, [
-    {
-      documentId: "doc-1",
-      input: {
-        contentOriginKey: "wechat:biz:MzI0MDg5ODA2NQ==",
-        contentOriginLabel: "请辩",
-      },
-    },
-  ]);
+  assert.deepEqual(updates, []);
 });
 
-test("backfillWechatContentOrigins keeps a known WeChat biz identity even when metadata fetch keeps failing", async () => {
+test("backfillWechatContentOrigins keeps an existing non-empty biz label when metadata fetch keeps failing", async () => {
   const updates: Array<{
     documentId: string;
     input: {
@@ -258,8 +242,8 @@ test("backfillWechatContentOrigins keeps a known WeChat biz identity even when m
         {
           author: null,
           canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
-          contentOriginKey: null,
-          contentOriginLabel: null,
+          contentOriginKey: "wechat:biz:MzI0MDg5ODA2NQ==",
+          contentOriginLabel: "请辩",
           id: "doc-1",
           sourceUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
         },
@@ -289,13 +273,13 @@ test("backfillWechatContentOrigins keeps a known WeChat biz identity even when m
         updatedAt: new Date("2026-04-10T00:00:00.000Z"),
       };
     },
-  } as any);
+  });
 
   assert.deepEqual(result, {
     failed: 1,
     hasMore: false,
     scanned: 1,
-    updated: 1,
+    updated: 0,
   });
   assert.deepEqual(subsourceCalls, [
     {
@@ -303,15 +287,7 @@ test("backfillWechatContentOrigins keeps a known WeChat biz identity even when m
       displayName: null,
     },
   ]);
-  assert.deepEqual(updates, [
-    {
-      documentId: "doc-1",
-      input: {
-        contentOriginKey: "wechat:biz:MzI0MDg5ODA2NQ==",
-        contentOriginLabel: "未命名公众号 MzI0MD…",
-      },
-    },
-  ]);
+  assert.deepEqual(updates, []);
 });
 
 test("backfillWechatContentOrigins does not downgrade an existing wechat content-origin key when repair fetches keep failing", async () => {

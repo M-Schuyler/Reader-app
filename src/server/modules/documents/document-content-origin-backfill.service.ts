@@ -1,7 +1,6 @@
 import { deriveContentOriginMetadata, syncWechatSubsourceFromContentOrigin } from "@/lib/documents/content-origin";
 import { extractWebPageMetadata, type ExtractedWebPageMetadata } from "@/server/extractors/web/extract-web-page";
 import { listWechatContentOriginBackfillCandidates, updateDocumentContentOrigin } from "./document.repository";
-import type { WechatSubsourceRecord } from "./wechat-subsource.repository";
 import { upsertWechatSubsource as defaultUpsertWechatSubsource } from "./wechat-subsource.service";
 
 const DEFAULT_BACKFILL_LIMIT = 20;
@@ -68,23 +67,37 @@ export async function backfillWechatContentOrigins(
     const candidateBizOrigin = resolveWechatBizOrigin(candidate);
     let persistedContentOriginKey = candidate.contentOriginKey;
     let persistedContentOriginLabel = candidate.contentOriginLabel;
+    let candidateBizRegistryDisplayName: string | null = null;
 
     if (candidateBizOrigin) {
-      const repairedLabel = await syncWechatBizDisplayName(
+      candidateBizRegistryDisplayName = await syncWechatBizDisplayName(
         candidateBizOrigin.key,
-        {
-          originLabel: null,
-        },
+        null,
         upsertWechatSubsource,
       );
 
-      if (persistedContentOriginKey !== candidateBizOrigin.key || persistedContentOriginLabel !== repairedLabel) {
+      const shouldRepairDocumentLabel =
+        candidate.contentOriginKey !== candidateBizOrigin.key || !hasNonEmptyLabel(candidate.contentOriginLabel);
+
+      if (shouldRepairDocumentLabel) {
         await persistOrigin(candidate.id, {
           contentOriginKey: candidateBizOrigin.key,
-          contentOriginLabel: repairedLabel,
+          contentOriginLabel: chooseWechatDocumentLabel({
+            currentKey: persistedContentOriginKey,
+            currentLabel: persistedContentOriginLabel,
+            bizKey: candidateBizOrigin.key,
+            registryDisplayName: candidateBizRegistryDisplayName,
+            trustedAccountName: null,
+          }),
         });
         persistedContentOriginKey = candidateBizOrigin.key;
-        persistedContentOriginLabel = repairedLabel;
+        persistedContentOriginLabel = chooseWechatDocumentLabel({
+          currentKey: candidateBizOrigin.key,
+          currentLabel: persistedContentOriginLabel,
+          bizKey: candidateBizOrigin.key,
+          registryDisplayName: candidateBizRegistryDisplayName,
+          trustedAccountName: null,
+        });
         updated += 1;
       }
     }
@@ -114,27 +127,32 @@ export async function backfillWechatContentOrigins(
         });
 
         if (contentOrigin.key?.startsWith("wechat:biz:")) {
-          const contentOriginLabel = await syncWechatBizDisplayName(
-            contentOrigin.key,
-            {
-              originLabel: contentOrigin.label,
-              trustedAccountName: metadata.wechatAccountName,
-            },
-            upsertWechatSubsource,
-          );
           const nextAuthor = candidate.author ? null : metadata.author ?? null;
+          const registryDisplayName =
+            metadata.wechatAccountName !== null && typeof metadata.wechatAccountName !== "undefined"
+              ? await syncWechatBizDisplayName(contentOrigin.key, metadata.wechatAccountName, upsertWechatSubsource)
+              : candidateBizOrigin
+                ? candidateBizRegistryDisplayName ?? "未识别公众号"
+                : await syncWechatBizDisplayName(contentOrigin.key, null, upsertWechatSubsource);
+          const nextDocumentLabel = chooseWechatDocumentLabel({
+            currentKey: persistedContentOriginKey,
+            currentLabel: persistedContentOriginLabel,
+            bizKey: contentOrigin.key,
+            registryDisplayName,
+            trustedAccountName: metadata.wechatAccountName ?? null,
+          });
           const hasOriginChange =
-            persistedContentOriginKey !== contentOrigin.key || persistedContentOriginLabel !== contentOriginLabel;
+            persistedContentOriginKey !== contentOrigin.key || persistedContentOriginLabel !== nextDocumentLabel;
           const hasAuthorChange = nextAuthor !== null;
 
           if (hasOriginChange || hasAuthorChange) {
             await persistOrigin(candidate.id, {
               contentOriginKey: contentOrigin.key,
-              contentOriginLabel,
+              contentOriginLabel: nextDocumentLabel,
               ...(hasAuthorChange ? { author: nextAuthor } : {}),
             });
             persistedContentOriginKey = contentOrigin.key;
-            persistedContentOriginLabel = contentOriginLabel;
+            persistedContentOriginLabel = nextDocumentLabel;
             updated += 1;
           }
         } else {
@@ -229,27 +247,48 @@ function resolveWechatBizOriginFromUrl(url: string | null): WechatBizOrigin | nu
 
 async function syncWechatBizDisplayName(
   bizKey: string,
-  input: {
-    originLabel: string | null;
-    trustedAccountName?: string | null;
-  },
+  trustedAccountName: string | null,
   upsertWechatSubsource: typeof defaultUpsertWechatSubsource,
 ) {
   const subsource = (await syncWechatSubsourceFromContentOrigin(
     {
       isWechat: true,
       key: bizKey,
-      label: input.originLabel,
+      label: null,
     },
     {
-      wechatAccountName: input.trustedAccountName,
+      wechatAccountName: trustedAccountName,
     },
     upsertWechatSubsource,
-  )) as WechatSubsourceRecord | null;
+  )) as { displayName: string } | null;
 
-  if (!subsource) {
-    return input.originLabel ?? "未识别公众号";
+  return subsource?.displayName ?? "未识别公众号";
+}
+
+function chooseWechatDocumentLabel(input: {
+  currentKey: string | null;
+  currentLabel: string | null;
+  bizKey: string;
+  registryDisplayName: string;
+  trustedAccountName: string | null;
+}) {
+  const currentLabel = normalizeLabel(input.currentLabel);
+  if (input.trustedAccountName) {
+    return input.trustedAccountName;
   }
 
-  return subsource.displayName;
+  if (input.currentKey === input.bizKey && currentLabel) {
+    return currentLabel;
+  }
+
+  return input.registryDisplayName;
+}
+
+function hasNonEmptyLabel(value: string | null) {
+  return Boolean(normalizeLabel(value));
+}
+
+function normalizeLabel(value: string | null) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
 }
