@@ -148,7 +148,7 @@ test("backfillWechatContentOrigins fills missing author only when metadata provi
   ]);
 });
 
-test("backfillWechatContentOrigins repairs an existing biz label before retrying fetches when the URL already yields the same biz", async () => {
+test("backfillWechatContentOrigins repairs a polluted biz label before retrying fetches when the URL already yields the same biz", async () => {
   const trace: string[] = [];
   const updates: Array<{
     documentId: string;
@@ -176,7 +176,7 @@ test("backfillWechatContentOrigins repairs an existing biz label before retrying
           author: null,
           canonicalUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
           contentOriginKey: "wechat:biz:MzI0MDg5ODA2NQ==",
-          contentOriginLabel: "未识别公众号",
+          contentOriginLabel: "蔡垒磊",
           id: "doc-1",
           sourceUrl: "https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=1&idx=1&sn=abc",
         },
@@ -379,7 +379,7 @@ test("backfillWechatContentOrigins does not downgrade an existing wechat content
   assert.deepEqual(subsourceCalls, [
     {
       biz: "MzI0MDg5ODA2NQ==",
-      displayName: "蔡垒磊",
+      displayName: null,
     },
   ]);
   assert.deepEqual(updates, []);
