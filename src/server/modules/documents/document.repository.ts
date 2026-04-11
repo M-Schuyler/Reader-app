@@ -334,6 +334,16 @@ export async function updateDocumentFavorite(id: string, isFavorite: boolean) {
   });
 }
 
+export async function markDocumentRead(id: string) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      readState: ReadState.READ,
+    },
+    ...documentDetailArgs,
+  });
+}
+
 export async function listSourceAliases(inputs: Array<{ kind: SourceAliasTargetKind; value: string }>) {
   if (inputs.length === 0) {
     return [];

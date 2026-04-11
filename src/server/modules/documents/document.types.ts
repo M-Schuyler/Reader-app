@@ -240,6 +240,10 @@ export type UpdateDocumentFavoriteInput = {
   regenerateAiSummary?: boolean;
 };
 
+export type UpdateDocumentReadStateInput = {
+  readState: ReadState;
+};
+
 export type UpdateSourceAliasInput = {
   kind: SourceAliasTargetKind;
   value: string;
@@ -253,6 +257,10 @@ export type UpdateDocumentFavoriteResponseData = {
     source: AiSummarySource | null;
     error: GenerateAiSummaryError | null;
   };
+};
+
+export type UpdateDocumentReadStateResponseData = {
+  document: DocumentDetail;
 };
 
 export type UpdateSourceAliasResponseData = {

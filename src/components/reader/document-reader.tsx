@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type RefObject } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { IngestionStatus } from "@prisma/client";
@@ -10,6 +10,7 @@ import { HighlightSaveModeToggle } from "@/components/reader/highlight-save-mode
 import { ReaderHighlightsPanel, useDocumentHighlights } from "@/components/reader/reader-highlights";
 import { ReaderRichContent } from "@/components/reader/reader-rich-content";
 import { ReaderAutoHighlightFeedback, ReaderSelectionActions } from "@/components/reader/reader-selection-actions";
+import { useDocumentReadCompletion, type DocumentReadCompletionPhase } from "@/components/reader/use-document-read-completion";
 import { usePrioritizedDocumentAiSummary } from "@/components/reader/use-prioritized-document-ai-summary";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/panel";
@@ -63,6 +64,11 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
   const isFailed = readerDocument.ingestionStatus === IngestionStatus.FAILED;
   const isReadable = !isFailed && hasExtractedContent;
   const favorite = useDocumentFavoriteController(readerDocument);
+  const readCompletion = useDocumentReadCompletion({
+    documentId: readerDocument.id,
+    isEnabled: isReadable,
+    readState: readerDocument.readState,
+  });
   const [autoHighlightFeedback, setAutoHighlightFeedback] = useState<AutoHighlightFeedback | null>(null);
   const [highlightSaveMode, setHighlightSaveMode] = useState<HighlightSaveMode>("manual");
   const [readerFontSize, setReaderFontSize] = useState<ReaderFontSizePreference>("medium");
@@ -485,6 +491,10 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
                   />
                 </div>
 
+                {readCompletion.isVisible ? (
+                  <ReaderReadCompletionFooter phase={readCompletion.phase} sentinelRef={readCompletion.sentinelRef} />
+                ) : null}
+
                 {documentHighlights.actionError ? (
                   <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{documentHighlights.actionError}</p>
                 ) : null}
@@ -706,6 +716,45 @@ function MetaRow({ label, value }: { label: string; value: string }) {
           {value}
         </span>
       </dd>
+    </div>
+  );
+}
+
+function ReaderReadCompletionFooter(props: {
+  phase: DocumentReadCompletionPhase;
+  sentinelRef: RefObject<HTMLDivElement | null>;
+}) {
+  const isArmed = props.phase === "armed";
+  const isActive = props.phase === "animating" || props.phase === "saving";
+  const isCompleted = props.phase === "completed";
+
+  return (
+    <div
+      className={cx(
+        "reader-read-completion pointer-events-none relative mt-4 flex min-h-[9.5rem] items-end justify-center px-3 pb-4 sm:px-4",
+        isArmed ? "is-armed" : undefined,
+        isActive ? "is-active" : undefined,
+        isCompleted ? "is-completed" : undefined,
+      )}
+      data-read-completion
+      data-read-completion-state={props.phase}
+      ref={props.sentinelRef}
+    >
+      <div className="reader-read-completion-shell relative flex w-full max-w-[36rem] items-center justify-center overflow-hidden rounded-[28px] px-6 py-7 sm:px-8">
+        <span aria-hidden="true" className="reader-read-completion-glow" />
+        <span aria-hidden="true" className="reader-read-completion-line" />
+        <div className="reader-read-completion-copy relative z-[1] flex flex-col items-center text-center">
+          <span className="reader-read-completion-prompt text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+            继续下拉，完成阅读
+          </span>
+          <span className="reader-read-completion-label font-ui-heading text-[1.2rem] tracking-[-0.03em] text-[color:var(--text-primary)] sm:text-[1.35rem]">
+            已读完
+          </span>
+          <span className="reader-read-completion-subtitle text-[12px] text-[color:var(--text-secondary)]">
+            已收入已读归档
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

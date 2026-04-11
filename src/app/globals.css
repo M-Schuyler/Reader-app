@@ -200,3 +200,233 @@ textarea {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--bg-surface) 84%, transparent);
 }
+
+.reader-read-completion-shell {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-surface-strong) 94%, transparent) 0%, color-mix(in srgb, var(--bg-surface) 92%, transparent) 100%);
+  opacity: 0;
+  transform: translateY(12px) scale(0.985);
+  transition:
+    opacity 320ms ease,
+    transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 320ms ease,
+    box-shadow 360ms ease;
+}
+
+.reader-read-completion.is-armed .reader-read-completion-shell,
+.reader-read-completion.is-active .reader-read-completion-shell {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.reader-read-completion.is-armed .reader-read-completion-shell {
+  border-color: color-mix(in srgb, var(--border-subtle) 88%, transparent);
+}
+
+.reader-read-completion.is-active .reader-read-completion-shell {
+  border-color: color-mix(in srgb, var(--border-strong) 76%, transparent);
+  box-shadow: 0 16px 38px rgba(26, 22, 17, 0.06);
+  animation: reader-read-completion-shell-in 640ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.reader-read-completion-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--selection-bg) 72%, transparent) 0%, transparent 68%);
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+.reader-read-completion-line {
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  top: 1.7rem;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-tertiary) 78%, transparent);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.reader-read-completion-copy {
+  gap: 0.35rem;
+}
+
+.reader-read-completion-prompt,
+.reader-read-completion-label,
+.reader-read-completion-subtitle {
+  opacity: 0;
+}
+
+.reader-read-completion.is-armed .reader-read-completion-prompt {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 220ms ease,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reader-read-completion.is-armed .reader-read-completion-line {
+  opacity: 0.5;
+  transform: scaleX(1);
+  transition:
+    opacity 260ms ease,
+    transform 420ms ease;
+}
+
+.reader-read-completion.is-active .reader-read-completion-glow {
+  animation: reader-read-completion-glow 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.reader-read-completion.is-active .reader-read-completion-line {
+  animation: reader-read-completion-line 600ms ease-out forwards;
+}
+
+.reader-read-completion.is-active .reader-read-completion-prompt {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition:
+    opacity 180ms ease,
+    transform 260ms ease;
+}
+
+.reader-read-completion.is-active .reader-read-completion-label {
+  animation: reader-read-completion-label-in 320ms cubic-bezier(0.22, 1, 0.36, 1) 520ms forwards;
+}
+
+.reader-read-completion.is-active .reader-read-completion-subtitle {
+  animation: reader-read-completion-subtitle-in 320ms cubic-bezier(0.22, 1, 0.36, 1) 720ms forwards;
+}
+
+.reader-read-completion.is-completed .reader-read-completion-shell {
+  animation: reader-read-completion-shell-out 680ms cubic-bezier(0.32, 0, 0.2, 1) forwards;
+}
+
+.reader-read-completion.is-completed .reader-read-completion-glow {
+  animation: reader-read-completion-glow-out 620ms ease-out forwards;
+}
+
+.reader-read-completion.is-completed .reader-read-completion-line {
+  animation: reader-read-completion-line-out 520ms ease-in forwards;
+}
+
+.reader-read-completion.is-completed .reader-read-completion-label {
+  animation: reader-read-completion-label-out 420ms ease-in-out forwards;
+}
+
+.reader-read-completion.is-completed .reader-read-completion-subtitle {
+  animation: reader-read-completion-label-out 460ms ease-in-out 80ms forwards;
+}
+
+@keyframes reader-read-completion-shell-in {
+  from {
+    opacity: 0.92;
+    transform: translateY(10px) scale(0.987);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes reader-read-completion-shell-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 16px 38px rgba(26, 22, 17, 0.06);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+    box-shadow: 0 6px 18px rgba(26, 22, 17, 0.02);
+  }
+}
+
+@keyframes reader-read-completion-line {
+  from {
+    opacity: 0.45;
+    transform: scaleX(0);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes reader-read-completion-glow {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes reader-read-completion-glow-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes reader-read-completion-line-out {
+  from {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scaleX(0.92);
+  }
+}
+
+@keyframes reader-read-completion-label-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes reader-read-completion-subtitle-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes reader-read-completion-label-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}

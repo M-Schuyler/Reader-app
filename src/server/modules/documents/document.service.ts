@@ -25,6 +25,7 @@ import {
   listQuickSearchDocuments,
   listDocuments,
   listSourceAliases,
+  markDocumentRead,
   markDocumentEnteredReading,
   upsertSourceAlias,
   updateDocumentFavorite,
@@ -50,6 +51,8 @@ import type {
   UpdateSourceAliasResponseData,
   UpdateDocumentFavoriteInput,
   UpdateDocumentFavoriteResponseData,
+  UpdateDocumentReadStateInput,
+  UpdateDocumentReadStateResponseData,
 } from "./document.types";
 
 const DEFAULT_PAGE = 1;
@@ -74,6 +77,12 @@ type GetDocumentsDependencies = {
   listDocumentOriginRows?: typeof listDocumentOriginRows;
   listWechatSubsourcesByBiz?: typeof listWechatSubsourcesByBiz;
   warn?: (...args: unknown[]) => void;
+};
+
+type UpdateDocumentReadStateDependencies = {
+  getDocumentById?: typeof getDocumentById;
+  markDocumentRead?: typeof markDocumentRead;
+  listWechatSubsourcesByBiz?: typeof listWechatSubsourcesByBiz;
 };
 
 export async function getDocuments(
@@ -265,6 +274,29 @@ export async function updateDocumentFavoriteStatus(
       source: null,
       error: null,
     },
+  };
+}
+
+export async function updateDocumentReadState(
+  id: string,
+  input: UpdateDocumentReadStateInput,
+  dependencies: UpdateDocumentReadStateDependencies = {},
+): Promise<UpdateDocumentReadStateResponseData | null> {
+  const fetchDocument = dependencies.getDocumentById ?? getDocumentById;
+  const markRead = dependencies.markDocumentRead ?? markDocumentRead;
+  const listWechatSubsources = dependencies.listWechatSubsourcesByBiz ?? listWechatSubsourcesByBiz;
+  const existingDocument = await fetchDocument(id);
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  const document = existingDocument.readState === input.readState ? existingDocument : await markRead(id);
+
+  return {
+    document: await mapDocumentDetailWithResolvedContentOrigin(document, {
+      listWechatSubsourcesByBiz: listWechatSubsources,
+    }),
   };
 }
 
@@ -504,6 +536,22 @@ export function parseUpdateDocumentFavoriteInput(body: unknown): UpdateDocumentF
   return {
     isFavorite,
     regenerateAiSummary,
+  };
+}
+
+export function parseUpdateDocumentReadStateInput(body: unknown): UpdateDocumentReadStateInput {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new RouteError("INVALID_BODY", 400, "Request body must be a JSON object.");
+  }
+
+  const readState = (body as { readState?: unknown }).readState;
+
+  if (readState !== ReadState.READ) {
+    throw new RouteError("INVALID_BODY", 400, '"readState" must be "READ".');
+  }
+
+  return {
+    readState: ReadState.READ,
   };
 }
 
