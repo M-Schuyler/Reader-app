@@ -15,7 +15,8 @@ test("getDocuments exposes wechat content-origin options and filters source deta
     page: 1,
     pageSize: 20,
     sort: "latest",
-  } satisfies DocumentListQuery;
+    enableContentOrigin: true,
+  } as DocumentListQuery;
 
   const allItems = [
     createDocumentListRecord({
@@ -132,7 +133,8 @@ test("getDocuments keeps minority biz options separate while merging nickname-on
     page: 1,
     pageSize: 20,
     sort: "latest",
-  } satisfies DocumentListQuery;
+    enableContentOrigin: true,
+  } as DocumentListQuery;
 
   const allItems = [
     createDocumentListRecord({
@@ -278,7 +280,8 @@ test("getDocuments prefers registry display names for wechat biz filter options 
     page: 1,
     pageSize: 20,
     sort: "latest",
-  } satisfies DocumentListQuery;
+    enableContentOrigin: true,
+  } as DocumentListQuery;
 
   const allItems = [
     createDocumentListRecord({
@@ -327,6 +330,49 @@ test("getDocuments prefers registry display names for wechat biz filter options 
       count: 1,
     },
   ]);
+});
+
+test("getDocuments does not run content-origin aggregation for non-wechat source detail queries unless explicitly enabled", async () => {
+  const query = {
+    surface: "source",
+    source: {
+      kind: "domain",
+      value: "example.com",
+    },
+    page: 1,
+    pageSize: 20,
+    sort: "latest",
+  } as DocumentListQuery;
+
+  const allItems = [
+    createDocumentListRecord({
+      id: "web-1",
+      title: "普通网页",
+      sourceUrl: "https://example.com/article",
+      canonicalUrl: "https://example.com/article",
+    }),
+  ];
+
+  let listOriginRowsCalls = 0;
+
+  const result = await getDocuments(query, {
+    listDocumentOriginRows: async () => {
+      listOriginRowsCalls += 1;
+      throw new Error("non-wechat detail queries must not trigger content-origin aggregation");
+    },
+    listDocuments: async () => ({
+      items: allItems,
+      total: allItems.length,
+    }),
+    listDocumentsByIds: async () => {
+      throw new Error("non-origin-filtered queries should use the paginated document list");
+    },
+    warn: () => undefined,
+  });
+
+  assert.equal(listOriginRowsCalls, 0);
+  assert.equal(result.contentOrigin, undefined);
+  assert.deepEqual(result.items.map((item) => item.id), ["web-1"]);
 });
 
 function createDocumentListRecord(overrides: Partial<DocumentListRecord>): DocumentListRecord {

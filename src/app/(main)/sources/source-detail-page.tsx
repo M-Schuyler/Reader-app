@@ -3,6 +3,7 @@ import { SourceLibraryDetail } from "@/components/library/source-library-detail"
 import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
+import { shouldEnableContentOriginForSourceDetail } from "@/lib/documents/content-origin";
 import { buildSourceLibrarySourceContext } from "@/lib/documents/source-library";
 import {
   buildSourceContextChips,
@@ -25,26 +26,30 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
   const resolvedSearchParams = await resolveSourceSearchParams(searchParams);
   const parsedQuery = parseSourceLibraryQuery(resolvedSearchParams);
 
-  const [overviewData, data] = await Promise.all([
-    getDocuments({
-      surface: "source",
-      source,
-      page: 1,
-      pageSize: 1,
-      sort: "latest",
-    }),
-    getDocuments({
-      ...parsedQuery,
-      surface: "source",
-      source,
-    }),
-  ]);
+  const overviewData = await getDocuments({
+    surface: "source",
+    source,
+    page: 1,
+    pageSize: 1,
+    sort: "latest",
+  });
 
   const representativeItem = overviewData.items[0];
   if (!representativeItem) {
     notFound();
   }
 
+  const enableContentOrigin = shouldEnableContentOriginForSourceDetail({
+    representativeCanonicalUrl: representativeItem.canonicalUrl,
+    representativeSourceUrl: representativeItem.sourceUrl,
+  });
+
+  const data = await getDocuments({
+    ...parsedQuery,
+    enableContentOrigin,
+    surface: "source",
+    source,
+  } as Parameters<typeof getDocuments>[0]);
   const sourceAliasMap = await getSourceAliasMapForSources([source]);
   const sourceContext = buildSourceLibrarySourceContext(representativeItem, overviewData.pagination.total, sourceAliasMap);
   const contextChips = buildSourceContextChips(data.filters, { sortContext: "documentList" });

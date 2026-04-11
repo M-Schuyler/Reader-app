@@ -3,6 +3,7 @@ import { SourceLibraryDetail } from "@/components/library/source-library-detail"
 import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
+import { shouldEnableContentOriginForSourceDetail } from "@/lib/documents/content-origin";
 import {
   buildSourceContextChips,
   buildSourceLibraryBrowseHref,
@@ -28,12 +29,16 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
     notFound();
   }
 
+  const enableContentOrigin = shouldEnableContentOriginForSourceDetail({
+    sourceUrl: sourceData.source.siteUrl ?? sourceData.source.locatorUrl,
+  });
   const data = await getDocuments({
     ...parsedQuery,
+    enableContentOrigin,
     surface: "source",
     sourceId,
-  });
-  const contextChips = buildSourceContextChips(data.filters, { sortContext: "documentList" });
+  } as Parameters<typeof getDocuments>[0]);
+  const contextChips = buildSourceContextChips(data.filters, data.contentOrigin?.options, { sortContext: "documentList" });
   const backHref = buildSourceLibraryBrowseHref("/sources", {
     ...parsedQuery,
     surface: "source",

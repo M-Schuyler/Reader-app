@@ -3,7 +3,7 @@ import { RouteError } from "@/server/api/response";
 import {
   buildContentOriginIndex,
   collectWechatBizFromContentOriginRows,
-  readWeChatBizFromOriginKey,
+  resolveDocumentContentOrigin,
 } from "@/lib/documents/content-origin";
 import { buildSourceAliasMap, buildSourceLibraryIndexGroups, collectSourceAliasLookups } from "@/lib/documents/source-library";
 import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
@@ -92,36 +92,19 @@ export async function getDocuments(
   }
 
   const originRows = await listOriginDocuments(query);
+  const contentOriginRows = originRows.map(mapRecordToContentOriginRow);
 
-  if (originRows.length > CONTENT_ORIGIN_APP_FILTER_WARN_THRESHOLD) {
+  if (contentOriginRows.length > CONTENT_ORIGIN_APP_FILTER_WARN_THRESHOLD) {
     warn(
-      `[DocumentContentOrigin] matchedDocumentCount=${originRows.length}; database-level content-origin filtering should be the next optimization step.`,
+      `[DocumentContentOrigin] matchedDocumentCount=${contentOriginRows.length}; database-level content-origin filtering should be the next optimization step.`,
     );
   }
 
   const contentOrigin = buildContentOriginIndex(
-    originRows.map((row) => ({
-      id: row.id,
-      author: row.author,
-      sourceUrl: row.sourceUrl,
-      canonicalUrl: row.canonicalUrl,
-      contentOriginKey: row.contentOriginKey,
-      contentOriginLabel: row.contentOriginLabel,
-      rawHtml: row.content?.rawHtml ?? null,
-    })),
+    contentOriginRows,
     {
       wechatBizLabels: await loadWechatBizLabelMap(
-        collectWechatBizFromContentOriginRows(
-          originRows.map((row) => ({
-            id: row.id,
-            author: row.author,
-            sourceUrl: row.sourceUrl,
-            canonicalUrl: row.canonicalUrl,
-            contentOriginKey: row.contentOriginKey,
-            contentOriginLabel: row.contentOriginLabel,
-            rawHtml: row.content?.rawHtml ?? null,
-          })),
-        ),
+        collectWechatBizFromContentOriginRows(contentOriginRows),
         listWechatSubsources,
       ),
     },
@@ -314,7 +297,8 @@ export async function prioritizeDocumentAiSummaryForReader(
 }
 
 function supportsContentOriginFiltering(query: DocumentListQuery) {
-  if (query.surface !== "source") {
+  const enableContentOrigin = (query as DocumentListQuery & { enableContentOrigin?: boolean }).enableContentOrigin;
+  if (!enableContentOrigin || query.surface !== "source") {
     return false;
   }
 
@@ -372,25 +356,23 @@ async function mapDocumentDetailWithResolvedContentOrigin(
   } = {},
 ) {
   const listWechatSubsources = options.listWechatSubsourcesByBiz ?? listWechatSubsourcesByBiz;
-  const contentOriginLabelOverride = await resolveWechatContentOriginLabel(document, listWechatSubsources);
+  const contentOriginOverride = await resolveDocumentContentOriginForDetail(document, listWechatSubsources);
 
   return mapDocumentDetail(document, {
     ingestionError: options.ingestionError,
-    contentOriginLabelOverride,
+    contentOriginOverride,
   });
 }
 
-async function resolveWechatContentOriginLabel(
-  document: Pick<DocumentDetailRecord, "contentOriginKey">,
+async function resolveDocumentContentOriginForDetail(
+  document: DocumentDetailRecord,
   listWechatSubsources: typeof listWechatSubsourcesByBiz,
 ) {
-  const biz = document.contentOriginKey ? readWeChatBizFromOriginKey(document.contentOriginKey) : null;
-  if (!biz) {
-    return null;
-  }
-
-  const labelMap = await loadWechatBizLabelMap([biz], listWechatSubsources);
-  return labelMap.get(biz) ?? null;
+  const contentOriginRow = mapRecordToContentOriginRow(document);
+  const labelMap = await loadWechatBizLabelMap(collectWechatBizFromContentOriginRows([contentOriginRow]), listWechatSubsources);
+  return resolveDocumentContentOrigin(contentOriginRow, {
+    wechatBizLabels: labelMap,
+  });
 }
 
 async function loadWechatBizLabelMap(
@@ -403,6 +385,30 @@ async function loadWechatBizLabelMap(
 
   const subsources = await listWechatSubsources(bizValues);
   return new Map(subsources.map((subsource) => [subsource.biz, subsource.displayName]));
+}
+
+function mapRecordToContentOriginRow(
+  record: {
+    id: string;
+    author: string | null;
+    sourceUrl: string | null;
+    canonicalUrl: string | null;
+    contentOriginKey: string | null;
+    contentOriginLabel: string | null;
+    content?: {
+      rawHtml: string | null;
+    } | null;
+  },
+) {
+  return {
+    id: record.id,
+    author: record.author,
+    sourceUrl: record.sourceUrl,
+    canonicalUrl: record.canonicalUrl,
+    contentOriginKey: record.contentOriginKey,
+    contentOriginLabel: record.contentOriginLabel,
+    rawHtml: record.content?.rawHtml ?? null,
+  };
 }
 
 export async function getSummaryQueueStatusForReader(): Promise<SummaryQueueStatusResponseData> {

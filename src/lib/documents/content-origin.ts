@@ -21,6 +21,11 @@ export type ContentOriginIndex = {
 
 export type WechatBizLabelMap = ReadonlyMap<string, string>;
 
+export type ResolvedContentOrigin = {
+  key: string;
+  label: string;
+};
+
 export type DerivedContentOriginMetadata = {
   isWechat: boolean;
   key: string | null;
@@ -126,6 +131,33 @@ export function collectWechatBizFromContentOriginRows(rows: ContentOriginRow[]) 
   return [...new Set(rows.map((row) => normalizeContentOriginRow(row)?.biz ?? null).filter((biz): biz is string => Boolean(biz)))];
 }
 
+export function resolveDocumentContentOrigin(
+  row: ContentOriginRow,
+  options: {
+    wechatBizLabels?: WechatBizLabelMap;
+  } = {},
+): ResolvedContentOrigin | null {
+  const normalizedRow = normalizeContentOriginRow(row);
+  if (!normalizedRow) {
+    return null;
+  }
+
+  return {
+    key: normalizedRow.key,
+    label: resolveNormalizedContentOriginLabel(normalizedRow, options.wechatBizLabels),
+  };
+}
+
+export function shouldEnableContentOriginForSourceDetail(input: {
+  sourceUrl?: string | null;
+  representativeCanonicalUrl?: string | null;
+  representativeSourceUrl?: string | null;
+}) {
+  return [input.sourceUrl, input.representativeCanonicalUrl, input.representativeSourceUrl].some((value) =>
+    isWechatUrl(value),
+  );
+}
+
 export function buildContentOriginIndex(
   rows: ContentOriginRow[],
   options: {
@@ -186,7 +218,7 @@ export function buildContentOriginIndex(
         ? WECHAT_UNKNOWN_LABEL
         : matchingBiz
           ? bizLabels.get(matchingBiz) ?? row.label ?? row.nickname ?? WECHAT_UNKNOWN_LABEL
-          : row.label ?? row.nickname ?? WECHAT_UNKNOWN_LABEL;
+          : resolveNormalizedContentOriginLabel(row, registryLabels);
 
     documentOriginById[row.id] = value;
     optionCounts.set(value, (optionCounts.get(value) ?? 0) + 1);
@@ -257,6 +289,26 @@ function normalizeContentOriginRow(row: ContentOriginRow) {
         ? null
         : normalizeLabel(derived.label),
   };
+}
+
+function resolveNormalizedContentOriginLabel(
+  row: {
+    key: string;
+    label: string | null;
+    biz: string | null;
+    nickname: string | null;
+  },
+  wechatBizLabels: WechatBizLabelMap = new Map<string, string>(),
+) {
+  if (row.key === WECHAT_UNKNOWN_ORIGIN) {
+    return WECHAT_UNKNOWN_LABEL;
+  }
+
+  if (row.biz) {
+    return wechatBizLabels.get(row.biz) ?? row.label ?? row.nickname ?? WECHAT_UNKNOWN_LABEL;
+  }
+
+  return row.label ?? row.nickname ?? WECHAT_UNKNOWN_LABEL;
 }
 
 function normalizeStoredWechatOrigin(
@@ -379,4 +431,8 @@ function parseUrl(value: string | null | undefined) {
   } catch {
     return null;
   }
+}
+
+function isWechatUrl(value: string | null | undefined) {
+  return parseUrl(value)?.hostname === "mp.weixin.qq.com";
 }

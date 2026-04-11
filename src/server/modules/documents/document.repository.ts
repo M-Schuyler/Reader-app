@@ -107,6 +107,7 @@ export const documentDetailArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()
       select: {
         contentHtml: true,
         plainText: true,
+        rawHtml: true,
         textHash: true,
         wordCount: true,
         extractedAt: true,
