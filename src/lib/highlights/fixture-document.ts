@@ -22,6 +22,7 @@ export function getHighlightsQaFixtureDocument(): DocumentDetail {
       "Use this page to validate real Reader highlighting without depending on database connectivity or external content drift.",
     lang: "en",
     author: "Reader QA Fixture",
+    contentOrigin: null,
     publishedAt: "2026-03-27T10:00:00.000Z",
     publishedAtKind: "EXACT",
     enteredReadingAt: "2026-03-27T10:10:00.000Z",

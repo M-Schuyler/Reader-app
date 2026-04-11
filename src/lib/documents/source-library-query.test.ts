@@ -36,6 +36,31 @@ test("buildSourceContextChips includes active tag filters", () => {
   );
 });
 
+test("buildSourceContextChips includes the active content-origin label", () => {
+  assert.deepEqual(
+    buildSourceContextChips(
+      {
+        surface: "source",
+        q: undefined,
+        tag: undefined,
+        type: undefined,
+        readState: undefined,
+        isFavorite: undefined,
+        origin: "wechat:biz:MzI0MDg5ODA2NQ==",
+        sort: "latest",
+      } as never,
+      [
+        {
+          count: 2,
+          label: "请辩",
+          value: "wechat:biz:MzI0MDg5ODA2NQ==",
+        },
+      ],
+    ),
+    ["创作来源 请辩"],
+  );
+});
+
 test("buildSourceLibraryBrowseHref preserves q type tag and sort when entering all documents", () => {
   assert.equal(
     buildSourceLibraryBrowseHref("/sources/all", {

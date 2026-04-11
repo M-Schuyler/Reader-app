@@ -31,7 +31,7 @@ export default async function SourceAllDocumentsPage({ searchParams }: SourceAll
     surface: "source",
   });
   const clearHref = buildSourceLibraryClearHref("/sources/all", data.filters);
-  const contextChips = buildSourceContextChips(data.filters, { sortContext: "documentList" });
+  const contextChips = buildSourceContextChips(data.filters, undefined, { sortContext: "documentList" });
   const hasPreviousPage = data.pagination.page > 1;
   const hasNextPage = data.pagination.page < data.pagination.totalPages;
 

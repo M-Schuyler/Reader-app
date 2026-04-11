@@ -45,6 +45,7 @@ test("mapping a QA real document only rewrites the public id", () => {
     excerpt: "Excerpt",
     lang: "en",
     author: "Author",
+    contentOrigin: null,
     publishedAt: "2026-03-27T10:00:00.000Z",
     publishedAtKind: "EXACT",
     enteredReadingAt: "2026-03-27T10:10:00.000Z",

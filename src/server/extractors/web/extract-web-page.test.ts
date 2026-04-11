@@ -172,6 +172,39 @@ test("extracts author from meta, json-ld and wechat byline", () => {
   assert.equal(fromWeChatByline.author, "王小明");
 });
 
+test("extracts wechat account name separately from the article author", () => {
+  const rawHtml = `
+    <html>
+      <head>
+        <meta property="og:title" content="微信账号与作者分离测试">
+      </head>
+      <body>
+        <div id="img-content" class="rich_media_content">
+          <span id="js_name">请辩</span>
+          <div id="js_content">
+            <section>文：蔡垒磊</section>
+            <p>${LONG_WECHAT_BODY}</p>
+            <p>${LONG_WECHAT_BODY}</p>
+          </div>
+        </div>
+        <script>
+          window.cgiData = {
+            nick_name: JsDecode('请辩')
+          };
+        </script>
+      </body>
+    </html>
+  `;
+
+  const result = extractWebPageFromHtml({
+    requestUrl: "https://mp.weixin.qq.com/s/account-author-split-demo",
+    rawHtml,
+  });
+
+  assert.equal(result.author, "蔡垒磊");
+  assert.equal(result.wechatAccountName, "请辩");
+});
+
 test("rejects low-signal wechat output even if extraction produced some text", () => {
   const rawHtml = `
     <html>

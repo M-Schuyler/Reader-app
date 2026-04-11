@@ -29,3 +29,13 @@ test("document reader uses the failed-state resolver instead of hard-coded gener
   assert.match(reader, /failedState\.description/);
   assert.match(reader, /failedState\.nextStep/);
 });
+
+test("document reader renders source attribution under the title and in metadata", () => {
+  const reader = readWorkspaceFile("src/components/reader/document-reader.tsx");
+
+  assert.match(reader, /document\.contentOrigin/);
+  assert.match(reader, /documentAttribution\.label/);
+  assert.match(reader, /documentAttribution\.value/);
+  assert.match(reader, /label: "公众号"/);
+  assert.match(reader, /label: "作者"/);
+});

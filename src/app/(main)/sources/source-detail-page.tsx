@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { SourceLibraryDetail } from "@/components/library/source-library-detail";
-import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 import { shouldEnableContentOriginForSourceDetail } from "@/lib/documents/content-origin";
@@ -8,6 +7,7 @@ import { buildSourceLibrarySourceContext } from "@/lib/documents/source-library"
 import {
   buildSourceContextChips,
   buildSourceLibraryBrowseHref,
+  buildSourceLibraryClearHref,
   parseSourceLibraryQuery,
   resolveSourceSearchParams,
 } from "@/lib/documents/source-library-query";
@@ -21,8 +21,6 @@ type SourceDetailPageProps = {
 };
 
 export async function SourceDetailPage({ basePath, searchParams, source }: SourceDetailPageProps) {
-  void basePath;
-
   const resolvedSearchParams = await resolveSourceSearchParams(searchParams);
   const parsedQuery = parseSourceLibraryQuery(resolvedSearchParams);
 
@@ -52,11 +50,13 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
   } as Parameters<typeof getDocuments>[0]);
   const sourceAliasMap = await getSourceAliasMapForSources([source]);
   const sourceContext = buildSourceLibrarySourceContext(representativeItem, overviewData.pagination.total, sourceAliasMap);
-  const contextChips = buildSourceContextChips(data.filters, { sortContext: "documentList" });
+  const contextChips = buildSourceContextChips(data.filters, data.contentOrigin?.options, { sortContext: "documentList" });
   const backHref = buildSourceLibraryBrowseHref("/sources", {
     ...parsedQuery,
     surface: "source",
   });
+  const clearHref = buildSourceLibraryClearHref(basePath, data.filters);
+  const hasActiveFilters = Boolean(data.filters.q || data.filters.tag || data.filters.origin || data.filters.sort !== "latest");
 
   return (
     <section className="space-y-8 md:space-y-10">
@@ -66,8 +66,6 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
         eyebrow="Source detail"
         title={sourceContext.label}
       />
-
-      <SourceLibraryToolbar />
 
       {contextChips.length > 0 ? (
         <Panel
@@ -88,7 +86,7 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
         </Panel>
       ) : null}
 
-      <SourceLibraryDetail backHref={backHref} data={data} source={sourceContext} />
+      <SourceLibraryDetail backHref={backHref} clearHref={clearHref} data={data} hasActiveFilters={hasActiveFilters} source={sourceContext} />
     </section>
   );
 }

@@ -7,6 +7,10 @@
     {
       "path": "/api/internal/summary-jobs/sweep",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/internal/content-origin/wechat-backfill",
+      "schedule": "30 4 * * *"
     }
   ]
 }
