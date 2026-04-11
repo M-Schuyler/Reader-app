@@ -24,3 +24,19 @@ export async function findWechatSubsourceByBiz(biz: string): Promise<WechatSubso
     select: wechatSubsourceSelect,
   });
 }
+
+export async function listWechatSubsourcesByBiz(bizValues: string[]): Promise<WechatSubsourceRecord[]> {
+  const normalizedBizValues = [...new Set(bizValues.map((biz) => biz.trim()).filter(Boolean))];
+  if (normalizedBizValues.length === 0) {
+    return [];
+  }
+
+  return prisma.wechatSubsource.findMany({
+    where: {
+      biz: {
+        in: normalizedBizValues,
+      },
+    },
+    select: wechatSubsourceSelect,
+  });
+}

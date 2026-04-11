@@ -74,3 +74,35 @@ test("openDocument includes the latest capture ingestion error for failed docume
   assert.ok(data?.document.ingestion);
   assert.deepEqual(data.document.ingestion.error, ingestionError);
 });
+
+test("openDocument maps persisted content origin metadata into the reader document payload", async () => {
+  const documentRecord = createDocumentRecord({
+    author: "不会直接显示的作者",
+  }) as DocumentDetailRecord & {
+    contentOriginKey: string;
+    contentOriginLabel: string;
+  };
+
+  documentRecord.contentOriginKey = "wechat:biz:MzI0MDg5ODA2NQ==";
+  documentRecord.contentOriginLabel = "蔡垒磊";
+
+  const data = await openDocument("doc_failed", {
+    getDocumentById: async () => documentRecord,
+    markDocumentEnteredReading: async () => ({ count: 1 }),
+    getLatestCaptureError: async () => null,
+    listWechatSubsourcesByBiz: async () => [
+      {
+        biz: "MzI0MDg5ODA2NQ==",
+        displayName: "请辩",
+        isPlaceholder: false,
+        createdAt: new Date("2026-04-10T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-10T00:00:00.000Z"),
+      },
+    ],
+  });
+
+  assert.deepEqual(data?.document.contentOrigin, {
+    key: "wechat:biz:MzI0MDg5ODA2NQ==",
+    label: "请辩",
+  });
+});

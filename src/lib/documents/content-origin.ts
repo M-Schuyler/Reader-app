@@ -19,6 +19,8 @@ export type ContentOriginIndex = {
   documentOriginById: Record<string, string>;
 };
 
+export type WechatBizLabelMap = ReadonlyMap<string, string>;
+
 export type DerivedContentOriginMetadata = {
   isWechat: boolean;
   key: string | null;
@@ -120,7 +122,16 @@ export async function syncWechatSubsourceFromContentOrigin(
   return upsertWechatSubsource(syncInput);
 }
 
-export function buildContentOriginIndex(rows: ContentOriginRow[]): ContentOriginIndex {
+export function collectWechatBizFromContentOriginRows(rows: ContentOriginRow[]) {
+  return [...new Set(rows.map((row) => normalizeContentOriginRow(row)?.biz ?? null).filter((biz): biz is string => Boolean(biz)))];
+}
+
+export function buildContentOriginIndex(
+  rows: ContentOriginRow[],
+  options: {
+    wechatBizLabels?: WechatBizLabelMap;
+  } = {},
+): ContentOriginIndex {
   const normalizedRows = rows
     .map((row) => normalizeContentOriginRow(row))
     .filter((row): row is NonNullable<typeof row> => Boolean(row));
@@ -133,10 +144,18 @@ export function buildContentOriginIndex(rows: ContentOriginRow[]): ContentOrigin
   }
 
   const bizLabels = new Map<string, string>();
+  const registryLabels = options.wechatBizLabels ?? new Map<string, string>();
   const nicknameBizCounts = new Map<string, Map<string, number>>();
 
   for (const row of normalizedRows) {
+    const registryLabel = row.biz ? registryLabels.get(row.biz) ?? null : null;
+    if (row.biz && registryLabel) {
+      bizLabels.set(row.biz, registryLabel);
+    }
+
     if (row.biz && row.label && row.label !== WECHAT_UNKNOWN_LABEL && !bizLabels.has(row.biz)) {
+      // Transitional fallback: registry-backed biz labels should win whenever available.
+      // Remove stored-label fallback after the wechat:nickname:* and historical label backfill exit criteria are complete.
       bizLabels.set(row.biz, row.label);
     }
 
@@ -177,7 +196,7 @@ export function buildContentOriginIndex(rows: ContentOriginRow[]): ContentOrigin
     }
   }
 
-  const options = [...optionCounts.entries()]
+  const contentOriginOptions = [...optionCounts.entries()]
     .map(([value, count]) => ({
       value,
       label: optionLabels.get(value) ?? WECHAT_UNKNOWN_LABEL,
@@ -200,7 +219,7 @@ export function buildContentOriginIndex(rows: ContentOriginRow[]): ContentOrigin
     });
 
   return {
-    options,
+    options: contentOriginOptions,
     documentOriginById,
   };
 }
@@ -301,7 +320,7 @@ function isClearlyDominantWeChatBiz(leadingCount: number, runnerUpCount: number,
   return leadingCount >= runnerUpCount * WECHAT_DOMINANT_BIZ_MIN_RATIO;
 }
 
-function buildWeChatBizOriginValue(value: string) {
+export function buildWeChatBizOriginValue(value: string) {
   return `wechat:biz:${value}`;
 }
 
@@ -309,7 +328,7 @@ function buildWeChatNicknameOriginValue(value: string) {
   return `wechat:nickname:${value}`;
 }
 
-function readWeChatBizFromOriginKey(value: string) {
+export function readWeChatBizFromOriginKey(value: string) {
   return value.startsWith("wechat:biz:") ? value.slice("wechat:biz:".length) : null;
 }
 

@@ -51,8 +51,11 @@ export function mapDocumentDetail(
   record: DocumentDetailRecord,
   options?: {
     ingestionError?: CaptureIngestionError | null;
+    contentOriginLabelOverride?: string | null;
   },
 ): DocumentDetail {
+  const contentOriginLabel = options?.contentOriginLabelOverride ?? record.contentOriginLabel;
+
   return {
     id: record.id,
     type: record.type,
@@ -65,6 +68,13 @@ export function mapDocumentDetail(
     excerpt: record.excerpt,
     lang: record.lang,
     author: record.author,
+    contentOrigin:
+      record.contentOriginKey && contentOriginLabel
+        ? {
+            key: record.contentOriginKey,
+            label: contentOriginLabel,
+          }
+        : null,
     publishedAt: toIso(record.publishedAt),
     publishedAtKind: record.publishedAtKind,
     enteredReadingAt: toIso(record.enteredReadingAt),
