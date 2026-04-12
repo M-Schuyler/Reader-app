@@ -8,17 +8,42 @@ function readWorkspaceFile(path: string) {
 
 test("sources page uses the dedicated source index view with a compact overflow action menu", () => {
   const sourcesPage = readWorkspaceFile("src/app/(main)/sources/page.tsx");
+  const readingPage = readWorkspaceFile("src/app/(main)/reading/page.tsx");
+  const highlightsPage = readWorkspaceFile("src/app/(main)/highlights/page.tsx");
+  const exportPage = readWorkspaceFile("src/app/(main)/export/page.tsx");
+  const sourceAllPage = readWorkspaceFile("src/app/(main)/sources/all/page.tsx");
+  const cuboxImportPage = readWorkspaceFile("src/app/(main)/sources/import/cubox/page.tsx");
+  const namedSourcePage = readWorkspaceFile("src/app/(main)/sources/[sourceId]/page.tsx");
+  const sourceDetailPage = readWorkspaceFile("src/app/(main)/sources/source-detail-page.tsx");
+  const menu = readWorkspaceFile("src/components/library/source-library-more-menu.tsx");
 
-  assert.match(sourcesPage, /SourceLibraryToolbar/);
   assert.match(sourcesPage, /SourceLibraryIndex/);
   assert.match(sourcesPage, /SourceLibraryMoreMenu/);
   assert.match(sourcesPage, /getSourceLibraryIndex/);
-  assert.match(sourcesPage, /这里只展示最近 7 天仍有新内容进入库的来源/);
+  assert.doesNotMatch(sourcesPage, /SourceLibraryToolbar/);
+  assert.doesNotMatch(sourcesPage, /description=/);
   assert.doesNotMatch(sourcesPage, /getDocuments\(\{/);
   assert.doesNotMatch(sourcesPage, /DocumentList/);
   assert.doesNotMatch(sourcesPage, /最近收进来/);
   assert.doesNotMatch(sourcesPage, /近七天/);
   assert.doesNotMatch(sourcesPage, /更早/);
+  assert.match(sourcesPage, /className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto"/);
+  assert.match(menu, /CaptureUrlForm/);
+  assert.match(menu, /CreateSourceForm/);
+  assert.match(menu, /导入 Cubox/);
+  assert.match(menu, /保存网页链接/);
+  assert.match(menu, /添加 RSS 来源/);
+  assert.match(menu, /补跑摘要/);
+  assert.match(menu, /导入 Cubox[\s\S]*保存网页链接[\s\S]*添加 RSS 来源[\s\S]*补跑摘要/);
+  assert.match(menu, /min-w-\[280px\]/);
+  assert.match(menu, /props\.expanded \? "∨" : "›"/);
+  assert.doesNotMatch(readingPage, /description=/);
+  assert.doesNotMatch(highlightsPage, /description=/);
+  assert.doesNotMatch(exportPage, /description=/);
+  assert.doesNotMatch(sourceAllPage, /description=/);
+  assert.doesNotMatch(cuboxImportPage, /description=/);
+  assert.doesNotMatch(namedSourcePage, /description=/);
+  assert.doesNotMatch(sourceDetailPage, /description=/);
 });
 
 test("source library index renders a single recent-7-days section and keeps dedicated empty states", () => {
@@ -34,6 +59,7 @@ test("source library index renders a single recent-7-days section and keeps dedi
   assert.match(sourceLibrary, /SourceLibraryIndexCard/);
   assert.match(sourceLibrary, /href=\{group\.href/);
   assert.match(sourceLibrary, /getSourceLibraryToneForSeed\(group\.id\)/);
+  assert.match(sourceLibrary, /className="flex flex-wrap items-center gap-4"/);
   assert.doesNotMatch(sourceLibrary, /SOURCE_SHELF_META/);
   assert.doesNotMatch(sourceLibrary, /最近收进来/);
   assert.doesNotMatch(sourceLibrary, /近七天/);
@@ -48,7 +74,6 @@ test("source library toolbar supports an index-only mode with just the two captu
 
   assert.match(toolbar, /CaptureUrlForm/);
   assert.match(toolbar, /CreateSourceForm/);
-  assert.match(toolbar, /variant="compact"/);
   assert.match(toolbar, /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)\]/);
   assert.match(toolbar, /SelectInput/);
   assert.match(toolbar, /应用筛选/);

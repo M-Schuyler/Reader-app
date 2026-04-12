@@ -1,6 +1,5 @@
 import { SourceLibraryIndex } from "@/components/library/source-library";
 import { SourceLibraryMoreMenu } from "@/components/library/source-library-more-menu";
-import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import {
   buildSourceContextChips,
@@ -33,7 +32,7 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
     <section className="space-y-7 md:space-y-8">
       <PageHeader
         actions={
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
             <span className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]">
               {data.documentCount} 篇
             </span>
@@ -48,11 +47,8 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
             <SourceLibraryMoreMenu />
           </div>
         }
-        description="这里只展示最近 7 天仍有新内容进入库的来源。要看完整文档流，进入全部文档。"
         title="来源库"
       />
-
-      <SourceLibraryToolbar />
 
       <SourceLibraryIndex allDocumentsHref={allDocumentsHref} data={data} />
     </section>

@@ -46,7 +46,6 @@ export default async function SourceAllDocumentsPage({ searchParams }: SourceAll
             返回来源库
           </Link>
         }
-        description={`这里是来源库里的完整文档流，不再只看最近 7 天的来源。当前显示第 ${data.pagination.page} / ${data.pagination.totalPages} 页。`}
         eyebrow="Source Library"
         title="全部文档"
       />

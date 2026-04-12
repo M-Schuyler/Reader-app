@@ -77,7 +77,6 @@ export default async function NamedSourceDetailPage({ params, searchParams }: So
       <PageHeader
         actions={<SourceSyncButton sourceId={sourceData.source.id} />}
         className="gap-6 lg:items-start"
-        description="这里看到的是一个明确命名的来源，而不是仅按域名回推的临时聚合。"
         eyebrow="Source detail"
         meta={<SourceLibraryDetailHeaderMeta includeCategories={sourceData.source.includeCategories} source={sourceContext} sync={sync} />}
         title={sourceData.source.title}

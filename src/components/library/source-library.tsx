@@ -71,7 +71,7 @@ function SourceLibraryRecentShelf({
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <p className="text-sm text-[color:var(--text-tertiary)]">
             {groups.length} 个来源 · {totalItems} 篇
           </p>

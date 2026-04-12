@@ -9,7 +9,6 @@ export default function CuboxImportPage() {
       <PageHeader
         eyebrow="Import"
         title="导入 Cubox"
-        description="贴入 Cubox API link，把内容一次性迁进 Reader。API link 只会在本次导入请求中使用，不会保存到库里。"
       />
 
       <CuboxImportForm />

@@ -21,11 +21,7 @@ export default async function HighlightsPage({ searchParams }: HighlightsPagePro
 
   return (
     <section className="space-y-10">
-      <PageHeader
-        description="Keep the residue light. Save the line, leave a short note, come back only when it still matters."
-        eyebrow="Highlights"
-        title="把真正重要的句子留下来"
-      />
+      <PageHeader eyebrow="Highlights" title="把真正重要的句子留下来" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <MetricPanel hint="Saved passages" label="已保存高亮" value={String(overview.totalHighlights)} />

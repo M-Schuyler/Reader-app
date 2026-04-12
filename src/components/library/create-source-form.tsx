@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, TextInput } from "@/components/ui/form-controls";
+import { cx } from "@/utils/cx";
 
 type CreateSourceApiResponse =
   | {
@@ -21,10 +22,14 @@ type CreateSourceApiResponse =
       error: {
         code: string;
         message: string;
-      };
+    };
     };
 
-export function CreateSourceForm() {
+type CreateSourceFormProps = {
+  variant?: "compact" | "menu";
+};
+
+export function CreateSourceForm({ variant = "compact" }: CreateSourceFormProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [locatorUrl, setLocatorUrl] = useState("");
@@ -34,6 +39,8 @@ export function CreateSourceForm() {
   const [successHref, setSuccessHref] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const isMenu = variant === "menu";
+  const showHeading = !isMenu;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,17 +87,19 @@ export function CreateSourceForm() {
   }
 
   return (
-    <form className="space-y-3.5" onSubmit={handleSubmit}>
-      <div className="space-y-1">
-        <h2 className="font-ui-heading text-[1.2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-          添加 RSS 来源
-        </h2>
-      </div>
+    <form className={isMenu ? "space-y-3" : "space-y-3.5"} onSubmit={handleSubmit}>
+      {showHeading ? (
+        <div className="space-y-1">
+          <h2 className="font-ui-heading text-[1.2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
+            添加 RSS 来源
+          </h2>
+        </div>
+      ) : null}
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <Field label="来源名称">
+      <div className={cx("grid gap-3", isMenu ? undefined : "md:grid-cols-2")}>
+        <Field label={isMenu ? "名称" : "来源名称"}>
           <TextInput
-            className="min-h-10 rounded-[16px]"
+            className={isMenu ? "min-h-10 rounded-[14px]" : "min-h-10 rounded-[16px]"}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="请辩 RSS"
             value={title}
@@ -99,7 +108,7 @@ export function CreateSourceForm() {
 
         <Field label="起始时间">
           <TextInput
-            className="min-h-10 rounded-[16px]"
+            className={isMenu ? "min-h-10 rounded-[14px]" : "min-h-10 rounded-[16px]"}
             onChange={(event) => setBackfillStartAt(event.target.value)}
             type="date"
             value={backfillStartAt}
@@ -109,7 +118,7 @@ export function CreateSourceForm() {
 
       <Field label="Feed 或站点入口">
         <TextInput
-          className="min-h-10 rounded-[16px]"
+          className={isMenu ? "min-h-10 rounded-[14px]" : "min-h-10 rounded-[16px]"}
           onChange={(event) => setLocatorUrl(event.target.value)}
           placeholder="https://example.com/feed.xml"
           type="url"
@@ -119,14 +128,20 @@ export function CreateSourceForm() {
 
       <Field label="分类过滤（可选）">
         <TextInput
-          className="min-h-10 rounded-[16px]"
+          className={isMenu ? "min-h-10 rounded-[14px]" : "min-h-10 rounded-[16px]"}
           onChange={(event) => setIncludeCategories(event.target.value)}
           placeholder="Tech, Reviews"
           value={includeCategories}
         />
       </Field>
 
-      <Button disabled={isSubmitting || isPending || !title.trim() || !locatorUrl.trim()} size="sm" type="submit" variant="primary">
+      <Button
+        className={isMenu ? "w-full" : undefined}
+        disabled={isSubmitting || isPending || !title.trim() || !locatorUrl.trim()}
+        size="sm"
+        type="submit"
+        variant="primary"
+      >
         {isSubmitting || isPending ? "创建中…" : "创建来源"}
       </Button>
 

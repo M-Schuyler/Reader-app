@@ -67,7 +67,6 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
       <PageHeader
         actions={<SourceAliasEditor source={sourceContext} />}
         className="gap-6 lg:items-start"
-        description="这里不再混着所有来源。进到这一页后，你看到的是同一来源下的一整架内容。"
         eyebrow="Source detail"
         meta={<SourceLibraryDetailHeaderMeta source={sourceContext} />}
         title={sourceContext.label}

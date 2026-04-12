@@ -10,11 +10,7 @@ export default async function ExportPage() {
 
   return (
     <section className="space-y-10">
-      <PageHeader
-        description="Reading leaves a clean package behind. Export keeps it small, structured, and ready for Obsidian."
-        eyebrow="Export"
-        title="把读完的信号交给下游系统"
-      />
+      <PageHeader eyebrow="Export" title="把读完的信号交给下游系统" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <MetricPanel hint="Starred docs" label="收藏文档" value={String(overview.starredDocuments)} />

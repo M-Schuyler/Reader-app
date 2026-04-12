@@ -35,11 +35,7 @@ export default async function ReadingPage({ searchParams }: ReadingPageProps) {
 
   return (
     <section className="space-y-10">
-      <PageHeader
-        description="Reading stays smaller than the source stream. A document enters here only after you actually open it."
-        eyebrow="Reading"
-        title="Reading"
-      />
+      <PageHeader eyebrow="Reading" title="Reading" />
 
       <div className="flex flex-wrap gap-2">
         {viewItems.map((view) => (
