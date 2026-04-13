@@ -25,7 +25,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
             </Link>
 
             <div className="w-full lg:mx-auto lg:max-w-[22.5rem]">
-              <GlobalSearch />
+              <GlobalSearch open={false} onOpenChange={() => {}} />
             </div>
 
             <div className="flex items-center gap-2">

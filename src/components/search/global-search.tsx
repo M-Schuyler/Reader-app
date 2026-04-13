@@ -18,9 +18,7 @@ export type GlobalSearchProps = {
 
 const MAX_RESULTS = 6;
 
-export function GlobalSearch(props: GlobalSearchProps): JSX.Element | null;
-export function GlobalSearch(props?: Partial<GlobalSearchProps>): JSX.Element | null;
-export function GlobalSearch({ open = false, onOpenChange = () => {} }: Partial<GlobalSearchProps> = {}) {
+export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [query, setQuery] = useState("");
@@ -86,7 +84,6 @@ export function GlobalSearch({ open = false, onOpenChange = () => {} }: Partial<
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
-          setOpen(true);
         }
       }
     }, 180);
