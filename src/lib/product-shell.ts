@@ -7,6 +7,16 @@ export type MainNavItem = {
   isActive: boolean;
 };
 
+export type PrimaryNavItemId = "search" | "sources" | "reading" | "highlights";
+
+export type PrimaryNavItem = {
+  id: PrimaryNavItemId;
+  label: string;
+  href: string | null;
+  kind: "action" | "link";
+  isActive: boolean;
+};
+
 export type ReadingViewId = "queue" | "starred" | "archive";
 
 type ReadingViewState = Pick<DocumentListQuery, "isFavorite" | "readState">;
@@ -18,10 +28,30 @@ const MAIN_NAV_ITEMS = [
   { href: "/export", label: "导出" },
 ] as const;
 
+const PRIMARY_NAV_DEFS = [
+  { id: "search", label: "搜索", href: null, kind: "action" as const },
+  { id: "sources", label: "来源库", href: "/sources", kind: "link" as const },
+  { id: "reading", label: "Reading", href: "/reading", kind: "link" as const },
+  { id: "highlights", label: "高亮", href: "/highlights", kind: "link" as const },
+] as const;
+
 export function getMainNavItems(pathname: string): MainNavItem[] {
   return MAIN_NAV_ITEMS.map((item) => ({
     ...item,
     isActive: isNavItemActive(pathname, item.href),
+  }));
+}
+
+export function getPrimaryNavItems(input: { pathname: string; searchOpen: boolean }): PrimaryNavItem[] {
+  return PRIMARY_NAV_DEFS.map((item) => ({
+    ...item,
+    isActive: input.searchOpen
+      ? item.id === "search"
+      : item.id === "search"
+        ? false
+        : item.href === "/reading"
+          ? input.pathname === "/reading" || input.pathname.startsWith("/documents/")
+          : item.href !== null && (input.pathname === item.href || input.pathname.startsWith(`${item.href}/`)),
   }));
 }
 

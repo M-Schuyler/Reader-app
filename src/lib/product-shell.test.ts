@@ -1,7 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ReadState } from "@prisma/client";
-import { buildReadingViewHref, getMainNavItems, resolveReadingView } from "./product-shell";
+import { buildReadingViewHref, getMainNavItems, getPrimaryNavItems, resolveReadingView } from "./product-shell";
+
+test("primary nav keeps search first and link items in product order", () => {
+  const items = getPrimaryNavItems({ pathname: "/sources", searchOpen: false });
+
+  assert.deepEqual(
+    items.map((item) => [item.id, item.label, item.href, item.isActive]),
+    [
+      ["search", "搜索", null, false],
+      ["sources", "来源库", "/sources", true],
+      ["reading", "Reading", "/reading", false],
+      ["highlights", "高亮", "/highlights", false],
+    ],
+  );
+});
+
+test("primary nav marks search active when the search panel is open", () => {
+  const items = getPrimaryNavItems({ pathname: "/highlights", searchOpen: true });
+
+  assert.equal(items[0]?.id, "search");
+  assert.equal(items[0]?.isActive, true);
+  assert.equal(items[3]?.isActive, false);
+});
 
 test("marks 来源库 and Reading as primary surfaces", () => {
   const sourceItems = getMainNavItems("/sources");
