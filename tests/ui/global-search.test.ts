@@ -58,15 +58,13 @@ test("global search resolves loading, empty, and results states once a query exi
   );
 });
 
-test("global search component wires the top search button to focus and open the panel", () => {
+test("global search becomes a controlled overlay instead of a permanent top input", () => {
   const component = readWorkspaceFile("src/components/search/global-search.tsx");
 
-  assert.match(component, /resolveGlobalSearchPanelState/);
-  assert.match(component, /const inputRef = useRef<HTMLInputElement>\(null\)/);
-  assert.match(component, /function focusSearch\(\)/);
-  assert.match(component, /inputRef\.current\?\.focus\(\)/);
-  assert.match(component, /inputRef\.current\?\.focus\(\)/);
-  assert.match(component, /aria-label="打开搜索"/);
-  assert.match(component, /min-h-9 rounded-full border-stone-200 bg-white\/80/);
+  assert.match(component, /type GlobalSearchProps = \{/);
+  assert.match(component, /open: boolean/);
+  assert.match(component, /onOpenChange: \(open: boolean\) => void/);
+  assert.match(component, /fixed inset-0/);
   assert.match(component, /placeholder="搜索文档"/);
+  assert.doesNotMatch(component, /min-h-9 rounded-full border-stone-200 bg-white\/80/);
 });
