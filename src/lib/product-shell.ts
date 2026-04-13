@@ -45,13 +45,7 @@ export function getMainNavItems(pathname: string): MainNavItem[] {
 export function getPrimaryNavItems(input: { pathname: string; searchOpen: boolean }): PrimaryNavItem[] {
   return PRIMARY_NAV_DEFS.map((item) => ({
     ...item,
-    isActive: input.searchOpen
-      ? item.id === "search"
-      : item.id === "search"
-        ? false
-        : item.href === "/reading"
-          ? input.pathname === "/reading" || input.pathname.startsWith("/documents/")
-          : item.href !== null && (input.pathname === item.href || input.pathname.startsWith(`${item.href}/`)),
+    isActive: input.searchOpen ? item.id === "search" : item.id !== "search" && item.href !== null && isNavItemActive(input.pathname, item.href),
   }));
 }
 

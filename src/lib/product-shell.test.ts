@@ -25,6 +25,13 @@ test("primary nav marks search active when the search panel is open", () => {
   assert.equal(items[3]?.isActive, false);
 });
 
+test("primary nav marks Reading active for document routes", () => {
+  const items = getPrimaryNavItems({ pathname: "/documents/doc-123", searchOpen: false });
+
+  assert.equal(items[2]?.id, "reading");
+  assert.equal(items[2]?.isActive, true);
+});
+
 test("marks 来源库 and Reading as primary surfaces", () => {
   const sourceItems = getMainNavItems("/sources");
   const sourceAllItems = getMainNavItems("/sources/all");
