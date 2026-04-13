@@ -68,3 +68,11 @@ test("global search becomes a controlled overlay instead of a permanent top inpu
   assert.match(component, /placeholder="搜索文档"/);
   assert.doesNotMatch(component, /min-h-9 rounded-full border-stone-200 bg-white\/80/);
 });
+
+test("workspace chrome owns the global search open state", () => {
+  const chrome = readWorkspaceFile("src/components/layout/main-workspace-chrome.tsx");
+
+  assert.match(chrome, /const \[searchOpen, setSearchOpen\] = useState\(false\)/);
+  assert.match(chrome, /<GlobalSearch onOpenChange=\{setSearchOpen\} open=\{searchOpen\} \/>/);
+  assert.match(chrome, /onSearchOpen=\{\(\) => setSearchOpen\(true\)\}/);
+});

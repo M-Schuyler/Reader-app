@@ -34,8 +34,14 @@ export function ReadingNavIcon({ className }: NavigationIconProps) {
 export function HighlightsNavIcon({ className }: NavigationIconProps) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M7 15 L7 8 L10 5 L13 8 L13 15" stroke="currentColor" strokeWidth="1.4" />
-      <line x1="5.5" y1="15" x2="14.5" y2="15" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M7 15 L7 8 L10 5 L13 8 L13 15"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.4"
+      />
+      <line x1="5.5" y1="15" x2="14.5" y2="15" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
     </svg>
   );
 }

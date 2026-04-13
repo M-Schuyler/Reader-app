@@ -31,14 +31,21 @@ test("theme preference normalizes invalid values and resolves against system sta
 test("theme system is wired into the app shell and global tokens", () => {
   const rootLayout = readWorkspaceFile("src/app/layout.tsx");
   const mainLayout = readWorkspaceFile("src/app/(main)/layout.tsx");
+  const workspaceChrome = readWorkspaceFile("src/components/layout/main-workspace-chrome.tsx");
   const accountMenu = readWorkspaceFile("src/components/layout/header-account-menu.tsx");
+  const rail = readWorkspaceFile("src/components/layout/navigation-rail.tsx");
   const globalsCss = readWorkspaceFile("src/app/globals.css");
 
   assert.match(rootLayout, /ThemeScript/);
   assert.match(rootLayout, /data-theme="light"/);
   assert.match(rootLayout, /suppressHydrationWarning/);
-  assert.match(mainLayout, /HeaderAccountMenu/);
+  assert.match(mainLayout, /MainWorkspaceChrome/);
+  assert.match(workspaceChrome, /HeaderAccountMenu/);
   assert.match(accountMenu, /ThemeToggle/);
+  assert.match(rail, /SearchNavIcon/);
+  assert.match(rail, /SourcesNavIcon/);
+  assert.match(rail, /data-active=\{item\.isActive \? "true" : "false"\}/);
+  assert.match(rail, /bg-stone-900 !text-white/);
   assert.match(globalsCss, /:root\[data-theme="dark"\]/);
   assert.match(globalsCss, /--bg-header:/);
   assert.match(globalsCss, /--bg-field:/);

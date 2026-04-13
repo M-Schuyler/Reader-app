@@ -102,6 +102,23 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
     inputRef.current?.focus();
   }, [open]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onOpenChange(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onOpenChange, open]);
+
   const activeResult = useMemo(() => results[activeIndex] ?? null, [activeIndex, results]);
 
   if (!open) {
@@ -130,14 +147,14 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
     <div className="fixed inset-0 z-50">
       <button
         aria-label="关闭搜索"
-        className="absolute inset-0 h-full w-full cursor-default bg-[color:var(--bg-overlay)]"
+        className="absolute inset-0 h-full w-full cursor-pointer bg-[color:var(--bg-overlay)]"
         onClick={() => onOpenChange(false)}
         type="button"
       />
 
-      <div className="relative flex min-h-full items-center justify-center px-4 py-6 sm:px-6">
+      <div className="pointer-events-none relative flex min-h-full items-center justify-center px-4 py-6 sm:px-6">
         <div
-          className="relative z-10 w-full max-w-3xl overflow-hidden rounded-[28px] border border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] shadow-[var(--shadow-surface)]"
+          className="pointer-events-auto relative z-10 w-full max-w-3xl overflow-hidden rounded-[28px] border border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] shadow-[var(--shadow-surface)]"
           onClick={(event) => event.stopPropagation()}
         >
           <form onSubmit={handleSubmit}>

@@ -6,35 +6,41 @@ function readWorkspaceFile(path: string) {
   return readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 }
 
-test("main header keeps the brand quiet and gives search its own space", () => {
+test("main layout delegates shell rendering to workspace chrome", () => {
   const layout = readWorkspaceFile("src/app/(main)/layout.tsx");
+  const chrome = readWorkspaceFile("src/components/layout/main-workspace-chrome.tsx");
+  const rail = readWorkspaceFile("src/components/layout/navigation-rail.tsx");
+  const bottomNav = readWorkspaceFile("src/components/layout/mobile-bottom-nav.tsx");
   const headerShell = readWorkspaceFile("src/components/layout/main-header-shell.tsx");
-  const nav = readWorkspaceFile("src/components/layout/main-nav.tsx");
   const accountMenu = readWorkspaceFile("src/components/layout/header-account-menu.tsx");
 
-  assert.match(layout, /HeaderAccountMenu/);
-  assert.doesNotMatch(layout, /ThemeToggle/);
-  assert.doesNotMatch(layout, /\{user\.email\}/);
-  assert.doesNotMatch(layout, /退出登录/);
-  assert.match(layout, /lg:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
-  assert.match(layout, /text-\[1\.95rem\]/);
-  assert.match(layout, /flex items-center gap-2/);
-  assert.match(layout, /reader-panel-toggle-slot/);
-  assert.match(layout, /MainHeaderShell/);
-  assert.match(headerShell, /window\.addEventListener\("scroll", handleScroll, \{ passive: true \}\)/);
-  assert.match(headerShell, /SCROLL_HIDE_THRESHOLD = 20/);
-  assert.match(headerShell, /SCROLL_JITTER_THRESHOLD = 8/);
-  assert.match(headerShell, /pathname\.startsWith\("\/documents\/"\)/);
-  assert.match(headerShell, /transition-transform duration-300 ease-in-out/);
-  assert.match(headerShell, /-translate-y-full/);
-  assert.match(headerShell, /panelToggleSlot\?\.getAttribute\("data-panel-open"\) === "true"/);
-  assert.match(nav, /overflow-x-auto/);
-  assert.match(nav, /whitespace-nowrap/);
-  assert.match(nav, /inline-flex items-center gap-1 whitespace-nowrap/);
-  assert.match(nav, /after:bg-stone-900/);
+  assert.match(layout, /MainWorkspaceChrome/);
+  assert.doesNotMatch(layout, /<MainNav/);
+  assert.doesNotMatch(layout, /<GlobalSearch/);
+
+  assert.match(chrome, /<NavigationRail/);
+  assert.match(chrome, /<MobileBottomNav/);
+  assert.match(chrome, /<GlobalSearch onOpenChange=\{setSearchOpen\} open=\{searchOpen\} \/>/);
+  assert.match(chrome, /reader-panel-toggle-slot/);
+
+  assert.match(rail, /HeaderAccountMenu/);
+  assert.match(rail, /data-rail-visual-state/);
+  assert.match(rail, /transition-opacity ease-out/);
+  assert.match(rail, /border-r border-\[color:var\(--border-subtle\)\]/);
+  assert.match(rail, /opacity: railOpacity/);
+  assert.doesNotMatch(rail, /translateX|translate-x/);
+
+  assert.match(bottomNav, /SearchNavIcon/);
+  assert.match(bottomNav, /id === "reading"/);
+  assert.match(bottomNav, /whitespace-nowrap/);
+
+  assert.match(headerShell, /sticky top-0 z-30/);
+  assert.doesNotMatch(headerShell, /translate|SCROLL_HIDE_THRESHOLD|SCROLL_JITTER_THRESHOLD/);
+
   assert.match(accountMenu, /ThemeToggle/);
   assert.match(accountMenu, /退出登录/);
   assert.match(accountMenu, /<details/);
+  assert.match(accountMenu, /onOpenChange\?: \(open: boolean\) => void/);
   assert.match(accountMenu, /h-8 w-8/);
   assert.match(accountMenu, /bg-stone-800 text-\[13px\] font-semibold text-white/);
 });
