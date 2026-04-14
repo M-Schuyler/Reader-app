@@ -6,16 +6,40 @@ type FieldProps = {
   description?: string;
   children: ReactNode;
   className?: string;
+  variant?: "standard" | "inline";
 };
 
 type TextInputProps = InputHTMLAttributes<HTMLInputElement>;
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
 
-export function Field({ children, className, description, label }: FieldProps) {
+export function Field({
+  children,
+  className,
+  description,
+  label,
+  variant = "standard",
+}: FieldProps) {
+  if (variant === "inline") {
+    return (
+      <label className={cx("inline-flex items-center gap-2", className)}>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[color:var(--text-tertiary)]">
+          {label}
+        </span>
+        {children}
+      </label>
+    );
+  }
+
   return (
     <label className={cx("block space-y-2.5", className)}>
-      <span className="block text-sm font-medium text-[color:var(--text-primary)]">{label}</span>
-      {description ? <span className="block text-sm leading-6 text-[color:var(--text-secondary)]">{description}</span> : null}
+      <span className="block text-sm font-medium text-[color:var(--text-primary)]">
+        {label}
+      </span>
+      {description ? (
+        <span className="block text-sm leading-6 text-[color:var(--text-secondary)]">
+          {description}
+        </span>
+      ) : null}
       {children}
     </label>
   );

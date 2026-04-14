@@ -164,7 +164,7 @@ export async function getSourceLibraryIndex(
   }
 
   const aliasMap = await getAliasMap(collectSourceAliasLookups(rows));
-  const groups = buildSourceLibraryIndexGroups(rows, now(), aliasMap, query.sort);
+  const groups = buildSourceLibraryIndexGroups(rows, now(), aliasMap, query.sort, query.timeRange);
 
   return {
     groups,
@@ -175,6 +175,7 @@ export async function getSourceLibraryIndex(
       type: query.type,
       tag: query.tag,
       sort: query.sort,
+      timeRange: query.timeRange,
     },
     emptyState: total === 0 ? "empty_library" : groups.length === 0 ? "no_recent_sources" : null,
   };
@@ -562,7 +563,20 @@ export function parseDocumentListQuery(searchParams: URLSearchParams): DocumentL
     page: parsePositiveInt(searchParams.get("page"), DEFAULT_PAGE),
     pageSize: parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
     sort: parseDocumentSort(searchParams.get("sort")),
+    timeRange: parseTimeRange(searchParams.get("timeRange")),
   };
+}
+
+function parseTimeRange(value: string | null): "7d" | "all" | undefined {
+  if (value === "all") {
+    return "all";
+  }
+
+  if (value === "7d") {
+    return "7d";
+  }
+
+  return undefined;
 }
 
 export function parseUpdateDocumentFavoriteInput(body: unknown): UpdateDocumentFavoriteInput {

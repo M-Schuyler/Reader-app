@@ -46,6 +46,7 @@ export function buildSourceLibraryIndexGroups(
   now: Date = new Date(),
   aliasMap: SourceAliasMap = {},
   sort: DocumentListSort = "latest",
+  timeRange: "7d" | "all" = "7d",
 ): SourceLibraryIndexGroup[] {
   const groupedBySource = new Map<string, SourceLibraryIndexGroup>();
 
@@ -72,7 +73,12 @@ export function buildSourceLibraryIndexGroups(
   }
 
   return [...groupedBySource.values()]
-    .filter((group) => isWithinRecentSevenDays(group.latestCreatedAt, now))
+    .filter((group) => {
+      if (timeRange === "all") {
+        return true;
+      }
+      return isWithinRecentSevenDays(group.latestCreatedAt, now);
+    })
     .sort((left, right) => {
       const direction = sort === "earliest" ? 1 : -1;
       return (new Date(left.latestCreatedAt).getTime() - new Date(right.latestCreatedAt).getTime()) * direction;

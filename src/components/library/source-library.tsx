@@ -7,10 +7,17 @@ import { getSourceLibraryToneForSeed, SourceLibrarySourceCard } from "./source-l
 
 type SourceLibraryIndexProps = {
   data: GetSourceLibraryIndexResponseData;
-  allDocumentsHref: string;
+  allDocumentsHref?: string;
+  title?: string;
+  hideRecentLabel?: boolean;
 };
 
-export function SourceLibraryIndex({ data, allDocumentsHref }: SourceLibraryIndexProps) {
+export function SourceLibraryIndex({
+  data,
+  allDocumentsHref,
+  title = "最近 7 天",
+  hideRecentLabel = false,
+}: SourceLibraryIndexProps) {
   if (data.emptyState === "empty_library") {
     return (
       <Panel className="px-8 py-12 text-center" tone="muted">
@@ -24,7 +31,7 @@ export function SourceLibraryIndex({ data, allDocumentsHref }: SourceLibraryInde
     );
   }
 
-  if (data.emptyState === "no_recent_sources") {
+  if (data.emptyState === "no_recent_sources" && !hideRecentLabel) {
     return (
       <Panel className="px-8 py-12 text-center" tone="muted">
         <div className="mx-auto max-w-lg space-y-3">
@@ -35,27 +42,40 @@ export function SourceLibraryIndex({ data, allDocumentsHref }: SourceLibraryInde
             库里还有更早的内容，只是最近 7 天没有新的来源进入。完整文档流仍然可以从“显示全部文档”进入。
           </p>
           <div className="pt-2">
-            <Link
-              className="text-sm text-[color:var(--text-tertiary)] transition hover:text-[color:var(--text-secondary)]"
-              href={allDocumentsHref}
-            >
-              显示全部文档 →
-            </Link>
+            {allDocumentsHref && (
+              <Link
+                className="text-sm text-[color:var(--text-tertiary)] transition hover:text-[color:var(--text-secondary)]"
+                href={allDocumentsHref}
+              >
+                显示全部文档 →
+              </Link>
+            )}
           </div>
         </div>
       </Panel>
     );
   }
 
-  return <SourceLibraryRecentShelf allDocumentsHref={allDocumentsHref} groups={data.groups} />;
+  return (
+    <SourceLibraryShelf
+      allDocumentsHref={allDocumentsHref}
+      groups={data.groups}
+      hideRecentLabel={hideRecentLabel}
+      title={title}
+    />
+  );
 }
 
-function SourceLibraryRecentShelf({
+function SourceLibraryShelf({
   groups,
   allDocumentsHref,
+  title,
+  hideRecentLabel,
 }: {
   groups: SourceLibraryIndexGroup[];
-  allDocumentsHref: string;
+  allDocumentsHref?: string;
+  title: string;
+  hideRecentLabel: boolean;
 }) {
   const totalItems = groups.reduce((count, group) => count + group.totalItems, 0);
 
@@ -64,23 +84,27 @@ function SourceLibraryRecentShelf({
       <div className="flex flex-col gap-2 border-b border-[color:var(--border-subtle)] pb-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-ui-heading text-[1.45rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
-            最近 7 天
+            {title}
           </h2>
-          <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-            Recent 7 days
-          </span>
+          {!hideRecentLabel && (
+            <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+              Recent 7 days
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
           <p className="text-sm text-[color:var(--text-tertiary)]">
             {groups.length} 个来源 · {totalItems} 篇
           </p>
-          <Link
-            className="text-sm text-[color:var(--text-tertiary)] transition hover:text-[color:var(--text-secondary)]"
-            href={allDocumentsHref}
-          >
-            显示全部文档 →
-          </Link>
+          {allDocumentsHref && (
+            <Link
+              className="text-sm text-[color:var(--text-tertiary)] transition hover:text-[color:var(--text-secondary)]"
+              href={allDocumentsHref}
+            >
+              显示全部文档 →
+            </Link>
+          )}
         </div>
       </div>
 
@@ -93,7 +117,7 @@ function SourceLibraryRecentShelf({
   );
 }
 
-function SourceLibraryIndexCard({ group }: { group: SourceLibraryIndexGroup }) {
+export function SourceLibraryIndexCard({ group }: { group: SourceLibraryIndexGroup }) {
   return (
     <SourceLibrarySourceCard
       filterSummary={group.filterSummary}
