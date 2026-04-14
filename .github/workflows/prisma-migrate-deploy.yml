@@ -28,6 +28,46 @@ jobs:
         run: npm ci
 
       - name: Apply production migrations
-        run: npx prisma migrate deploy
+        run: |
+          set -euo pipefail
+
+          set +e
+          first_output=$(npx prisma migrate deploy 2>&1)
+          first_status=$?
+          set -e
+          printf '%s\n' "$first_output"
+
+          if [ "$first_status" -eq 0 ]; then
+            exit 0
+          fi
+
+          if ! printf '%s\n' "$first_output" | grep -q "P3009"; then
+            exit "$first_status"
+          fi
+
+          if ! printf '%s\n' "$first_output" | grep -q "20260410040000_add_wechat_subsources"; then
+            exit "$first_status"
+          fi
+
+          echo "Detected legacy failed migration marker; resolving and retrying deploy."
+          npx prisma migrate resolve --rolled-back 20260410040000_add_wechat_subsources || true
+
+          set +e
+          second_output=$(npx prisma migrate deploy 2>&1)
+          second_status=$?
+          set -e
+          printf '%s\n' "$second_output"
+
+          if [ "$second_status" -eq 0 ]; then
+            exit 0
+          fi
+
+          if ! printf '%s\n' "$second_output" | grep -q "20260410000100_add_wechat_subsources"; then
+            exit "$second_status"
+          fi
+
+          echo "Detected pre-existing WechatSubsource schema; marking migration as applied and retrying."
+          npx prisma migrate resolve --applied 20260410000100_add_wechat_subsources
+          npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
