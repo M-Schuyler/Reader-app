@@ -33,7 +33,7 @@ export function buildSourceLibraryClearHref(basePath: string, filters: GetDocume
 
 export function buildSourceLibraryBrowseHref(
   basePath: string,
-  query: Pick<DocumentListQuery, "q" | "sort" | "surface" | "tag" | "type"> &
+  query: Pick<DocumentListQuery, "q" | "sort" | "surface" | "tag" | "type" | "timeRange"> &
     Partial<Pick<DocumentListQuery, "origin" | "page" | "pageSize">>,
 ) {
   const params = new URLSearchParams();
@@ -56,6 +56,10 @@ export function buildSourceLibraryBrowseHref(
 
   if (query.sort === "earliest") {
     params.set("sort", query.sort);
+  }
+
+  if (query.timeRange) {
+    params.set("timeRange", query.timeRange);
   }
 
   const nextQuery = params.toString();

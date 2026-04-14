@@ -41,6 +41,7 @@ export type DocumentListQuery = {
   page: number;
   pageSize: number;
   sort: DocumentListSort;
+  timeRange?: "7d" | "all";
 };
 
 export type DocumentListItem = {
@@ -148,6 +149,7 @@ export type GetSourceLibraryIndexResponseData = {
     type?: DocumentType;
     tag?: string;
     sort: DocumentListSort;
+    timeRange?: "7d" | "all";
   };
   emptyState: "empty_library" | "no_recent_sources" | null;
 };

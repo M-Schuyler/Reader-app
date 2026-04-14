@@ -8,6 +8,7 @@ import type { GetDocumentsResponseData } from "@/server/modules/documents/docume
 
 type SourceLibraryToolbarBaseProps = {
   showFilters?: false;
+  variant?: "full" | "minimal";
 };
 
 type SourceLibraryToolbarWithFiltersProps = {
@@ -16,12 +17,14 @@ type SourceLibraryToolbarWithFiltersProps = {
   clearHref: string;
   hasActiveFilters: boolean;
   sortContext?: "sourceIndex" | "documentList";
+  variant?: "full" | "minimal";
 };
 
 type SourceLibraryToolbarProps = SourceLibraryToolbarBaseProps | SourceLibraryToolbarWithFiltersProps;
 
 export function SourceLibraryToolbar(props: SourceLibraryToolbarProps = {}) {
   const showFilters = props.showFilters === true;
+  const variant = props.variant ?? "full";
   const sortContext = showFilters ? (props.sortContext ?? "documentList") : "documentList";
   const sortLabels =
     sortContext === "sourceIndex"
@@ -35,34 +38,64 @@ export function SourceLibraryToolbar(props: SourceLibraryToolbarProps = {}) {
         };
 
   return (
-    <Panel className="rounded-[30px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-4 sm:p-5">
+    <Panel
+      className={
+        variant === "minimal"
+          ? "rounded-[24px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-2"
+          : "rounded-[30px] border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-4 sm:p-5"
+      }
+    >
       <div
         className={
-          showFilters
-            ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(19rem,0.95fr)]"
-            : "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+          variant === "minimal"
+            ? "w-full"
+            : showFilters
+              ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(19rem,0.95fr)]"
+              : "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
         }
       >
-        <div className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5">
-          <CaptureUrlForm variant="compact" />
-        </div>
+        {variant === "full" && (
+          <>
+            <div className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5">
+              <CaptureUrlForm variant="compact" />
+            </div>
 
-        <div className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5">
-          <CreateSourceForm />
-        </div>
+            <div className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5">
+              <CreateSourceForm />
+            </div>
+          </>
+        )}
 
         {showFilters ? (
           <form
-            className="rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5"
+            className={
+              variant === "minimal"
+                ? "flex items-center gap-4 px-3"
+                : "rounded-[26px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 py-4 sm:px-5"
+            }
             method="GET"
           >
             {props.filters.q ? <input name="q" type="hidden" value={props.filters.q} /> : null}
             {props.filters.tag ? <input name="tag" type="hidden" value={props.filters.tag} /> : null}
 
-            <div className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
-                <Field label="文档类型">
-                  <SelectInput className="min-h-10 rounded-[16px]" defaultValue={props.filters.type ?? ""} name="type">
+            <div className={variant === "minimal" ? "flex-1" : "space-y-4"}>
+              <div
+                className={
+                  variant === "minimal"
+                    ? "flex flex-wrap items-center gap-4"
+                    : "grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+                }
+              >
+                <Field label="文档类型" variant={variant === "minimal" ? "inline" : "standard"}>
+                  <SelectInput
+                    className={
+                      variant === "minimal"
+                        ? "h-9 rounded-full border-none bg-transparent px-2 font-bold"
+                        : "min-h-10 rounded-[16px]"
+                    }
+                    defaultValue={props.filters.type ?? ""}
+                    name="type"
+                  >
                     <option value="">全部类型</option>
                     <option value="WEB_PAGE">网页</option>
                     <option value="RSS_ITEM">RSS</option>
@@ -70,16 +103,29 @@ export function SourceLibraryToolbar(props: SourceLibraryToolbarProps = {}) {
                   </SelectInput>
                 </Field>
 
-                <Field label="排序">
-                  <SelectInput className="min-h-10 rounded-[16px]" defaultValue={props.filters.sort} name="sort">
+                <Field label="排序" variant={variant === "minimal" ? "inline" : "standard"}>
+                  <SelectInput
+                    className={
+                      variant === "minimal"
+                        ? "h-9 rounded-full border-none bg-transparent px-2 font-bold"
+                        : "min-h-10 rounded-[16px]"
+                    }
+                    defaultValue={props.filters.sort}
+                    name="sort"
+                  >
                     <option value="latest">{sortLabels.latest}</option>
                     <option value="earliest">{sortLabels.earliest}</option>
                   </SelectInput>
                 </Field>
 
                 <div className="flex items-center gap-2 md:justify-end">
-                  <Button className="flex-1 md:flex-none" size="sm" type="submit" variant="primary">
-                    应用筛选
+                  <Button
+                    className={variant === "minimal" ? "h-9 rounded-full px-4" : "flex-1 md:flex-none"}
+                    size="sm"
+                    type="submit"
+                    variant="primary"
+                  >
+                    {variant === "minimal" ? "筛选" : "应用筛选"}
                   </Button>
                   {props.hasActiveFilters ? (
                     <Link
