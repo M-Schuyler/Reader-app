@@ -14,7 +14,7 @@ import { SourceLibraryDetailFilters } from "./source-library-detail-filters";
 
 type SourceLibraryDetailProps = {
   data: GetDocumentsResponseData;
-  source: SourceLibrarySourceContext;
+  source?: SourceLibrarySourceContext;
   backHref?: string;
   clearHref?: string;
   hasActiveFilters?: boolean;
@@ -22,9 +22,20 @@ type SourceLibraryDetailProps = {
 
 export function SourceLibraryDetail({
   data,
+  clearHref,
+  hasActiveFilters = false,
 }: SourceLibraryDetailProps) {
   return (
     <div className="space-y-6">
+      {clearHref ? (
+        <SourceLibraryDetailFilters
+          clearHref={clearHref}
+          contentOrigin={data.contentOrigin}
+          filters={data.filters}
+          hasActiveFilters={hasActiveFilters}
+        />
+      ) : null}
+
       {data.items.length > 0 ? (
         <DocumentList data={data} showDelete={true} />
       ) : (
@@ -39,6 +50,67 @@ export function SourceLibraryDetail({
           </div>
         </Panel>
       )}
+    </div>
+  );
+}
+
+type SourceLibraryDetailHeaderMetaProps = {
+  includeCategories: string[];
+  source: SourceLibrarySourceContext;
+  sync: {
+    sourceId: string;
+    lastSyncedAt: string | null;
+    lastSyncStatus: IngestionJobStatus | null;
+    lastSyncError: string | null;
+  };
+};
+
+export function SourceLibraryDetailHeaderMeta({ includeCategories, source, sync }: SourceLibraryDetailHeaderMetaProps) {
+  const includeCategoriesLabel = formatIncludeCategoriesLabel(includeCategories);
+  const syncMeta = sync.lastSyncError ? "最近同步失败" : formatSyncMeta(sync.lastSyncStatus, sync.lastSyncedAt);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm text-[color:var(--text-tertiary)]">
+      <span>{formatKind(source.kind)}</span>
+      <span aria-hidden="true">·</span>
+      <span>{source.meta}</span>
+      <span aria-hidden="true">·</span>
+      <span>{syncMeta}</span>
+      {source.latestCreatedAt ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <span>{formatCollectedAt(source.latestCreatedAt)}</span>
+        </>
+      ) : null}
+      {includeCategoriesLabel ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <span>{includeCategoriesLabel}</span>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+type SourceLibraryDetailFilterStateProps = {
+  contextChips: string[];
+};
+
+export function SourceLibraryDetailFilterState({ contextChips }: SourceLibraryDetailFilterStateProps) {
+  if (contextChips.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {contextChips.map((chip) => (
+        <span
+          className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
+          key={chip}
+        >
+          {chip}
+        </span>
+      ))}
     </div>
   );
 }
@@ -179,6 +251,19 @@ function formatSyncMeta(status: IngestionJobStatus | null, lastSyncedAt: string 
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(lastSyncedAt))}`;
+}
+
+function formatIncludeCategoriesLabel(includeCategories: string[]) {
+  if (includeCategories.length === 0) {
+    return null;
+  }
+
+  if (includeCategories.length <= 2) {
+    return `分类过滤 · ${includeCategories.join(", ")}`;
+  }
+
+  const [first, second] = includeCategories;
+  return `分类过滤 · ${first}, ${second} +${includeCategories.length - 2}`;
 }
 
 export function SourceSyncButton({ sourceId }: { sourceId: string }) {
