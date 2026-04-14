@@ -45,7 +45,6 @@ test("marks 来源库 and Reading as primary surfaces", () => {
       ["来源库", true],
       ["Reading", false],
       ["高亮", false],
-      ["导出", false],
     ],
   );
 
@@ -55,7 +54,6 @@ test("marks 来源库 and Reading as primary surfaces", () => {
       ["来源库", false],
       ["Reading", true],
       ["高亮", false],
-      ["导出", false],
     ],
   );
 

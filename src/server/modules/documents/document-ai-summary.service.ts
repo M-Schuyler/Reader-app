@@ -6,7 +6,7 @@ import type { AiSummarySource } from "./document.types";
 
 const DEFAULT_AI_PROVIDER = "gemini";
 const DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/";
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 const MAX_SOURCE_TEXT_CHARS = 12_000;

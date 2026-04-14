@@ -6,6 +6,7 @@ import { Panel } from "@/components/ui/panel";
 import { DocumentList } from "@/components/library/document-list";
 import { buildReadingViewHref, resolveReadingView, type ReadingViewId } from "@/lib/product-shell";
 import { getDocuments, parseDocumentListQuery } from "@/server/modules/documents/document.service";
+import { cx } from "@/utils/cx";
 
 export const dynamic = "force-dynamic";
 
@@ -34,106 +35,66 @@ export default async function ReadingPage({ searchParams }: ReadingPageProps) {
   const activeFilterChips = buildReadingFilterChips(data.filters);
 
   return (
-    <section className="space-y-10">
-      <PageHeader eyebrow="Reading" title="Reading" />
-
-      <div className="flex flex-wrap gap-2">
-        {viewItems.map((view) => (
-          <Link
-            className={
-              view.isActive
-                ? "inline-flex min-h-10 items-center rounded-full border border-[color:var(--border-strong)] bg-[color:var(--bg-surface-soft)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition"
-                : "inline-flex min-h-10 items-center rounded-full border border-[color:var(--border-subtle)] bg-transparent px-4 text-sm font-medium text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-surface-soft)] hover:text-[color:var(--text-primary)]"
-            }
-            href={view.href}
-            key={view.id}
-          >
-            {view.label}
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid gap-8 xl:grid-cols-[18rem_minmax(0,1fr)] xl:items-start">
-        <aside className="xl:sticky xl:top-24">
-          <Panel className="space-y-5">
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                Reading filters
-              </p>
-              <h2 className="font-ui-heading text-[1.6rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]">
-                保持队列清晰
-              </h2>
-            </div>
-
-            <form className="space-y-5" method="GET">
-              {data.filters.q ? <input name="q" type="hidden" value={data.filters.q} /> : null}
-              {data.filters.tag ? <input name="tag" type="hidden" value={data.filters.tag} /> : null}
-              <Field label="文档类型">
-                <SelectInput defaultValue={data.filters.type ?? ""} name="type">
-                  <option value="">全部类型</option>
-                  <option value="WEB_PAGE">网页</option>
-                  <option value="RSS_ITEM">RSS</option>
-                  <option value="PDF">PDF</option>
-                </SelectInput>
-              </Field>
-
-              <Field label="排序">
-                <SelectInput defaultValue={data.filters.sort} name="sort">
-                  <option value="latest">最新发布</option>
-                  <option value="earliest">最早发布</option>
-                </SelectInput>
-              </Field>
-
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Button className="flex-1" type="submit" variant="primary">
-                  应用筛选
-                </Button>
-                {hasActiveFilters ? (
-                  <Link
-                    className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
-                    href={clearHref}
-                  >
-                    清空
-                  </Link>
-                ) : null}
-              </div>
-            </form>
-          </Panel>
-        </aside>
-
-        <div className="space-y-5">
-          <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-[color:var(--text-secondary)]">
-                当前共有 <span className="font-medium text-[color:var(--text-primary)]">{data.pagination.total}</span> 篇文档处于 Reading
-                <span className="ml-1 font-medium text-[color:var(--text-primary)]">· {activeViewMeta.label}</span>
-              </p>
-              {activeFilterChips.length > 0 ? (
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {activeFilterChips.map((chip) => (
-                    <span
-                      className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
-                      key={chip}
-                    >
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <p className="max-w-xl text-sm text-[color:var(--text-tertiary)]">{activeViewMeta.description}</p>
-          </div>
-
-          <DocumentList
-            data={data}
-            emptyState={{
-              eyebrow: "Reading",
-              title: "Reading 还没有内容",
-              description: "先从来源库打开一篇文章，它就会进入这里，形成真正的预读队列。",
-            }}
-          />
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <h1 className="font-ui-heading text-2xl font-bold tracking-tight text-[color:var(--text-primary)]">
+            Reading
+          </h1>
+          <div className="h-4 w-px bg-[color:var(--border-subtle)] hidden sm:block" />
+          <nav className="flex items-center gap-1.5">
+            {viewItems.map((view) => (
+              <Link
+                className={cx(
+                  "inline-flex h-8 items-center rounded-full px-3 text-[13px] font-medium transition-all duration-200",
+                  view.isActive
+                    ? "bg-[color:var(--ai-card-accent)] text-white shadow-sm shadow-[color:var(--ai-card-accent)]/20"
+                    : "text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-surface-soft)] hover:text-[color:var(--text-primary)]"
+                )}
+                href={view.href}
+                key={view.id}
+              >
+                {view.label}
+                {view.isActive && (
+                  <span className="ml-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-white/20 px-1 text-[10px] font-bold">
+                    {data.pagination.total}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </nav>
         </div>
+
+        {activeFilterChips.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {activeFilterChips.map((chip) => (
+              <span
+                className="inline-flex h-7 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-2.5 text-[11px] font-medium text-[color:var(--text-tertiary)]"
+                key={chip}
+              >
+                {chip}
+              </span>
+            ))}
+            {hasActiveFilters && (
+              <Link
+                className="inline-flex h-7 items-center px-1 text-[11px] font-bold uppercase tracking-wider text-[color:var(--ai-card-accent)] hover:underline"
+                href={clearHref}
+              >
+                Clear
+              </Link>
+            )}
+          </div>
+        )}
       </div>
+
+      <DocumentList
+        data={data}
+        emptyState={{
+          eyebrow: "Reading",
+          title: "Reading 还没有内容",
+          description: "先从来源库打开一篇文章，它就会进入这里，形成真正的预读队列。",
+        }}
+      />
     </section>
   );
 }

@@ -7,6 +7,7 @@ import { extractWebPageMetadata, type ExtractedWebPageMetadata } from "@/server/
 import { getSummaryRuntimeIssues, queueAutomaticDocumentAiSummary } from "@/server/modules/documents/document-ai-summary-jobs.service";
 import { documentDetailArgs, type DocumentDetailRecord } from "@/server/modules/documents/document.repository";
 import { upsertWechatSubsource } from "@/server/modules/documents/wechat-subsource.service";
+import { generateDedupeKey } from "@/lib/documents/dedupe";
 
 const CUBOX_HOSTS = new Set(["cubox.pro", "cubox.cc"]);
 const DEFAULT_IMPORT_LIMIT = 20;
@@ -438,12 +439,20 @@ async function upsertCuboxCard(
   const importedDocument = buildImportedCuboxDocument(card, markdown, context.tagDirectory, new Date(), sourceMetadata);
   await syncCuboxWechatSubsource(importedDocument, sourceMetadata);
 
+  const dedupeKey = generateDedupeKey({
+    type: DocumentType.WEB_PAGE,
+    sourceUrl: importedDocument.sourceUrl,
+    canonicalUrl: importedDocument.canonicalUrl,
+  });
+
   const result = await prisma.$transaction(
     async (tx) => {
       const existingDocument = await tx.document.findFirst({
         where: {
-          type: DocumentType.WEB_PAGE,
-          externalId: card.id,
+          OR: [
+            { type: DocumentType.WEB_PAGE, externalId: card.id },
+            ...(dedupeKey ? [{ dedupeKey }] : []),
+          ],
         },
         ...documentDetailArgs,
       });
@@ -457,6 +466,7 @@ async function upsertCuboxCard(
             title: importedDocument.title,
             sourceUrl: importedDocument.sourceUrl,
             canonicalUrl: importedDocument.canonicalUrl,
+            dedupeKey,
             externalId: card.id,
             excerpt: importedDocument.excerpt,
             author: importedDocument.author,

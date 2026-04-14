@@ -1,0 +1,333 @@
+[
+  {
+    "key": "wechat:s:fs6QGr7FHSMEfi6_w5IPZQ",
+    "winner": {
+      "id": "cmn8dwqnt0001lutyttreyhq4",
+      "title": "一人IP公司的诅咒",
+      "highlights": 2,
+      "tags": 0,
+      "readState": "READ"
+    },
+    "losers": [
+      {
+        "id": "cmn793epw0001lu28efp4ux1b",
+        "title": "一人IP公司的诅咒",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn87llsc0003lu7aw5mnzd89",
+        "title": "一人IP公司的诅咒",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn8b5mu90003lu9xlb95yqt9",
+        "title": "一人IP公司的诅咒",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn8bfilg0004lu8co9sf3mem",
+        "title": "一人IP公司的诅咒",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn8cno4f0001luq3clgxvvea",
+        "title": "一人IP公司的诅咒",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "READ"
+      },
+      {
+        "id": "cmn8dtbtc0001lu42w7wepxz3",
+        "title": "一人IP公司的诅咒",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "READ"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  },
+  {
+    "key": "wechat:s:sBzRsu6YLMBACOr-BZshMg",
+    "winner": {
+      "id": "cmn86ye2i0001luzlcvj81l7y",
+      "title": "mp.weixin.qq.com",
+      "highlights": 0,
+      "tags": 0,
+      "readState": "UNREAD"
+    },
+    "losers": [
+      {
+        "id": "cmn87ll5a0001lu7awid48nh3",
+        "title": "mp.weixin.qq.com",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn8b5v1y0001lubjgu3akou2",
+        "title": "mp.weixin.qq.com",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn8bfit90008lu8cl2rp2e70",
+        "title": "mp.weixin.qq.com",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn8cnosh0006luq32qjmuur1",
+        "title": "mp.weixin.qq.com",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn8dtegu0006lu42woxqry9h",
+        "title": "mp.weixin.qq.com",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmn8dwuh80006lutyq39f1qb8",
+        "title": "mp.weixin.qq.com",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  },
+  {
+    "key": "wechat:s:VmZI2QIFuUo7dGQOZgXb5A",
+    "winner": {
+      "id": "cmmzq3qh700041tk18aj533ur",
+      "title": "mp.weixin.qq.com",
+      "highlights": 0,
+      "tags": 0,
+      "readState": "UNREAD"
+    },
+    "losers": [
+      {
+        "id": "cmmzttxg800011tvd7apwsfqe",
+        "title": "想不通这点，你就永远是打工人",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmmztuktx00051tvd41ww8oxt",
+        "title": "想不通这点，你就永远是打工人",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      },
+      {
+        "id": "cmmzwevq500031t6uw8mn1net",
+        "title": "想不通这点，你就永远是打工人",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "READ"
+      },
+      {
+        "id": "cmmzwg44f00061t6uqsi4gepa",
+        "title": "想不通这点，你就永远是打工人",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "READ"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Mark Winner as READ"
+    }
+  },
+  {
+    "key": "wechat:url:https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=2247500952&idx=1&sn=1c430d2cfcbe0c542bd35e93ccaf520c",
+    "winner": {
+      "id": "cmnnfoj1c01cxlutwyhtj39vf",
+      "title": "赚大钱的第一准则",
+      "highlights": 0,
+      "tags": 0,
+      "readState": "UNREAD"
+    },
+    "losers": [
+      {
+        "id": "cmnnfok7701ftlutwkpidt1ak",
+        "title": "赚大钱的第一准则",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  },
+  {
+    "key": "wechat:url:https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=2247501055&idx=1&sn=1e9b2310051041a0a8f45a1d82527dd1",
+    "winner": {
+      "id": "cmnnfokdw01g8lutwa134z0h8",
+      "title": "未来人最需要的能力",
+      "highlights": 0,
+      "tags": 0,
+      "readState": "UNREAD"
+    },
+    "losers": [
+      {
+        "id": "cmnnfokit01gilutwzhxyqn7x",
+        "title": "未来人最需要的能力",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  },
+  {
+    "key": "wechat:url:https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=2247500398&idx=1&sn=b886c8439cb0a6530fd171f670869e5b",
+    "winner": {
+      "id": "cmnnfoful010ulutwkunbui3x",
+      "title": "小米股票还能买吗？",
+      "highlights": 3,
+      "tags": 0,
+      "readState": "UNREAD"
+    },
+    "losers": [
+      {
+        "id": "cmnnfof2t00yzlutwzlbukb3h",
+        "title": "小米股票还能买吗？",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  },
+  {
+    "key": "wechat:url:https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=2247500945&idx=1&sn=91ab7c90516396945c6ca7e9cc86201d",
+    "winner": {
+      "id": "cmnnfoj3b01d2lutw6dvoy5k6",
+      "title": "王石栽在田朴珺的手里了吗？",
+      "highlights": 0,
+      "tags": 0,
+      "readState": "UNREAD"
+    },
+    "losers": [
+      {
+        "id": "cmnnfok5501folutw0re2ywoy",
+        "title": "王石栽在田朴珺的手里了吗？",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  },
+  {
+    "key": "wechat:url:https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=2247500957&idx=1&sn=1861744cc5a3fe0c93d68655285e0a43",
+    "winner": {
+      "id": "cmnnfojia01ealutwlwsdaczo",
+      "title": "不是所有事情，都值得一做",
+      "highlights": 0,
+      "tags": 0,
+      "readState": "UNREAD"
+    },
+    "losers": [
+      {
+        "id": "cmnnfojyi01f9lutw8ge6o778",
+        "title": "不是所有事情，都值得一做",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  },
+  {
+    "key": "wechat:url:https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=2247500932&idx=1&sn=76995527668a77b6e33d6c0965b9f545",
+    "winner": {
+      "id": "cmnnfoj5h01d7lutw1q4o4p92",
+      "title": "赢钱的关键，在于容错大小",
+      "highlights": 0,
+      "tags": 0,
+      "readState": "UNREAD"
+    },
+    "losers": [
+      {
+        "id": "cmnnfok9g01fylutweqd4n7pa",
+        "title": "赢钱的关键，在于容错大小",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  },
+  {
+    "key": "wechat:url:https://mp.weixin.qq.com/s?__biz=MzI0MDg5ODA2NQ==&mid=2247501389&idx=1&sn=fee02cd12c030941940d81463501ad4b",
+    "winner": {
+      "id": "cmnnfoo2x01qklutwyfx3tnt0",
+      "title": "如何评价张雪峰？",
+      "highlights": 2,
+      "tags": 0,
+      "readState": "READ"
+    },
+    "losers": [
+      {
+        "id": "cmnnfoo0h01qflutwh83sgqn2",
+        "title": "如何评价张雪峰？",
+        "highlights": 0,
+        "tags": 0,
+        "readState": "UNREAD"
+      }
+    ],
+    "actions": {
+      "moveHighlightsCount": 0,
+      "mergeTags": true,
+      "updateReadState": "Keep current"
+    }
+  }
+]

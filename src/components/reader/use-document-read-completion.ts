@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { ReadState } from "@prisma/client";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-const COMPLETION_NEAR_BOTTOM_OFFSET_PX = 100;
-const COMPLETION_EXTRA_PULL_THRESHOLD_PX = 80;
-const COMPLETION_ANIMATION_TOTAL_MS = 2900;
+const COMPLETION_NEAR_BOTTOM_OFFSET_PX = 400;
+const COMPLETION_EXTRA_PULL_THRESHOLD_PX = 120;
+const COMPLETION_ANIMATION_TOTAL_MS = 1600;
 const COMPLETION_RETRY_DELAY_MS = 1200;
-const COMPLETION_REFRESH_DELAY_MS = 700;
+const COMPLETION_REFRESH_DELAY_MS = 1750;
 
 export type DocumentReadCompletionPhase = "idle" | "armed" | "animating" | "saving" | "completed";
 
@@ -136,7 +136,7 @@ export function useDocumentReadCompletion(options: UseDocumentReadCompletionOpti
   return {
     phase,
     sentinelRef,
-    isVisible: options.isEnabled && options.readState !== ReadState.READ,
+    isVisible: options.isEnabled && (options.readState !== ReadState.READ || phase === "completed" || phase === "animating" || phase === "saving"),
   };
 }
 

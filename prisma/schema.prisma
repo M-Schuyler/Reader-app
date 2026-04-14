@@ -145,6 +145,13 @@ model Document {
   title           String
   sourceUrl       String?
   canonicalUrl    String?
+  videoUrl        String?
+  videoProvider   String?
+  videoThumbnailUrl String?
+  videoDurationSeconds Int?
+  transcriptSegments Json?
+  // Stable unique key for deduplication across different source URLs and formats.
+  dedupeKey       String?          @unique
   // RSS dedupe uses externalId first, then service-level fallback by URL and content hash.
   externalId      String?
   aiSummary       String?
@@ -185,6 +192,8 @@ model Document {
   @@index([publishedAtKind, publishedAt])
   @@index([canonicalUrl])
   @@index([sourceUrl])
+  @@index([videoUrl])
+  @@index([videoProvider])
   @@index([contentOriginKey])
   @@index([type, externalId])
   @@index([sourceId, publishedAt])

@@ -25,26 +25,23 @@ export function MainWorkspaceChrome({ children, email }: MainWorkspaceChromeProp
 
   return (
     <div className="min-h-screen pb-[5.5rem] md:pb-0">
-      <div className="md:grid md:grid-cols-[88px_minmax(0,1fr)]">
+      <div className="md:grid md:grid-cols-[64px_minmax(0,1fr)]">
         <NavigationRail email={email} items={items} onSearchOpen={() => setSearchOpen(true)} searchOpen={searchOpen} />
 
         <div className="min-w-0">
-          <MainHeaderShell className={isDocumentPage ? undefined : "md:hidden"}>
-            <div
-              className={cx(
-                "mx-auto flex max-w-[78rem] items-center justify-between px-5 py-3 sm:px-6 lg:px-8",
-                isDocumentPage ? "md:justify-end" : undefined,
-              )}
-            >
-              <Link className="font-ui-heading text-[1.7rem] leading-none tracking-[-0.06em] md:hidden" href="/sources">
-                Reader
-              </Link>
-              <div className="empty:hidden" id="reader-panel-toggle-slot" />
-              <div className="md:hidden">
-                <HeaderAccountMenu email={email} />
+          {!isDocumentPage && (
+            <MainHeaderShell className="md:hidden">
+              <div className="mx-auto flex max-w-[78rem] items-center justify-between px-5 py-3 sm:px-6 lg:px-8">
+                <Link className="font-ui-heading text-[1.7rem] leading-none tracking-[-0.06em] md:hidden" href="/sources">
+                  Reader
+                </Link>
+                <div className="empty:hidden" id="reader-panel-toggle-slot" />
+                <div className="md:hidden">
+                  <HeaderAccountMenu email={email} />
+                </div>
               </div>
-            </div>
-          </MainHeaderShell>
+            </MainHeaderShell>
+          )}
 
           <main className="mx-auto max-w-[78rem] px-5 py-8 sm:px-6 lg:px-8 lg:py-10">{children}</main>
         </div>

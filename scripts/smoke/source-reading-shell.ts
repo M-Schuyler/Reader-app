@@ -44,6 +44,7 @@ async function main() {
         title: `Smoke Source Document ${smokeId}`,
         sourceUrl: `https://example.com/${smokeId}`,
         canonicalUrl: `https://example.com/${smokeId}`,
+        dedupeKey: `smoke:${smokeId}`,
         excerpt: "Smoke excerpt for source/reading shell validation.",
         ingestionStatus: IngestionStatus.READY,
         readState: ReadState.UNREAD,

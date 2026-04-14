@@ -172,6 +172,35 @@ test("extracts author from meta, json-ld and wechat byline", () => {
   assert.equal(fromWeChatByline.author, "王小明");
 });
 
+test("does not treat top-level VideoObject name as article author", () => {
+  const metadata = extractWebPageMetadataFromHtml({
+    requestUrl: "https://youtu.be/video-author-demo",
+    finalUrl: "https://www.youtube.com/watch?v=video-author-demo",
+    rawHtml: `
+      <html>
+        <head>
+          <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@type": "VideoObject",
+              "name": "Video Object Title",
+              "uploadDate": "2026-04-01T00:00:00Z"
+            }
+          </script>
+          <meta property="og:type" content="video.other">
+          <meta property="og:title" content="Video Object Title">
+          <meta property="og:description" content="Video description for metadata extraction.">
+        </head>
+        <body>
+          <div id="player"></div>
+        </body>
+      </html>
+    `,
+  });
+
+  assert.equal(metadata.author, null);
+});
+
 test("extracts wechat account name separately from the article author", () => {
   const rawHtml = `
     <html>
@@ -203,6 +232,36 @@ test("extracts wechat account name separately from the article author", () => {
 
   assert.equal(result.author, "蔡垒磊");
   assert.equal(result.wechatAccountName, "请辩");
+});
+
+test("falls back to metadata text for video pages without readable article body", () => {
+  const result = extractWebPageFromHtml({
+    requestUrl: "https://youtu.be/video-fallback-demo",
+    finalUrl: "https://www.youtube.com/watch?v=video-fallback-demo",
+    rawHtml: `
+      <html>
+        <head>
+          <title>Small Talk Video</title>
+          <link rel="canonical" href="https://www.youtube.com/watch?v=video-fallback-demo">
+          <meta property="og:type" content="video.other">
+          <meta property="og:title" content="Small Talk Video">
+          <meta
+            property="og:description"
+            content="This is a video entry and should still be imported with a readable fallback."
+          >
+        </head>
+        <body>
+          <div id="player"></div>
+        </body>
+      </html>
+    `,
+  });
+
+  assert.equal(result.title, "Small Talk Video");
+  assert.match(result.plainText, /video entry and should still be imported/i);
+  assert.match(result.plainText, /Video URL: https:\/\/www\.youtube\.com\/watch\?v=video-fallback-demo/);
+  assert.ok(result.wordCount > 0);
+  assert.equal(result.contentHtml?.includes("<p>"), true);
 });
 
 test("rejects low-signal wechat output even if extraction produced some text", () => {

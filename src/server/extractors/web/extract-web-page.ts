@@ -29,15 +29,15 @@ const CONTENT_POSITIVE_KEYWORDS = /article|content|entry|post|story|detail|body|
 const CONTENT_NEGATIVE_KEYWORDS =
   /nav|menu|footer|header|sidebar|share|social|related|recommend|comment|breadcrumb|subscribe|newsletter|advert|ads|promo|cookie|modal|popup|pager|pagination|toolbar|hero/i;
 const BOILERPLATE_TEXT_PATTERNS =
-  /相关阅读|推荐阅读|猜你喜欢|相关推荐|分享|扫码|打开微信|上一篇|下一篇|责任编辑|版权所有|声明：|广告|赞助|related articles|read more|share this|all rights reserved|cookie/i;
+  /相关阅读|推荐阅读|猜你喜欢|相关推荐|分享|扫码|打开微信|上一篇|下一篇|责任编辑|版权所有|声明：|广告|赞助|在小说阅读器|去阅读|沉浸阅读|related articles|read more|share this|all rights reserved|cookie/i;
 const VERIFICATION_PAGE_PATTERNS =
   /verify you are human|security check|enable javascript and cookies|checking if the site connection is secure|captcha|安全验证|请完成验证|当前环境异常|完成验证后即可继续访问/i;
 const SHELL_PAGE_PATTERNS =
   /access denied|403 forbidden|404 not found|page not found|temporarily unavailable|service unavailable|redirecting|正在跳转|请先登录|login required|sign in to continue/i;
-const LEADING_META_TEXT_PATTERNS = /^(原创|作者|来源|编辑|文[:：]|by\s|发表于|阅读原文|在.+阅读$)/i;
-const WECHAT_LOW_SIGNAL_TEXT_PATTERNS = /微信扫一扫|使用小程序|向上滑动看下一个|使用完整服务/i;
+const LEADING_META_TEXT_PATTERNS = /^\s*(原创|作者|来源|编辑|文[:：]|by\s|发表于|阅读原文|在.+阅读$|在小说阅读器|去阅读|沉浸阅读)/i;
+const WECHAT_LOW_SIGNAL_TEXT_PATTERNS = /微信扫一扫|使用小程序|向上滑动看下一个|使用完整服务|在小说阅读器|去阅读|沉浸阅读/i;
 const WECHAT_INTERMEDIATE_TEXT_PATTERNS =
-  /账号已迁移|该公众号已迁移|已迁移至新的账号|原账号已回收|若需访问原文章链接|访问原文章|点击下方按钮/i;
+  /账号已迁移|该公众号已迁移|已迁移至新的账号|原账号已回收|若需访问原文章链接|访问原文章|点击下方按钮|在小说阅读器中沉浸阅读/i;
 const WECHAT_END_MARKER_TEXT_PATTERNS = /^(?:（完）|\(完\)|全文完|完)$/;
 const WECHAT_TRAILING_SEPARATOR_PATTERNS = /^(?:[.\-_*•。·…\s]{6,}|\.{6,}|。{6,}|_{6,}|\*{6,}|•{6,})$/;
 const WECHAT_TRAILING_PROMO_TEXT_PATTERNS =
@@ -54,7 +54,7 @@ const META_AUTHOR_KEYS = [
   "byline",
 ] as const;
 const BOILERPLATE_HARD_PATTERNS =
-  /^(?:相关阅读|推荐阅读|猜你喜欢|相关推荐|上一篇|下一篇|share this|related articles|read more)/i;
+  /^(?:\s*)(?:相关阅读|推荐阅读|猜你喜欢|相关推荐|上一篇|下一篇|share this|related articles|read more|在小说阅读器|去阅读|沉浸阅读)/i;
 const META_PUBLISHED_AT_KEYS = [
   "article:published_time",
   "og:article:published_time",
@@ -82,6 +82,7 @@ const WECHAT_NOISE_SELECTORS = [
   ".qr_code_pc_outer",
   ".js_reprinted_source",
 ];
+const VIDEO_PAGE_FALLBACK_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"]);
 const ALLOWED_TAGS = new Set([
   "article",
   "section",
@@ -239,10 +240,18 @@ export function extractWebPageFromHtml(input: {
   const author = extractAuthor($, finalUrl, rawHtml);
   const wechatAccountName = extractWeChatAccountName($, finalUrl, rawHtml) ?? weChatInlineReadablePayload?.wechatAccountName ?? null;
   const publishedAt = extractPublishedAt($, finalUrl, rawHtml) ?? weChatInlineReadablePayload?.publishedAt ?? null;
-  const contentHtml = shouldUseWeChatInlineReadablePayload
+  let contentHtml = shouldUseWeChatInlineReadablePayload
     ? trimReadableHtml(buildParagraphHtmlFromPlainText(weChatInlineReadablePayload?.plainText ?? ""), title, finalUrl)
     : trimReadableHtml(extractReadableHtml($, finalUrl), title, finalUrl);
-  const plainText = htmlToPlainText(contentHtml);
+  let plainText = htmlToPlainText(contentHtml);
+
+  if (!plainText) {
+    const videoFallbackPlainText = buildVideoPageFallbackPlainText($, finalUrl, canonicalUrl);
+    if (videoFallbackPlainText) {
+      contentHtml = trimReadableHtml(buildParagraphHtmlFromPlainText(videoFallbackPlainText), title, finalUrl);
+      plainText = htmlToPlainText(contentHtml);
+    }
+  }
 
   if (!plainText) {
     throw new RouteError("EXTRACTION_EMPTY", 422, "The page was fetched but no readable text was extracted.");
@@ -370,7 +379,7 @@ function extractReadableHtml($: CheerioAPI, finalUrl: string) {
     removeWeChatNoiseNodes($content, $root);
   }
   normalizeLinksAndMedia($content, $root, finalUrl);
-  normalizeStructure($content, $root);
+  normalizeStructure($content, $root, finalUrl);
   sanitizeNodes($content, $root);
   removeEmptyNodes($content, $root);
 
@@ -548,9 +557,17 @@ function normalizeLinksAndMedia($: CheerioAPI, $root: Cheerio<Element>, finalUrl
   $root.find("source").remove();
 }
 
-function normalizeStructure($: CheerioAPI, $root: Cheerio<Element>) {
-  for (const element of $root.find("section, article, div").toArray().reverse()) {
+function normalizeStructure($: CheerioAPI, $root: Cheerio<Element>, finalUrl?: string) {
+  const isWeChat = isWeChatHost(safeParseUrl(finalUrl ?? ""));
+
+  for (const element of $root.find("section, article, div, pre").toArray().reverse()) {
     const $element = $(element);
+    const tagName = getTagName($element);
+
+    if (tagName === "pre" && isWeChat && isWeChatPseudoPre($, $element)) {
+      renameTag($element, "div");
+    }
+
     if (isParagraphLike($, $element)) {
       renameTag($element, "p");
     }
@@ -562,10 +579,30 @@ function normalizeStructure($: CheerioAPI, $root: Cheerio<Element>) {
 
   for (const container of $root.find("div, section, article").toArray().reverse()) {
     const $container = $(container);
-    if (shouldUnwrapContainer($, $container)) {
+    if (shouldUnwrapContainer($, $container, isWeChat)) {
       $container.replaceWith($container.contents());
     }
   }
+}
+
+function isWeChatPseudoPre($: CheerioAPI, $element: Cheerio<Element>) {
+  const text = getNodeText($element);
+  if (text.length < 20) {
+    return false;
+  }
+
+  // If it contains paragraphs or many line breaks but no code-like tokens, it's likely a pseudo-pre used for layout.
+  const hasParagraphs = $element.find("p, section, div").length > 0;
+  const lineCount = text.split("\n").length;
+  const wordCount = countReadableUnits(text);
+
+  if (hasParagraphs || (lineCount > 3 && wordCount > 40)) {
+    const codeTokens = /[{}();\[\]]|=|=>|function|const|var|let|import|export/g;
+    const codeTokenCount = (text.match(codeTokens) ?? []).length;
+    return codeTokenCount < wordCount * 0.05; // Very low code token density
+  }
+
+  return false;
 }
 
 function isParagraphLike($: CheerioAPI, $element: Cheerio<Element>) {
@@ -586,10 +623,15 @@ function isParagraphLike($: CheerioAPI, $element: Cheerio<Element>) {
   return getLinkDensity($, $element) < 0.4;
 }
 
-function shouldUnwrapContainer($: CheerioAPI, $element: Cheerio<Element>) {
+function shouldUnwrapContainer($: CheerioAPI, $element: Cheerio<Element>, isWeChat = false) {
   const tagName = getTagName($element);
   if (!tagName || !["div", "section", "article"].includes(tagName)) {
     return false;
+  }
+
+  // WeChat uses sections for EVERYTHING layout related. We should be very aggressive.
+  if (isWeChat && tagName === "section") {
+    return true;
   }
 
   const childElements = $element.children().toArray();
@@ -814,6 +856,90 @@ function assertReadableExtractionQuality(finalUrl: string, plainText: string) {
   }
 }
 
+function buildVideoPageFallbackPlainText($: CheerioAPI, finalUrl: string, canonicalUrl: string | null) {
+  if (!isVideoPage($, finalUrl)) {
+    return null;
+  }
+
+  const description =
+    extractMetaContent($, "og:description") ??
+    extractMetaContent($, "twitter:description") ??
+    extractMetaContent($, "description") ??
+    extractItempropContent($, "description");
+
+  const segments: string[] = [];
+  const normalizedDescription = normalizeReadablePlainText(description ?? "");
+  if (normalizedDescription) {
+    segments.push(normalizedDescription);
+  }
+  segments.push(`Video URL: ${canonicalUrl ?? finalUrl}`);
+
+  const fallback = normalizeReadablePlainText(segments.join("\n\n"));
+  return fallback || null;
+}
+
+function isVideoPage($: CheerioAPI, finalUrl: string) {
+  const finalPageUrl = safeParseUrl(finalUrl);
+  const hostname = finalPageUrl?.hostname?.toLowerCase() ?? null;
+
+  if (hostname && VIDEO_PAGE_FALLBACK_HOSTS.has(hostname)) {
+    return true;
+  }
+
+  const ogType = extractMetaContent($, "og:type")?.toLowerCase();
+  if (ogType?.startsWith("video")) {
+    return true;
+  }
+
+  return hasJsonLdType($, "VideoObject");
+}
+
+function hasJsonLdType($: CheerioAPI, expectedType: string) {
+  const normalizedExpectedType = expectedType.toLowerCase();
+
+  for (const script of $("script[type='application/ld+json']").toArray()) {
+    const scriptContent = $(script).text();
+    if (!scriptContent.trim()) {
+      continue;
+    }
+
+    try {
+      const parsedJson = JSON.parse(scriptContent) as unknown;
+      if (containsJsonLdType(parsedJson, normalizedExpectedType)) {
+        return true;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return false;
+}
+
+function containsJsonLdType(value: unknown, expectedType: string): boolean {
+  if (!value) {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => containsJsonLdType(item, expectedType));
+  }
+
+  if (typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  const rawType = record["@type"];
+  const typeCandidates = Array.isArray(rawType) ? rawType : [rawType];
+
+  if (typeCandidates.some((candidate) => typeof candidate === "string" && candidate.toLowerCase() === expectedType)) {
+    return true;
+  }
+
+  return Object.values(record).some((nestedValue) => containsJsonLdType(nestedValue, expectedType));
+}
+
 function extractTitle($: CheerioAPI, finalUrl: string) {
   const title =
     cleanText($("title").first().text()) ?? extractMetaContent($, "og:title") ?? extractMetaContent($, "twitter:title");
@@ -1010,18 +1136,18 @@ function findAuthorInJsonLd(value: unknown): string | null {
   return null;
 }
 
-function parseJsonLdAuthorValue(value: unknown): string | null {
+function parseJsonLdAuthorValue(value: unknown, explicitAuthorContext = false): string | null {
   if (!value) {
     return null;
   }
 
   if (typeof value === "string") {
-    return normalizeAuthorCandidate(value);
+    return explicitAuthorContext ? normalizeAuthorCandidate(value) : null;
   }
 
   if (Array.isArray(value)) {
     for (const item of value) {
-      const parsed = parseJsonLdAuthorValue(item);
+      const parsed = parseJsonLdAuthorValue(item, explicitAuthorContext);
       if (parsed) {
         return parsed;
       }
@@ -1036,20 +1162,20 @@ function parseJsonLdAuthorValue(value: unknown): string | null {
 
   const record = value as Record<string, unknown>;
   if ("author" in record) {
-    const parsed = parseJsonLdAuthorValue(record.author);
+    const parsed = parseJsonLdAuthorValue(record.author, true);
     if (parsed) {
       return parsed;
     }
   }
 
   if ("creator" in record) {
-    const parsed = parseJsonLdAuthorValue(record.creator);
+    const parsed = parseJsonLdAuthorValue(record.creator, true);
     if (parsed) {
       return parsed;
     }
   }
 
-  if (typeof record.name === "string") {
+  if (typeof record.name === "string" && (explicitAuthorContext || isJsonLdAuthorEntity(record))) {
     const parsed = normalizeAuthorCandidate(record.name);
     if (parsed) {
       return parsed;
@@ -1057,6 +1183,13 @@ function parseJsonLdAuthorValue(value: unknown): string | null {
   }
 
   return null;
+}
+
+function isJsonLdAuthorEntity(record: Record<string, unknown>) {
+  const rawType = record["@type"];
+  const typeCandidates = Array.isArray(rawType) ? rawType : [rawType];
+
+  return typeCandidates.some((candidate) => typeof candidate === "string" && /(person|organization)/i.test(candidate));
 }
 
 function extractWeChatAuthor($: CheerioAPI, rawHtml: string) {
@@ -1254,6 +1387,23 @@ function extractMetaContent($: CheerioAPI, name: string) {
     const metaProperty = $(meta).attr("property")?.toLowerCase();
     if (metaName === normalizedName || metaProperty === normalizedName) {
       return cleanText($(meta).attr("content") ?? null);
+    }
+  }
+
+  return null;
+}
+
+function extractItempropContent($: CheerioAPI, itemprop: string) {
+  const normalizedItemprop = itemprop.toLowerCase();
+
+  for (const element of $("[itemprop]").toArray()) {
+    if ($(element).attr("itemprop")?.toLowerCase() !== normalizedItemprop) {
+      continue;
+    }
+
+    const candidate = cleanText($(element).attr("content") ?? null) ?? cleanText($(element).text());
+    if (candidate) {
+      return candidate;
     }
   }
 

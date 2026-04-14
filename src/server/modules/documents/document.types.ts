@@ -7,6 +7,8 @@ import type {
   ReadState,
   SourceKind,
 } from "@prisma/client";
+import type { DocumentVideoEmbed, VideoProvider } from "@/lib/documents/video-types";
+export type { DocumentVideoEmbed, TranscriptSegment, VideoProvider, VideoSyncMode } from "@/lib/documents/video-types";
 
 export type DocumentListSort = "latest" | "earliest";
 export type DocumentSurface = "source" | "reading";
@@ -52,6 +54,8 @@ export type DocumentListItem = {
   aiSummaryError: string | null;
   excerpt: string | null;
   lang: string | null;
+  author: string | null;
+  videoThumbnailUrl: string | null;
   publishedAt: string | null;
   publishedAtKind: PublishedAtKind;
   enteredReadingAt: string | null;
@@ -154,6 +158,11 @@ export type DocumentDetail = {
   title: string;
   sourceUrl: string | null;
   canonicalUrl: string | null;
+  videoUrl: string | null;
+  videoProvider: VideoProvider | null;
+  videoThumbnailUrl: string | null;
+  videoDurationSeconds: number | null;
+  videoEmbed: DocumentVideoEmbed | null;
   aiSummary: string | null;
   aiSummaryStatus: AiSummaryStatus | null;
   aiSummaryError: string | null;
@@ -208,6 +217,11 @@ export type DocumentDetail = {
 
 export type GetDocumentResponseData = {
   document: DocumentDetail;
+};
+
+export type GetReaderDocumentResponseData = {
+  document: DocumentDetail;
+  nextUp: DocumentListItem | null;
 };
 
 export type CaptureIngestionError = {
@@ -286,15 +300,19 @@ export type CaptureUrlResponseData = {
 
 export type QuickSearchResult = {
   id: string;
+  type: DocumentType;
   title: string;
+  author: string | null;
   sourceUrl: string | null;
   canonicalUrl: string | null;
   aiSummary: string | null;
   excerpt: string | null;
+  wordCount: number | null;
   publishedAt: string | null;
   publishedAtKind: PublishedAtKind;
   readState: ReadState;
   ingestionStatus: IngestionStatus;
+  tags: DocumentTagLabel[];
 };
 
 export type QuickSearchResponseData = {

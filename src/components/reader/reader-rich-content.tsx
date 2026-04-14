@@ -6,14 +6,15 @@ import { resolveHighlightTextRanges, splitTextByHighlights } from "@/lib/highlig
 import { splitPlainTextIntoHighlightedParagraphs } from "@/lib/highlights/plain-text";
 import { shouldRenderTextNode, type TextNeighborKind } from "@/lib/highlights/whitespace";
 import type { ReaderHighlight } from "@/components/reader/reader-highlights";
+import type { TocItem } from "./use-reader-toc";
+import { ReaderCodeBlock } from "./reader-code-block";
 
 type ReaderRichContentProps = {
   contentHtml: string;
   fallbackText: string;
-  fontSize?: string;
   highlights?: ReaderHighlight[];
-  lineHeight?: string;
   sourceUrl: string | null;
+  tocItems?: TocItem[];
 };
 
 type CursorState = {
@@ -25,10 +26,9 @@ type ResolvedReaderHighlight = Pick<ReaderHighlight, "id" | "quoteText" | "start
 export function ReaderRichContent({
   contentHtml,
   fallbackText,
-  fontSize = "1.125rem",
   highlights = [],
-  lineHeight = "2",
   sourceUrl,
+  tocItems = [],
 }: ReaderRichContentProps) {
   const [content, setContent] = useState<ReactNode | null>(null);
 
@@ -37,35 +37,19 @@ export function ReaderRichContent({
       return;
     }
 
-    setContent(renderStructuredContent(contentHtml, fallbackText, sourceUrl, highlights));
-  }, [contentHtml, fallbackText, highlights, sourceUrl]);
+    setContent(renderStructuredContent(contentHtml, fallbackText, sourceUrl, highlights, tocItems));
+  }, [contentHtml, fallbackText, highlights, sourceUrl, tocItems]);
 
   if (!content) {
     return (
-      <div
-        className="reader-prose"
-        style={
-          {
-            "--reader-font-size": fontSize,
-            "--reader-line-height": lineHeight,
-          } as CSSProperties
-        }
-      >
+      <div className="reader-prose">
         {renderPlainTextFallback(fallbackText, highlights)}
       </div>
     );
   }
 
   return (
-    <div
-      className="reader-prose reader-rich-content"
-      style={
-        {
-          "--reader-font-size": fontSize,
-          "--reader-line-height": lineHeight,
-        } as CSSProperties
-      }
-    >
+    <div className="reader-prose reader-rich-content">
       {content}
     </div>
   );
@@ -93,13 +77,15 @@ function renderStructuredContent(
   fallbackText: string,
   sourceUrl: string | null,
   highlights: ReaderHighlight[],
+  tocItems: TocItem[],
 ) {
   const parser = new DOMParser();
   const parsed = parser.parseFromString(contentHtml, "text/html");
   const resolvedHighlights = resolveHighlightTextRanges(parsed.body.textContent || fallbackText, highlights);
   const cursor: CursorState = { value: 0 };
+  const headerCursor = { value: 0 };
   const nodes = Array.from(parsed.body.childNodes)
-    .map((node, index) => renderNode(node, `${index}`, sourceUrl, resolvedHighlights, cursor))
+    .map((node, index) => renderNode(node, `${index}`, sourceUrl, resolvedHighlights, cursor, tocItems, headerCursor))
     .filter((node): node is ReactNode => node !== null);
 
   return nodes.length > 0 ? nodes : null;
@@ -111,6 +97,8 @@ function renderNode(
   sourceUrl: string | null,
   highlights: ResolvedReaderHighlight[],
   cursor: CursorState,
+  tocItems: TocItem[],
+  headerCursor: { value: number },
 ): ReactNode | null {
   if (node.nodeType === Node.TEXT_NODE) {
     const textContent = node.textContent ?? "";
@@ -137,7 +125,7 @@ function renderNode(
   }
 
   const children = Array.from(element.childNodes)
-    .map((child, index) => renderNode(child, `${key}.${index}`, sourceUrl, highlights, cursor))
+    .map((child, index) => renderNode(child, `${key}.${index}`, sourceUrl, highlights, cursor, tocItems, headerCursor))
     .filter((child): child is ReactNode => child !== null);
 
   switch (tagName) {
@@ -149,31 +137,40 @@ function renderNode(
       return <Fragment key={key}>{children}</Fragment>;
 
     case "p":
-      return <p key={key}>{children}</p>;
+      return <div className="leading-relaxed" key={key}>{children}</div>;
 
-    case "h1":
+    case "h1": {
+      const headerId = tocItems[headerCursor.value]?.id;
+      headerCursor.value++;
       return (
-        <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)] sm:text-[2.35rem]" key={key}>
+        <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)] sm:text-[2.35rem]" id={headerId} key={key}>
           {children}
         </h2>
       );
+    }
 
-    case "h2":
+    case "h2": {
+      const headerId = tocItems[headerCursor.value]?.id;
+      headerCursor.value++;
       return (
-        <h3 className="font-display text-[1.65rem] leading-tight tracking-[-0.025em] text-[color:var(--text-primary)] sm:text-[1.85rem]" key={key}>
+        <h3 className="font-display text-[1.65rem] leading-tight tracking-[-0.025em] text-[color:var(--text-primary)] sm:text-[1.85rem]" id={headerId} key={key}>
           {children}
         </h3>
       );
+    }
 
     case "h3":
     case "h4":
     case "h5":
-    case "h6":
+    case "h6": {
+      const headerId = (tagName === "h3") ? tocItems[headerCursor.value]?.id : undefined;
+      if (tagName === "h3") headerCursor.value++;
       return (
-        <h4 className="font-display text-[1.3rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]" key={key}>
+        <h4 className="font-display text-[1.3rem] leading-tight tracking-[-0.02em] text-[color:var(--text-primary)]" id={headerId} key={key}>
           {children}
         </h4>
       );
+    }
 
     case "ul":
       return (
@@ -195,7 +192,7 @@ function renderNode(
     case "blockquote":
       return (
         <blockquote
-          className="border-l border-[color:var(--border-strong)] pl-5 text-[color:var(--text-secondary)]"
+          className="relative border-l-[3px] border-[color:var(--ai-card-accent)] bg-[color:var(--ai-card-bg)] py-4 pl-6 pr-4 italic text-[color:var(--text-secondary)] rounded-r-xl"
           key={key}
         >
           {children}
@@ -272,14 +269,7 @@ function renderNode(
       return <hr className="border-0 border-t border-[color:var(--border-subtle)]" key={key} />;
 
     case "pre":
-      return (
-        <pre
-          className="overflow-x-auto rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-5 font-mono text-[0.95rem] leading-7 text-[color:var(--text-primary)]"
-          key={key}
-        >
-          <code>{element.textContent ?? ""}</code>
-        </pre>
-      );
+      return <ReaderCodeBlock code={element.textContent ?? ""} key={key} />;
 
     case "code":
       return (
@@ -339,14 +329,29 @@ function renderNode(
       const alt = element.getAttribute("alt") ?? "";
 
       return (
-        <img
-          alt={alt}
-          className="w-full rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)]"
-          key={key}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          src={src}
-        />
+        <figure className="group relative my-10 overflow-hidden" key={key}>
+          <img
+            alt={alt}
+            className="w-full cursor-zoom-in rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] transition-transform duration-300 hover:scale-[1.01]"
+            loading="lazy"
+            onClick={(e) => {
+              const img = e.currentTarget;
+              if (img.classList.contains('is-expanded')) {
+                img.classList.remove('is-expanded', 'fixed', 'inset-0', 'z-[100]', 'm-auto', 'max-h-[90vh]', 'max-w-[90vw]', 'object-contain', 'bg-black/80', 'p-4', 'rounded-none', 'border-none');
+              } else {
+                // Simplified inline lightbox logic
+                window.open(src, '_blank');
+              }
+            }}
+            referrerPolicy="no-referrer"
+            src={src}
+          />
+          {alt && (
+            <figcaption className="mt-4 text-center text-[13px] italic text-[color:var(--text-tertiary)]">
+              {alt}
+            </figcaption>
+          )}
+        </figure>
       );
     }
 

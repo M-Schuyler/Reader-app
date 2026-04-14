@@ -5,26 +5,15 @@ import type { SourceLibrarySourceKind } from "@/lib/documents/source-library";
 import { cx } from "@/utils/cx";
 
 export type SourceLibraryTone = {
-  cover: string;
-  spine: string;
+  accent: string;
+  bg: string;
 };
 
+// Unified palette aligned with the reader's bronze/paper theme
 export const SOURCE_LIBRARY_TONES: readonly SourceLibraryTone[] = [
   {
-    cover: "border-[#d8c7af]/80 bg-[#efe4d3]",
-    spine: "bg-[#b68b5d]",
-  },
-  {
-    cover: "border-[#c7d0d6]/80 bg-[#e4eaee]",
-    spine: "bg-[#7f92a0]",
-  },
-  {
-    cover: "border-[#d5cec3]/80 bg-[#eee7dd]",
-    spine: "bg-[#9b8064]",
-  },
-  {
-    cover: "border-[#d2d6c7]/80 bg-[#edf0e5]",
-    spine: "bg-[#7b8d6a]",
+    accent: "bg-[color:var(--ai-card-accent)]",
+    bg: "bg-[color:var(--bg-surface)]",
   },
 ] as const;
 
@@ -36,25 +25,16 @@ type SourceLibrarySourceCardProps = {
   filterSummary?: string | null;
   latestLabel?: string | null;
   href: string | null;
-  tone: SourceLibraryTone;
+  tone?: SourceLibraryTone;
   variant?: "index" | "hero";
 };
 
 export function getSourceLibraryTone(index: number) {
-  return SOURCE_LIBRARY_TONES[index % SOURCE_LIBRARY_TONES.length];
+  return SOURCE_LIBRARY_TONES[0];
 }
 
 export function getSourceLibraryToneForSeed(seed: string | null | undefined) {
-  if (!seed) {
-    return getSourceLibraryTone(0);
-  }
-
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
-  }
-
-  return getSourceLibraryTone(hash);
+  return SOURCE_LIBRARY_TONES[0];
 }
 
 export function SourceLibrarySourceCard({
@@ -65,46 +45,77 @@ export function SourceLibrarySourceCard({
   filterSummary,
   latestLabel,
   href,
-  tone,
+  tone: propTone,
   variant = "index",
 }: SourceLibrarySourceCardProps) {
   const isHero = variant === "hero";
+  const tone = propTone || SOURCE_LIBRARY_TONES[0];
+  
   const body = (
     <div
       className={cx(
-        "relative overflow-hidden rounded-[34px] border shadow-[var(--shadow-surface-muted)] transition",
-        tone.cover,
-        isHero ? "h-[20rem] p-6 sm:h-[21.5rem]" : "h-[17.5rem] p-5",
-        href ? "group-hover:shadow-[var(--shadow-surface)] group-focus-visible:shadow-[var(--shadow-surface)]" : "opacity-72",
+        "relative overflow-hidden rounded-[32px] border border-[color:var(--border-subtle)] transition-all duration-500 cubic-bezier(0.22, 1, 0.36, 1)",
+        tone.bg,
+        isHero ? "h-[22rem] p-8 sm:h-[24rem]" : "h-[18rem] p-6",
+        href ? "group-hover:-translate-y-1.5 group-hover:border-[color:var(--border-strong)] group-hover:shadow-[var(--shadow-surface)] shadow-[var(--shadow-surface-muted)]" : "opacity-72",
       )}
     >
-      <span className="absolute inset-y-5 left-4 w-[4px] rounded-full bg-white/55" />
-      <span className={cx("absolute inset-y-5 left-[22px] w-[7px] rounded-full opacity-85", tone.spine)} />
+      {/* Visual Stacking Effect: suggests this is a container of multiple documents */}
+      <div className="absolute right-[-4px] top-6 h-[75%] w-1 rounded-l-full bg-black/[0.04] transition-transform duration-500 group-hover:translate-x-1" />
+      <div className="absolute right-[-8px] top-12 h-[60%] w-1 rounded-l-full bg-black/[0.02] transition-transform duration-500 group-hover:translate-x-2" />
 
-      <div className={cx("relative z-10 flex h-full flex-col justify-between", isHero ? "pl-9" : "pl-8")}>
-        <div className="space-y-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-black/42">{formatSourceKind(kind)}</p>
-          <div className="space-y-2">
+      {/* Side Accent: elegant replacement for the old thick spine */}
+      <div className={cx("absolute inset-y-8 left-0 w-1.5 rounded-r-full opacity-50 transition-opacity group-hover:opacity-100", tone.accent)} />
+
+      <div className={cx("relative z-10 flex h-full flex-col justify-between pl-6")}>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[color:var(--text-tertiary)] opacity-70">
+              {formatSourceKind(kind)}
+            </p>
+            {isHero && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-[color:var(--ai-card-accent)] uppercase tracking-wider">Featured</span>
+                <div className="h-1.5 w-1.5 rounded-full bg-[color:var(--ai-card-accent)] animate-pulse" />
+              </div>
+            )}
+          </div>
+          
+          <div className="space-y-3">
             <h3
               className={cx(
-                "max-w-full font-ui-heading tracking-[-0.045em] text-black/80 [overflow-wrap:anywhere]",
+                "max-w-full font-ui-heading font-bold tracking-[-0.04em] text-[color:var(--text-primary)] [overflow-wrap:anywhere] transition-colors group-hover:text-[color:var(--text-primary-strong)]",
                 isHero
-                  ? "line-clamp-4 text-[clamp(2rem,4.3vw,2.7rem)] leading-[0.95]"
-                  : "line-clamp-5 text-[clamp(1.75rem,3vw,1.95rem)] leading-[0.98]",
+                  ? "line-clamp-3 text-[clamp(2.2rem,5vw,3rem)] leading-[1.05]"
+                  : "line-clamp-4 text-[clamp(1.65rem,3.5vw,1.9rem)] leading-[1.1]",
               )}
             >
               {label}
             </h3>
-            <p className="max-w-full text-sm leading-6 text-black/48 [overflow-wrap:anywhere]">
-              {host && host !== label ? host : "统一来源"}
+            <p className="max-w-full text-[13px] font-medium leading-5 text-[color:var(--text-tertiary)] [overflow-wrap:anywhere] opacity-60">
+              {host && host !== label ? host : "来源频道"}
             </p>
           </div>
         </div>
 
-        <div className="space-y-1.5 text-sm text-black/56">
-          {filterSummary ? <p className="line-clamp-2 text-[13px] leading-5 text-black/52">{filterSummary}</p> : null}
-          <p>{meta}</p>
-          {latestLabel ? <p>{latestLabel}</p> : null}
+        <div className="space-y-4">
+          {filterSummary ? (
+            <p className="line-clamp-2 text-[14px] leading-relaxed text-[color:var(--text-secondary)] opacity-90 italic font-serif border-l border-[color:var(--border-subtle)] pl-3">
+              {filterSummary}
+            </p>
+          ) : null}
+          
+          <div className="flex flex-col gap-1 pt-1">
+            <div className="flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-widest text-[color:var(--text-tertiary)] opacity-50 group-hover:opacity-80 transition-opacity">
+              <span>{meta}</span>
+              {latestLabel && (
+                <>
+                  <span className="opacity-30">·</span>
+                  <span className="normal-case tracking-normal font-medium">{latestLabel}</span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -128,13 +139,13 @@ export function SourceLibrarySourceCard({
 function formatSourceKind(kind: SourceLibrarySourceKind) {
   switch (kind) {
     case "source":
-      return "Named Source";
+      return "Library";
     case "feed":
-      return "Feed Source";
+      return "RSS Feed";
     case "domain":
-      return "Web Source";
+      return "Web Stream";
     case "unknown":
     default:
-      return "Collected";
+      return "Collection";
   }
 }

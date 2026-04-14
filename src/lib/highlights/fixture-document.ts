@@ -14,6 +14,11 @@ export function getHighlightsQaFixtureDocument(): DocumentDetail {
     title: "Reader keeps reading traces stable.",
     sourceUrl: "https://reader.local/qa/highlights-document",
     canonicalUrl: "https://reader.local/qa/highlights-document",
+    videoUrl: null,
+    videoProvider: null,
+    videoThumbnailUrl: null,
+    videoDurationSeconds: null,
+    videoEmbed: null,
     aiSummary:
       "This fixture exists to verify that selection anchoring, note editing, and reload persistence stay reliable on the real Reader surface.",
     aiSummaryStatus: AiSummaryStatus.READY,

@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import {
   SourceAliasEditor,
   SourceLibraryDetail,
-  SourceLibraryDetailFilterState,
-  SourceLibraryDetailHeaderMeta,
 } from "@/components/library/source-library-detail";
-import { PageHeader } from "@/components/ui/page-header";
+import { SourceLibraryDetailFilters } from "@/components/library/source-library-detail-filters";
 import { shouldEnableContentOriginForSourceDetail } from "@/lib/documents/content-origin";
 import { buildSourceLibrarySourceContext } from "@/lib/documents/source-library";
 import {
@@ -63,18 +62,52 @@ export async function SourceDetailPage({ basePath, searchParams, source }: Sourc
   const hasActiveFilters = Boolean(data.filters.q || data.filters.tag || data.filters.origin || data.filters.sort !== "latest");
 
   return (
-    <section className="space-y-8 md:space-y-10">
-      <PageHeader
-        actions={<SourceAliasEditor source={sourceContext} />}
-        className="gap-6 lg:items-start"
-        eyebrow="Source detail"
-        meta={<SourceLibraryDetailHeaderMeta source={sourceContext} />}
-        title={sourceContext.label}
-      />
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+            href={backHref}
+            title="返回来源库"
+          >
+            <span aria-hidden="true" className="text-lg">←</span>
+          </Link>
+          <div className="h-4 w-px bg-[color:var(--border-subtle)]" />
+          <div className="flex flex-col">
+            <h1 className="font-ui-heading text-xl font-bold tracking-tight text-[color:var(--text-primary)]">
+              {sourceContext.label}
+            </h1>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[color:var(--text-tertiary)] opacity-60">
+                {sourceContext.meta}
+              </p>
+              {contextChips.length > 0 && (
+                <>
+                  <span className="text-[10px] text-[color:var(--border-subtle)]">·</span>
+                  <div className="flex gap-1.5">
+                    {contextChips.map((chip) => (
+                      <span key={chip} className="text-[10px] font-bold text-[color:var(--ai-card-accent)] uppercase tracking-wider">{chip}</span>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
 
-      <SourceLibraryDetailFilterState contextChips={contextChips} />
+        <div className="flex items-center gap-3">
+          <SourceAliasEditor source={sourceContext} />
+          <div className="h-4 w-px bg-[color:var(--border-subtle)]" />
+          <SourceLibraryDetailFilters
+            clearHref={clearHref}
+            contentOrigin={data.contentOrigin}
+            filters={data.filters}
+            hasActiveFilters={hasActiveFilters}
+          />
+        </div>
+      </div>
 
-      <SourceLibraryDetail backHref={backHref} clearHref={clearHref} data={data} hasActiveFilters={hasActiveFilters} source={sourceContext} />
+      <SourceLibraryDetail data={data} />
     </section>
   );
 }

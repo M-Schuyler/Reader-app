@@ -1,16 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { IngestionStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { DocumentTagPills } from "@/components/documents/document-tag-pills";
 import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
 import { Panel } from "@/components/ui/panel";
 import { formatPublishedAtLabel } from "@/lib/documents/published-at";
-import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
+import type { GetDocumentsResponseData, DocumentListItem } from "@/server/modules/documents/document.types";
+import { cx } from "@/utils/cx";
 
 type DocumentListProps = {
   data: GetDocumentsResponseData;
+  showDelete?: boolean;
+  onItemDelete?: () => void;
   emptyState?: {
     eyebrow: string;
     title: string;
@@ -24,7 +29,12 @@ const DEFAULT_EMPTY_STATE = {
   description: "导入一篇文章，库里就会开始形成稳定的阅读流。",
 };
 
-export function DocumentList({ data, emptyState = DEFAULT_EMPTY_STATE }: DocumentListProps) {
+export function DocumentList({ 
+  data, 
+  emptyState = DEFAULT_EMPTY_STATE,
+  showDelete = false,
+  onItemDelete,
+}: DocumentListProps) {
   if (data.items.length === 0) {
     return (
       <Panel className="px-8 py-10 text-center" tone="muted">
@@ -47,103 +57,186 @@ export function DocumentList({ data, emptyState = DEFAULT_EMPTY_STATE }: Documen
     <Panel className="overflow-hidden" padding="none">
       <div className="divide-y divide-[color:var(--border-subtle)]">
         {data.items.map((item) => (
-          <DocumentCard item={item} key={item.id} />
+          <DocumentCard 
+            item={item} 
+            key={item.id} 
+            onDelete={onItemDelete}
+            showDelete={showDelete} 
+          />
         ))}
       </div>
     </Panel>
   );
 }
 
-function DocumentCard({ item }: { item: GetDocumentsResponseData["items"][number] }) {
+function DocumentCard({ 
+  item, 
+  showDelete,
+  onDelete 
+}: { 
+  item: DocumentListItem;
+  showDelete?: boolean;
+  onDelete?: () => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  
   const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
   const favorite = useDocumentFavoriteController(item);
   const shouldShowStatusBadge = item.ingestionStatus !== IngestionStatus.READY;
-  const previewText = resolvePreviewText(item);
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!window.confirm("确认删除这篇文章吗？相关高亮也会被移除。")) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/documents/${item.id}`, { method: "DELETE" });
+      if (response.ok) {
+        startTransition(() => {
+          router.refresh();
+          onDelete?.();
+        });
+      } else {
+        setDeleteError("删除失败");
+      }
+    } catch {
+      setDeleteError("网络错误");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   return (
-    <article className="group px-6 py-6 sm:px-7">
+    <article className="group relative px-6 py-8 transition-all duration-300 hover:bg-stone-900/[0.02] sm:px-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1 space-y-4">
-          <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
+          <div className="flex flex-wrap items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.28em] text-[color:var(--text-tertiary)] opacity-40 transition-opacity group-hover:opacity-70">
             <span>{formatDocumentType(item.type)}</span>
+            <span>·</span>
             <span>{formatPublishedAtLabel(item.publishedAt, item.publishedAtKind, item.createdAt)}</span>
             {shouldShowStatusBadge ? (
               <Badge tone={statusTone(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</Badge>
             ) : null}
           </div>
 
-          <Link className="block space-y-3" href={`/documents/${item.id}`}>
-            <h3 className="max-w-4xl font-ui-heading text-[1.75rem] leading-[1.08] tracking-[-0.04em] text-[color:var(--text-primary)] transition group-hover:text-[color:var(--text-primary-strong)]">
+          <Link className="block space-y-3.5" href={`/documents/${item.id}`}>
+            <h3 className="max-w-4xl font-ui-heading text-[1.8rem] font-bold leading-[1.1] tracking-[-0.045em] text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)]">
               {item.title}
             </h3>
-            {previewText ? <p className="max-w-3xl text-[15px] leading-7 text-[color:var(--text-secondary)]">{previewText}</p> : null}
+            
+            {(item.aiSummary || item.excerpt) && (
+              <p className="line-clamp-3 max-w-3xl text-[15px] leading-relaxed text-[color:var(--text-secondary)] opacity-85">
+                {item.aiSummary ?? item.excerpt}
+              </p>
+            )}
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm text-[color:var(--text-tertiary)]">
-              {!isFailed && item.wordCount ? <span>{formatWordCount(item.wordCount)}</span> : null}
-              {item.lang ? <span>{item.lang}</span> : null}
-              {item.canonicalUrl ? (
-                <span className="truncate">{truncateUrl(item.canonicalUrl)}</span>
-              ) : item.sourceUrl ? (
-                <span className="truncate">{truncateUrl(item.sourceUrl)}</span>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-[12px] font-medium text-[color:var(--text-tertiary)] opacity-40 transition-opacity group-hover:opacity-80">
+              {!isFailed && item.wordCount ? (
+                <>
+                  <span>{formatWordCount(item.wordCount)}</span>
+                  <span className="opacity-40">·</span>
+                </>
               ) : null}
+              {item.author && (
+                <>
+                  <span className="text-[color:var(--text-secondary)]">{item.author}</span>
+                  <span className="opacity-40">·</span>
+                </>
+              )}
+              <span className="truncate">{truncateUrl(item.canonicalUrl ?? item.sourceUrl)}</span>
             </div>
           </Link>
 
-          <DocumentTagPills basePath="/reading" tags={item.tags} />
-
-          {favorite.actionError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{favorite.actionError}</p> : null}
+          <div className="pt-1 opacity-60 transition-opacity group-hover:opacity-100">
+            <DocumentTagPills basePath="/reading" tags={item.tags} />
+          </div>
         </div>
 
-        <FavoriteToggleButton
-          buttonLabel={favorite.buttonLabel}
-          className="shrink-0"
-          isFavorite={favorite.isFavorite}
-          isSubmitting={favorite.isSubmitting}
-          onClick={favorite.toggleFavorite}
-        />
+        <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
+          <FavoriteToggleButton
+            buttonLabel={favorite.buttonLabel}
+            className="opacity-20 transition-opacity group-hover:opacity-100"
+            isFavorite={favorite.isFavorite}
+            isSubmitting={favorite.isSubmitting}
+            onClick={favorite.toggleFavorite}
+          />
+          
+          {showDelete && (
+            <button
+              className="rounded-full p-2 text-[color:var(--text-tertiary)] opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+              onClick={handleDelete}
+              title="删除文章"
+              disabled={isDeleting || isPending}
+            >
+              {isDeleting ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <TrashIcon />
+              )}
+            </button>
+          )}
+        </div>
       </div>
+
+      {item.videoThumbnailUrl && (
+        <div className="absolute right-20 top-8 hidden xl:block pointer-events-none">
+          <img 
+            src={item.videoThumbnailUrl} 
+            alt="" 
+            className="h-[60px] w-[100px] rounded-xl object-cover border border-[color:var(--border-subtle)] shadow-sm transition-transform group-hover:scale-105"
+          />
+        </div>
+      )}
+      
+      {favorite.actionError && <p className="mt-2 text-xs text-red-500">{favorite.actionError}</p>}
+      {deleteError && <p className="mt-2 text-xs text-red-500">{deleteError}</p>}
     </article>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24">
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </svg>
   );
 }
 
 function formatIngestionStatus(status: IngestionStatus) {
   switch (status) {
-    case IngestionStatus.FAILED:
-      return "抓取失败";
-    case IngestionStatus.READY:
-      return "可阅读";
-    case IngestionStatus.PROCESSING:
-      return "处理中";
+    case IngestionStatus.FAILED: return "抓取失败";
+    case IngestionStatus.READY: return "可阅读";
+    case IngestionStatus.PROCESSING: return "处理中";
     case IngestionStatus.PENDING:
-    default:
-      return "排队中";
+    default: return "排队中";
   }
 }
 
 function statusTone(status: IngestionStatus) {
   switch (status) {
-    case IngestionStatus.FAILED:
-      return "danger";
-    case IngestionStatus.PROCESSING:
-      return "warning";
-    case IngestionStatus.PENDING:
-      return "subtle";
+    case IngestionStatus.FAILED: return "danger";
+    case IngestionStatus.PROCESSING: return "warning";
+    case IngestionStatus.PENDING: return "subtle";
     case IngestionStatus.READY:
-    default:
-      return "neutral";
+    default: return "neutral";
   }
 }
 
 function formatDocumentType(value: string) {
   switch (value) {
-    case "WEB_PAGE":
-      return "Web";
-    case "RSS_ITEM":
-      return "RSS";
-    case "PDF":
-      return "PDF";
-    default:
-      return value;
+    case "WEB_PAGE": return "Web";
+    case "RSS_ITEM": return "RSS";
+    case "PDF": return "PDF";
+    default: return value;
   }
 }
 
@@ -151,19 +244,12 @@ function formatWordCount(value: number) {
   return `${new Intl.NumberFormat("zh-CN").format(value)} 字`;
 }
 
-function truncateUrl(value: string) {
+function truncateUrl(value: string | null) {
+  if (!value) return "";
   try {
     const url = new URL(value);
     return `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`;
   } catch {
     return value;
   }
-}
-
-function resolvePreviewText(item: GetDocumentsResponseData["items"][number]) {
-  if (item.ingestionStatus === IngestionStatus.FAILED) {
-    return null;
-  }
-
-  return item.aiSummary ?? item.excerpt;
 }

@@ -1,153 +1,116 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject, type CSSProperties } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { IngestionStatus } from "@prisma/client";
-import { DocumentTagPills } from "@/components/documents/document-tag-pills";
-import { FavoriteToggleButton, useDocumentFavoriteController } from "@/components/documents/favorite-control";
-import { HighlightSaveModeToggle } from "@/components/reader/highlight-save-mode-toggle";
-import { ReaderHighlightsPanel, useDocumentHighlights } from "@/components/reader/reader-highlights";
+import { useDocumentFavoriteController } from "@/components/documents/favorite-control";
+import { useDocumentHighlights } from "@/components/reader/reader-highlights";
 import { ReaderRichContent } from "@/components/reader/reader-rich-content";
 import { ReaderAutoHighlightFeedback, ReaderSelectionActions } from "@/components/reader/reader-selection-actions";
 import { useDocumentReadCompletion, type DocumentReadCompletionPhase } from "@/components/reader/use-document-read-completion";
+import { VideoReader } from "@/components/reader/video-reader";
 import { usePrioritizedDocumentAiSummary } from "@/components/reader/use-prioritized-document-ai-summary";
+import { useReaderSelection } from "@/components/reader/reader-selection-controller";
+import { useReaderToc, useScrollSpy } from "@/components/reader/use-reader-toc";
+import { ReaderTableOfContents } from "@/components/reader/reader-toc";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/panel";
 import { resolveDocumentLead } from "@/lib/documents/document-lead";
 import { resolveDocumentFailedState } from "@/lib/documents/document-failed-state";
-import { formatPublishedAtLabel, resolveDocumentDateMetaLabel } from "@/lib/documents/published-at";
+import { formatPublishedAtLabel } from "@/lib/documents/published-at";
+import { useReaderPreferences } from "@/lib/highlights/preferences.store";
 import {
-  HIGHLIGHT_SAVE_MODE_STORAGE_KEY,
-  READER_FONT_SIZE_STORAGE_KEY,
-  READER_LINE_HEIGHT_STORAGE_KEY,
-  normalizeHighlightSaveMode,
-  normalizeReaderFontSizePreference,
-  normalizeReaderLineHeightPreference,
   resolveReaderFontSizePreferenceValue,
   resolveReaderLineHeightPreferenceValue,
-  type HighlightSaveMode,
-  type ReaderFontSizePreference,
-  type ReaderLineHeightPreference,
 } from "@/lib/highlights/preferences";
-import type { CapturedSelection, SelectionAnchor } from "@/lib/highlights/selection";
-import type { DocumentDetail } from "@/server/modules/documents/document.types";
+import type { DocumentDetail, DocumentListItem } from "@/server/modules/documents/document.types";
 import { cx } from "@/utils/cx";
+import dynamic from "next/dynamic";
+import type { ReaderFloatingPanelTab } from "@/components/reader/reader-floating-panel";
+
+const ReaderFloatingPanel = dynamic(
+  () => import("@/components/reader/reader-floating-panel").then((mod) => mod.ReaderFloatingPanel),
+  { ssr: false }
+);
 
 type DocumentReaderProps = {
   document: DocumentDetail;
+  nextUp?: DocumentListItem | null;
 };
 
-type SelectionTrigger = "contextmenu" | "keyboard" | "mouse" | "touch";
-
-type ReaderSelectionState = CapturedSelection & {
-  trigger: SelectionTrigger;
-};
-
-type AutoHighlightFeedback = {
-  anchor: SelectionAnchor;
-  highlightId: string;
-};
-
-type ReaderFloatingPanelTab = "highlights" | "actions" | "meta";
-
-export function DocumentReader({ document: initialDocument }: DocumentReaderProps) {
+export function DocumentReader({ document: initialDocument, nextUp }: DocumentReaderProps) {
   const readerDocument = usePrioritizedDocumentAiSummary(initialDocument);
-  const selectionActionsRef = useRef<HTMLDivElement>(null);
   const floatingPanelButtonRef = useRef<HTMLButtonElement>(null);
   const floatingPanelRef = useRef<HTMLDivElement>(null);
-  const suppressNativeContextMenuRef = useRef(false);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  
   const sourceUrl = readerDocument.sourceUrl ?? readerDocument.canonicalUrl;
   const contentHtml = readerDocument.content?.contentHtml?.trim() ?? null;
   const plainText = readerDocument.content?.plainText ?? "";
   const hasExtractedContent = Boolean(contentHtml || plainText.trim());
   const isFailed = readerDocument.ingestionStatus === IngestionStatus.FAILED;
-  const isReadable = !isFailed && hasExtractedContent;
+  const videoEmbed = readerDocument.videoEmbed;
+  const isVideoMode = Boolean(videoEmbed);
+  const isReadable = isVideoMode || (!isFailed && hasExtractedContent);
+  const canHighlight = isReadable && !isVideoMode;
+  
   const favorite = useDocumentFavoriteController(readerDocument);
   const readCompletion = useDocumentReadCompletion({
     documentId: readerDocument.id,
-    isEnabled: isReadable,
+    isEnabled: canHighlight,
     readState: readerDocument.readState,
   });
-  const [autoHighlightFeedback, setAutoHighlightFeedback] = useState<AutoHighlightFeedback | null>(null);
-  const [highlightSaveMode, setHighlightSaveMode] = useState<HighlightSaveMode>("manual");
-  const [readerFontSize, setReaderFontSize] = useState<ReaderFontSizePreference>("medium");
-  const [readerLineHeight, setReaderLineHeight] = useState<ReaderLineHeightPreference>("comfortable");
-  const [floatingPanelTab, setFloatingPanelTab] = useState<ReaderFloatingPanelTab>("highlights");
+
+  const readerFontSize = useReaderPreferences((state) => state.readerFontSize);
+  const readerLineHeight = useReaderPreferences((state) => state.readerLineHeight);
+
+  const toc = useReaderToc(contentHtml ?? "");
+  const activeHeaderId = useScrollSpy(toc);
+
+  const [floatingPanelTab, setFloatingPanelTab] = useState<ReaderFloatingPanelTab>(
+    isVideoMode ? "actions" : (toc.length > 1 ? "contents" : "highlights")
+  );
+
+  useEffect(() => {
+    if (toc.length > 1 && floatingPanelTab === "highlights" && !isVideoMode) {
+      setFloatingPanelTab("contents");
+    }
+  }, [toc.length, isVideoMode]); // Set default tab to contents if TOC is available
+
   const [isFloatingPanelOpen, setIsFloatingPanelOpen] = useState(false);
-  const [headerToggleSlot, setHeaderToggleSlot] = useState<HTMLElement | null>(null);
-  const [selectionState, setSelectionState] = useState<ReaderSelectionState | null>(null);
+
   const documentHighlights = useDocumentHighlights({
-    canHighlight: isReadable,
+    canHighlight,
     documentId: readerDocument.id,
   });
+
+  const {
+    selectionState,
+    autoHighlightFeedback,
+    selectionActionsRef,
+    clearSelection,
+    clearAutoHighlightFeedback,
+    handleSelectionCapture,
+    handleSelectionMouseDown,
+    handleSelectionContextMenu,
+    handleSelectionMouseUp,
+    handleCreateHighlight,
+    handleCreateHighlightNote,
+    handleAutoHighlightNote,
+  } = useReaderSelection({
+    canHighlight,
+    documentHighlights,
+    onFloatingPanelOpen: () => {
+      setFloatingPanelTab("highlights");
+      setIsFloatingPanelOpen(true);
+    },
+  });
+
   const lead = resolveDocumentLead(readerDocument);
   const failedState = resolveDocumentFailedState(readerDocument.ingestion?.error);
   const showIngestionBadge = readerDocument.ingestionStatus !== IngestionStatus.READY;
   const documentAttribution = resolveDocumentAttribution(readerDocument);
-  const markdownDownloadHref = `/api/documents/${readerDocument.id}/download?format=markdown`;
-  const htmlDownloadHref = `/api/documents/${readerDocument.id}/download?format=html`;
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    setHighlightSaveMode(normalizeHighlightSaveMode(window.localStorage.getItem(HIGHLIGHT_SAVE_MODE_STORAGE_KEY)));
-    setReaderFontSize(normalizeReaderFontSizePreference(window.localStorage.getItem(READER_FONT_SIZE_STORAGE_KEY)));
-    setReaderLineHeight(normalizeReaderLineHeightPreference(window.localStorage.getItem(READER_LINE_HEIGHT_STORAGE_KEY)));
-  }, []);
-
-  useEffect(() => {
-    if (!isReadable) {
-      setAutoHighlightFeedback(null);
-      setSelectionState(null);
-    }
-  }, [isReadable]);
-
-  useEffect(() => {
-    if (!selectionState || selectionState.trigger === "contextmenu") {
-      return;
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-
-      if (target instanceof Node && selectionActionsRef.current?.contains(target)) {
-        return;
-      }
-
-      setSelectionState(null);
-    }
-
-    function handleViewportChange() {
-      setSelectionState(null);
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("resize", handleViewportChange);
-    window.addEventListener("scroll", handleViewportChange, true);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("resize", handleViewportChange);
-      window.removeEventListener("scroll", handleViewportChange, true);
-    };
-  }, [selectionState]);
-
-  useEffect(() => {
-    if (!autoHighlightFeedback) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setAutoHighlightFeedback(null);
-    }, 2600);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [autoHighlightFeedback]);
 
   useEffect(() => {
     if (!isFloatingPanelOpen) {
@@ -185,265 +148,161 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
   }, [isFloatingPanelOpen]);
 
   useEffect(() => {
+    if (!canHighlight && floatingPanelTab === "highlights") {
+      setFloatingPanelTab("actions");
+    }
+  }, [canHighlight, floatingPanelTab]);
+
+  useEffect(() => {
     if (!documentHighlights.focusedHighlightId) {
       return;
     }
 
-    setFloatingPanelTab("highlights");
-    setIsFloatingPanelOpen(true);
-  }, [documentHighlights.focusedHighlightId]);
-
-  useEffect(() => {
-    setHeaderToggleSlot(document.getElementById("reader-panel-toggle-slot"));
-  }, []);
-
-  useEffect(() => {
-    if (!headerToggleSlot) {
-      return;
-    }
-
-    if (isFloatingPanelOpen) {
-      headerToggleSlot.setAttribute("data-panel-open", "true");
-      return;
-    }
-
-    headerToggleSlot.removeAttribute("data-panel-open");
-  }, [headerToggleSlot, isFloatingPanelOpen]);
-
-  function persistHighlightSaveMode(nextMode: HighlightSaveMode) {
-    setHighlightSaveMode(nextMode);
-    setSelectionState(null);
-    setAutoHighlightFeedback(null);
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(HIGHLIGHT_SAVE_MODE_STORAGE_KEY, nextMode);
-  }
-
-  function persistReaderFontSize(nextValue: ReaderFontSizePreference) {
-    setReaderFontSize(nextValue);
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(READER_FONT_SIZE_STORAGE_KEY, nextValue);
-  }
-
-  function persistReaderLineHeight(nextValue: ReaderLineHeightPreference) {
-    setReaderLineHeight(nextValue);
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(READER_LINE_HEIGHT_STORAGE_KEY, nextValue);
-  }
-
-  function readSelectionState(trigger: SelectionTrigger, point?: { x: number; y: number }): ReaderSelectionState | null {
-    const nextSelection = documentHighlights.readSelection(point ? { point } : undefined);
-
-    if (!nextSelection) {
-      return null;
-    }
-
-    return {
-      ...nextSelection,
-      trigger,
-    };
-  }
-
-  function handleSelectionCapture(trigger: Exclude<SelectionTrigger, "contextmenu">) {
-    const nextSelection = readSelectionState(trigger);
-
-    if (!nextSelection) {
-      setSelectionState(null);
-      return;
-    }
-
-    setAutoHighlightFeedback(null);
-
-    if (highlightSaveMode === "auto" && trigger !== "keyboard") {
-      setSelectionState(null);
-      void handleAutoHighlight(nextSelection);
-      return;
-    }
-
-    if (trigger === "mouse") {
-      setSelectionState(null);
-      return;
-    }
-
-    setSelectionState(nextSelection);
-  }
-
-  function handleSelectionMouseDown(event: MouseEvent<HTMLDivElement>) {
-    if (event.button !== 2 || !isReadable || highlightSaveMode === "auto") {
-      return;
-    }
-
-    const nextSelection = readSelectionState("contextmenu", {
-      x: event.clientX,
-      y: event.clientY,
-    });
-
-    if (!nextSelection) {
-      suppressNativeContextMenuRef.current = false;
-      return;
-    }
-
-    event.preventDefault();
-    suppressNativeContextMenuRef.current = true;
-    setAutoHighlightFeedback(null);
-    setSelectionState(nextSelection);
-  }
-
-  function handleSelectionContextMenu(event: MouseEvent<HTMLDivElement>) {
-    if (suppressNativeContextMenuRef.current) {
-      event.preventDefault();
-      suppressNativeContextMenuRef.current = false;
-      return;
-    }
-
-    if (!isReadable || highlightSaveMode === "auto") {
-      return;
-    }
-
-    const nextSelection = readSelectionState("contextmenu", {
-      x: event.clientX,
-      y: event.clientY,
-    });
-
-    if (!nextSelection) {
-      return;
-    }
-
-    event.preventDefault();
-    setAutoHighlightFeedback(null);
-    setSelectionState(nextSelection);
-  }
-
-  function handleSelectionMouseUp(event: MouseEvent<HTMLDivElement>) {
-    if (event.button !== 0 || suppressNativeContextMenuRef.current) {
-      return;
-    }
-
-    handleSelectionCapture("mouse");
-  }
-
-  async function handleAutoHighlight(nextSelection: ReaderSelectionState) {
-    const createdHighlight = await documentHighlights.createHighlightFromSelection(nextSelection.draft);
-
-    if (!createdHighlight) {
-      return;
-    }
-
-    setAutoHighlightFeedback({
-      anchor: nextSelection.anchor,
-      highlightId: createdHighlight.id,
-    });
-  }
-
-  async function handleCreateHighlight() {
-    if (!selectionState) {
-      return;
-    }
-
-    const createdHighlight = await documentHighlights.createHighlightFromSelection(selectionState.draft);
-
-    if (!createdHighlight) {
-      return;
-    }
-
-    setSelectionState(null);
-  }
-
-  async function handleCreateHighlightNote() {
-    if (!selectionState) {
-      return;
-    }
-
-    const createdHighlight = await documentHighlights.createHighlightFromSelection(selectionState.draft);
-
-    if (!createdHighlight) {
-      return;
-    }
-
-    setSelectionState(null);
-    documentHighlights.requestHighlightNoteFocus(createdHighlight.id);
-  }
-
-  function handleAutoHighlightNote() {
-    if (!autoHighlightFeedback) {
+    if (!canHighlight) {
       return;
     }
 
     setFloatingPanelTab("highlights");
     setIsFloatingPanelOpen(true);
-    documentHighlights.requestHighlightNoteFocus(autoHighlightFeedback.highlightId);
-    setAutoHighlightFeedback(null);
-  }
+  }, [canHighlight, documentHighlights.focusedHighlightId]);
 
   function toggleFloatingPanel() {
     setIsFloatingPanelOpen((current) => !current);
   }
 
-  function selectFloatingPanelTab(tab: ReaderFloatingPanelTab) {
-    setFloatingPanelTab(tab);
-    setIsFloatingPanelOpen(true);
+  function handleHighlightSaveModeChange() {
+    clearSelection();
+    clearAutoHighlightFeedback();
   }
 
+  useScrollProgressDirect(progressBarRef);
+
   return (
-    <section className="space-y-9 lg:space-y-10">
-      <header className="mx-auto max-w-[var(--content-measure)] space-y-4">
-        <div className="flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
+    <section 
+      className="space-y-9 lg:space-y-10"
+      style={{
+        "--reader-font-size": resolveReaderFontSizePreferenceValue(readerFontSize),
+        "--reader-line-height": resolveReaderLineHeightPreferenceValue(readerLineHeight),
+      } as CSSProperties}
+    >
+      <div className="fixed left-0 top-0 z-[100] h-1 w-full bg-black/10 backdrop-blur-sm">
+        <div 
+          className="relative h-full bg-gradient-to-r from-[color:var(--ai-card-accent)] via-[color:var(--ai-card-accent)] to-[color:var(--ai-card-accent)]" 
+          ref={progressBarRef}
+          style={{ width: '0%' }}
+        >
+          <div className="absolute right-0 top-0 h-full w-12 bg-gradient-to-r from-transparent to-white/60 shadow-[0_0_20px_var(--ai-card-accent)]" />
+          <div className="absolute -right-1 top-[-2px] h-[8px] w-[8px] rounded-full border border-[color:var(--ai-card-accent)] bg-white shadow-[0_0_15px_#fff,0_0_25px_var(--ai-card-accent)]" />
+        </div>
+      </div>
+
+      <header className="mx-auto max-w-[var(--content-measure)] space-y-6">
+        <div className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-[color:var(--text-tertiary)]">
           <Link className="transition hover:text-[color:var(--text-primary)]" href="/reading">
-            Reading
+            Library
           </Link>
-          <span>/</span>
+          <span>·</span>
           <span>{formatDocumentType(readerDocument.type)}</span>
           {showIngestionBadge ? (
-            <Badge tone={statusTone(readerDocument.ingestionStatus)}>{formatIngestionStatus(readerDocument.ingestionStatus)}</Badge>
+            <>
+              <span>·</span>
+              <Badge tone={statusTone(readerDocument.ingestionStatus)}>{formatIngestionStatus(readerDocument.ingestionStatus)}</Badge>
+            </>
           ) : null}
         </div>
 
-        <div className="space-y-3">
-          <h1 className="font-display text-[2.85rem] leading-[1.02] tracking-[-0.045em] text-[color:var(--text-primary)] sm:text-[4.1rem]">
+        <div className="space-y-4">
+          <h1 className="font-display text-[2.5rem] leading-[1.1] tracking-[-0.02em] text-[color:var(--text-primary)] sm:text-[3.5rem]">
             {readerDocument.title}
           </h1>
-          {documentAttribution ? (
-            <p className="text-sm text-[color:var(--text-tertiary)]">{`${documentAttribution.label} · ${documentAttribution.value}`}</p>
-          ) : null}
-          {lead.text ? (
-            <div className="max-w-[38rem] space-y-2">
-              {lead.label ? (
-                <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-                  {lead.label}
-                </p>
-              ) : null}
-              <p className="text-[1.02rem] leading-8 text-[color:var(--text-secondary)]">{lead.text}</p>
-              {lead.note ? <p className="text-sm leading-7 text-[color:var(--text-tertiary)]">{lead.note}</p> : null}
-            </div>
-          ) : null}
-        </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-[color:var(--text-tertiary)]">
-          <span>{formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind, readerDocument.createdAt)}</span>
-          {readerDocument.lang ? <span>{readerDocument.lang}</span> : null}
-          {isReadable && readerDocument.content?.wordCount ? <span>{formatWordCount(readerDocument.content.wordCount)}</span> : null}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[15px] text-[color:var(--text-tertiary)]">
+            {documentAttribution ? (
+              <>
+                <span className="font-medium text-[color:var(--text-secondary)]">{documentAttribution.value}</span>
+                <span>·</span>
+              </>
+            ) : null}
+            <span>{formatPublishedAtLabel(readerDocument.publishedAt, readerDocument.publishedAtKind, readerDocument.createdAt)}</span>
+            {isReadable && readerDocument.content?.wordCount ? (
+               <>
+                 <span>·</span>
+                 <span>{formatWordCount(readerDocument.content.wordCount)}</span>
+               </>
+            ) : null}
+            {readerDocument.lang ? (
+               <>
+                 <span>·</span>
+                 <span>{readerDocument.lang}</span>
+               </>
+            ) : null}
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-[var(--content-measure)]">
+      {readerDocument.aiSummaryStatus === "PENDING" ? (
+        <div className="mx-auto max-w-[var(--content-measure)]">
+          <div className="space-y-4 rounded-2xl border border-[color:var(--ai-card-border)] bg-[color:var(--ai-card-bg)] px-6 py-5">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-[color:var(--ai-card-accent)]">
+              <div className="animate-ai-sparkle">
+                <SparklesIcon />
+              </div>
+              <span>AI is thinking...</span>
+            </div>
+            <div className="space-y-3 pt-1">
+              <div className="animate-ai-shimmer h-3 w-[94%] rounded-full bg-[color:var(--ai-card-border)] opacity-30" />
+              <div className="animate-ai-shimmer h-3 w-[88%] rounded-full bg-[color:var(--ai-card-border)] opacity-25" style={{ animationDelay: '0.2s' }} />
+              <div className="animate-ai-shimmer h-3 w-[65%] rounded-full bg-[color:var(--ai-card-border)] opacity-20" style={{ animationDelay: '0.4s' }} />
+            </div>
+          </div>
+        </div>
+      ) : readerDocument.aiSummary ? (
+        <div className="mx-auto max-w-[var(--content-measure)] animate-ai-summary-in">
+          <div className="relative space-y-2.5 overflow-hidden rounded-2xl border border-[color:var(--ai-card-border)] bg-[color:var(--ai-card-bg)] px-6 py-5 shadow-[var(--shadow-surface-muted)]">
+            <div className="absolute left-0 top-0 h-full w-1 bg-[color:var(--ai-card-accent)] opacity-40" />
+            <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-[color:var(--ai-card-accent)]">
+              <SparklesIcon />
+              <span>AI Summary</span>
+            </div>
+            <p className="text-[15px] leading-relaxed text-[color:var(--text-primary)] opacity-90">
+              {readerDocument.aiSummary}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="relative mx-auto max-w-[var(--content-measure)]">
+        <aside className="absolute -left-[18rem] bottom-0 top-0 hidden w-64 xl:block">
+          <div className="sticky top-24">
+            <ReaderTableOfContents activeId={activeHeaderId} toc={toc} />
+          </div>
+        </aside>
+
         <Panel
           className="overflow-hidden border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] shadow-[var(--shadow-surface-muted)]"
           padding="none"
           tone="transparent"
         >
           <div className="px-7 py-9 sm:px-11 sm:py-11">
-            {isFailed ? (
+            {videoEmbed ? (
+              <div className="space-y-5">
+                {isFailed ? (
+                  <div className="space-y-2 rounded-[20px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-4 py-3">
+                    <p className="text-sm font-medium text-[color:var(--text-primary)]">{failedState.title}</p>
+                    <p className="text-sm leading-7 text-[color:var(--text-secondary)]">{failedState.description}</p>
+                    <p className="text-sm leading-7 text-[color:var(--text-tertiary)]">{failedState.nextStep}</p>
+                  </div>
+                ) : null}
+                <VideoReader
+                  documentId={readerDocument.id}
+                  readState={readerDocument.readState}
+                  sourceUrl={sourceUrl}
+                  title={readerDocument.title}
+                  videoDurationSeconds={readerDocument.videoDurationSeconds}
+                  videoEmbed={videoEmbed}
+                />
+              </div>
+            ) : isFailed ? (
               <div className="space-y-6">
                 <div className="space-y-3">
                   <h2 className="font-display text-[2rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
@@ -484,16 +343,33 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
                   <ReaderRichContent
                     contentHtml={contentHtml ?? ""}
                     fallbackText={plainText}
-                    fontSize={resolveReaderFontSizePreferenceValue(readerFontSize)}
                     highlights={documentHighlights.highlights}
-                    lineHeight={resolveReaderLineHeightPreferenceValue(readerLineHeight)}
                     sourceUrl={sourceUrl}
+                    tocItems={toc}
                   />
                 </div>
 
-                {readCompletion.isVisible ? (
-                  <ReaderReadCompletionFooter phase={readCompletion.phase} sentinelRef={readCompletion.sentinelRef} />
-                ) : null}
+                <div className="mx-auto my-12 h-px w-24 bg-[color:var(--border-subtle)] opacity-60" />
+
+                <div className="relative min-h-[20vh]">
+                  {readCompletion.isVisible ? (
+                    <div className={cx(
+                      "transition-all duration-700",
+                      readCompletion.phase === "completed" ? "scale-95 opacity-0 translate-y-4 pointer-events-none" : "opacity-100 translate-y-0"
+                    )}>
+                      <ReaderReadCompletionFooter phase={readCompletion.phase} sentinelRef={readCompletion.sentinelRef} />
+                    </div>
+                  ) : null}
+
+                  {nextUp && (readerDocument.readState === "READ" || readCompletion.phase === "completed") ? (
+                    <div className={cx(
+                      "animate-next-up-in",
+                      readCompletion.phase === "completed" ? "mt-[-9.5rem]" : "mt-0"
+                    )}>
+                      <ReaderNextUpCard document={nextUp} />
+                    </div>
+                  ) : null}
+                </div>
 
                 {documentHighlights.actionError ? (
                   <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{documentHighlights.actionError}</p>
@@ -508,182 +384,47 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
         </Panel>
       </div>
 
-      {headerToggleSlot
-        ? createPortal(
-            <button
-              aria-expanded={isFloatingPanelOpen}
-              aria-label="打开阅读浮动面板"
-              className={cx(
-                "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-transparent text-[color:var(--text-primary)] transition-colors hover:bg-stone-100",
-                isFloatingPanelOpen ? "bg-stone-100" : undefined,
-              )}
-              onClick={toggleFloatingPanel}
-              ref={floatingPanelButtonRef}
-              type="button"
-            >
-              <LayersIcon />
-              {documentHighlights.highlights.length > 0 ? (
-                <span className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--text-primary)] px-1 text-[10px] font-semibold leading-none text-white">
-                  {documentHighlights.highlights.length}
-                </span>
-              ) : null}
-            </button>,
-            headerToggleSlot,
-          )
-        : null}
+      <button
+        aria-expanded={isFloatingPanelOpen}
+        aria-label="打开阅读浮动面板"
+        className={cx(
+          "fixed right-6 top-6 z-[60] inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] shadow-[var(--shadow-surface)] transition-all hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-quiet-hover-bg)] sm:h-11 sm:w-11",
+          isFloatingPanelOpen ? "ring-2 ring-[color:var(--ai-card-accent)]" : undefined,
+        )}
+        onClick={toggleFloatingPanel}
+        ref={floatingPanelButtonRef}
+        type="button"
+      >
+        <LayersIcon />
+        {documentHighlights.highlights.length > 0 ? (
+          <span className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--text-primary)] px-1 text-[10px] font-semibold leading-none text-white">
+            {documentHighlights.highlights.length}
+          </span>
+        ) : null}
+      </button>
 
       <div
         className={cx(
-          "fixed right-4 top-[60px] z-50 w-[min(92vw,360px)] origin-top-right transition-all duration-200",
+          "fixed right-6 top-[72px] z-50 w-[min(92vw,360px)] origin-top-right transition-all duration-200",
           isFloatingPanelOpen
             ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
             : "pointer-events-none -translate-y-2 scale-[0.98] opacity-0",
         )}
         ref={floatingPanelRef}
       >
-        <Panel className="max-h-[calc(100vh-80px)] overflow-y-auto border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] shadow-[var(--shadow-surface)]">
-            <div className="flex items-center gap-2 border-b border-[color:var(--border-subtle)] pb-3">
-              <FloatingTabButton
-                active={floatingPanelTab === "highlights"}
-                label="高亮"
-                onClick={() => selectFloatingPanelTab("highlights")}
-              />
-              <FloatingTabButton
-                active={floatingPanelTab === "actions"}
-                label="操作"
-                onClick={() => selectFloatingPanelTab("actions")}
-              />
-              <FloatingTabButton
-                active={floatingPanelTab === "meta"}
-                label="文档信息"
-                onClick={() => selectFloatingPanelTab("meta")}
-              />
-            </div>
-
-            <div className="mt-4 pr-1">
-              {floatingPanelTab === "highlights" ? (
-                isReadable ? (
-                  <ReaderHighlightsPanel
-                    actionError={documentHighlights.actionError}
-                    focusedHighlightId={documentHighlights.focusedHighlightId}
-                    highlights={documentHighlights.highlights}
-                    isLoading={documentHighlights.isLoading}
-                    onDelete={documentHighlights.removeHighlightById}
-                    onFocusedHighlightHandled={documentHighlights.clearFocusedHighlight}
-                    onSaveNote={documentHighlights.saveHighlightNote}
-                    savingNoteId={documentHighlights.savingNoteId}
-                  />
-                ) : (
-                  <p className="text-sm leading-7 text-[color:var(--text-secondary)]">当前文档暂无可编辑高亮。</p>
-                )
-              ) : null}
-
-              {floatingPanelTab === "actions" ? (
-                <div className="space-y-4">
-                  <FavoriteToggleButton
-                    buttonLabel={favorite.buttonLabel}
-                    className="w-full justify-center"
-                    isFavorite={favorite.isFavorite}
-                    isSubmitting={favorite.isSubmitting}
-                    onClick={favorite.toggleFavorite}
-                  />
-                  {isReadable ? (
-                    <div className="space-y-4">
-                      <HighlightSaveModeToggle
-                        onChange={persistHighlightSaveMode}
-                        value={highlightSaveMode}
-                      />
-                      <ReaderTypographyControl
-                        fontSize={readerFontSize}
-                        lineHeight={readerLineHeight}
-                        onFontSizeChange={persistReaderFontSize}
-                        onLineHeightChange={persistReaderLineHeight}
-                      />
-                    </div>
-                  ) : null}
-                  <div className="flex flex-col gap-2">
-                    <div className="space-y-2 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-3">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                        下载
-                      </p>
-                      <div className="flex flex-col gap-2">
-                        <a
-                          className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
-                          href={markdownDownloadHref}
-                        >
-                          下载 Markdown
-                        </a>
-                        <a
-                          className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
-                          href={htmlDownloadHref}
-                        >
-                          下载 HTML
-                        </a>
-                      </div>
-                    </div>
-                    {sourceUrl ? (
-                      <Link
-                        className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
-                        href={sourceUrl}
-                        target="_blank"
-                      >
-                        打开原文
-                      </Link>
-                    ) : null}
-                    <Link
-                      className="inline-flex min-h-10 items-center rounded-[18px] border border-transparent px-1 text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
-                      href="/reading"
-                    >
-                      返回 Reading
-                    </Link>
-                  </div>
-                  {favorite.actionError ? (
-                    <p className="text-sm leading-6 text-[color:var(--badge-danger-text)]">{favorite.actionError}</p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {floatingPanelTab === "meta" ? (
-                <div className="space-y-4">
-                  <dl className="space-y-3 text-sm">
-                    <MetaRow label="状态" value={formatIngestionStatus(readerDocument.ingestionStatus)} />
-                    <MetaRow
-                      label={resolveDocumentDateMetaLabel(readerDocument.publishedAt, readerDocument.createdAt)}
-                      value={formatPublishedAtLabel(
-                        readerDocument.publishedAt,
-                        readerDocument.publishedAtKind,
-                        readerDocument.createdAt,
-                      )}
-                    />
-                    {documentAttribution ? <MetaRow label={documentAttribution.label} value={documentAttribution.value} /> : null}
-                    {readerDocument.lang ? <MetaRow label="语言" value={readerDocument.lang} /> : null}
-                    {isReadable && readerDocument.content?.wordCount ? (
-                      <MetaRow label="字数" value={formatWordCount(readerDocument.content.wordCount)} />
-                    ) : null}
-                    {sourceUrl ? <MetaRow label="来源" value={truncateUrl(sourceUrl)} /> : null}
-                  </dl>
-
-                  {readerDocument.tags.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">标签</p>
-                      <DocumentTagPills basePath="/reading" tags={readerDocument.tags} />
-                    </div>
-                  ) : null}
-
-                  {favorite.isFavorite ? (
-                    <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
-                        收藏
-                      </p>
-                      <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)]">
-                        这篇内容会保留在收藏视图里，方便你之后更快回到它。
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-        </Panel>
+        <ReaderFloatingPanel
+          activeTab={floatingPanelTab}
+          activeHeaderId={activeHeaderId}
+          canHighlight={canHighlight}
+          document={readerDocument}
+          documentHighlights={documentHighlights}
+          favorite={favorite}
+          isReadable={isReadable}
+          onHighlightSaveModeChange={handleHighlightSaveModeChange}
+          onTabChange={setFloatingPanelTab}
+          sourceUrl={sourceUrl}
+          toc={toc}
+        />
       </div>
 
       {selectionState ? (
@@ -704,19 +445,6 @@ export function DocumentReader({ document: initialDocument }: DocumentReaderProp
         />
       ) : null}
     </section>
-  );
-}
-
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4">
-      <dt className="text-[color:var(--text-tertiary)]">{label}</dt>
-      <dd className="min-w-0 text-right text-[color:var(--text-primary)]">
-        <span className="block truncate" title={value}>
-          {value}
-        </span>
-      </dd>
-    </div>
   );
 }
 
@@ -822,144 +550,53 @@ function formatWordCount(value: number) {
   return `${new Intl.NumberFormat("zh-CN").format(value)} 字`;
 }
 
-const fontSizeOptions: Array<{ description: string; label: string; value: ReaderFontSizePreference }> = [
-  {
-    description: "更紧凑，适合信息密度更高的阅读。",
-    label: "小",
-    value: "small",
-  },
-  {
-    description: "平衡阅读节奏与信息密度。",
-    label: "中",
-    value: "medium",
-  },
-  {
-    description: "更大字号，长时间阅读更轻松。",
-    label: "大",
-    value: "large",
-  },
-];
-
-const lineHeightOptions: Array<{ description: string; label: string; value: ReaderLineHeightPreference }> = [
-  {
-    description: "行距更紧，滚动更少。",
-    label: "紧凑",
-    value: "compact",
-  },
-  {
-    description: "默认阅读行距。",
-    label: "舒适",
-    value: "comfortable",
-  },
-  {
-    description: "更松弛，段落更透气。",
-    label: "宽松",
-    value: "loose",
-  },
-];
-
-function ReaderTypographyControl({
-  fontSize,
-  lineHeight,
-  onFontSizeChange,
-  onLineHeightChange,
-}: {
-  fontSize: ReaderFontSizePreference;
-  lineHeight: ReaderLineHeightPreference;
-  onFontSizeChange: (value: ReaderFontSizePreference) => void;
-  onLineHeightChange: (value: ReaderLineHeightPreference) => void;
-}) {
-  const activeFontSize = fontSizeOptions.find((option) => option.value === fontSize) ?? fontSizeOptions[1];
-  const activeLineHeight = lineHeightOptions.find((option) => option.value === lineHeight) ?? lineHeightOptions[1];
-  const previewFontSize = resolveReaderFontSizePreferenceValue(fontSize);
-  const previewLineHeight = resolveReaderLineHeightPreferenceValue(lineHeight);
-
+function ReaderNextUpCard({ document: item }: { document: DocumentListItem }) {
   return (
-    <div className="space-y-4 rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-4">
-      <div className="space-y-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">阅读排版</p>
-        <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-          字号：{activeFontSize.label} · 行距：{activeLineHeight.label}
-        </p>
-      </div>
-
-      <div className="space-y-2.5">
-        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">字体大小</p>
-        <div className="inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-1">
-          {fontSizeOptions.map((option) => (
-            <button
-              aria-pressed={fontSize === option.value}
-              className={cx(
-                "min-h-8 rounded-full px-3 text-xs font-semibold transition",
-                fontSize === option.value
-                  ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] shadow-[var(--shadow-surface-muted)]"
-                  : "text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
-              )}
-              key={option.value}
-              onClick={() => onFontSizeChange(option.value)}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
+    <div className="mx-auto mt-4 max-w-[var(--content-measure)] pb-12">
+      <div className="space-y-8">
+        <div className="flex items-center gap-4 text-[11px] font-medium uppercase tracking-[0.24em] text-[color:var(--text-tertiary)]">
+          <div className="h-px flex-1 bg-[color:var(--border-subtle)]" />
+          <span>Next Up</span>
+          <div className="h-px flex-1 bg-[color:var(--border-subtle)]" />
         </div>
-      </div>
 
-      <div className="space-y-2.5">
-        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">行距</p>
-        <div className="inline-flex items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-1">
-          {lineHeightOptions.map((option) => (
-            <button
-              aria-pressed={lineHeight === option.value}
-              className={cx(
-                "min-h-8 rounded-full px-3 text-xs font-semibold transition",
-                lineHeight === option.value
-                  ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)] shadow-[var(--shadow-surface-muted)]"
-                  : "text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
-              )}
-              key={option.value}
-              onClick={() => onLineHeightChange(option.value)}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
+        <Link
+          className="group block space-y-5 rounded-[32px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-8 transition-all hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-surface-strong)] hover:shadow-[var(--shadow-surface)]"
+          href={`/documents/${item.id}`}
+        >
+          <div className="space-y-3.5">
+            <h2 className="font-display text-[1.85rem] leading-tight tracking-[-0.025em] text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)]">
+              {item.title}
+            </h2>
+            {item.aiSummary ? (
+              <p className="line-clamp-3 text-[15px] leading-relaxed text-[color:var(--text-secondary)] opacity-85">
+                {item.aiSummary}
+              </p>
+            ) : item.excerpt ? (
+              <p className="line-clamp-3 text-[15px] leading-relaxed text-[color:var(--text-secondary)] opacity-85">
+                {item.excerpt}
+              </p>
+            ) : null}
+          </div>
 
-      <div className="space-y-2.5">
-        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">实时预览</p>
-        <div className="rounded-[14px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3.5">
-          <p
-            className="font-display text-[color:var(--text-primary)]"
-            style={{ fontSize: previewFontSize, lineHeight: previewLineHeight }}
-          >
-            今天的阅读，从一个清晰的段落开始。The interface should stay calm, while the text stays legible and focused.
-            <br />
-            <br />
-            短句用来确认节奏。Longer sentences help you feel how spacing affects sustained reading comfort over time.
-          </p>
-        </div>
+          <div className="flex items-center justify-between border-t border-[color:var(--border-subtle)] pt-5">
+            <div className="flex items-center gap-2.5 text-[13px] text-[color:var(--text-tertiary)]">
+              {item.author ? (
+                <>
+                  <span className="font-medium text-[color:var(--text-secondary)]">{item.author}</span>
+                  <span>·</span>
+                </>
+              ) : null}
+              <span>{formatPublishedAtLabel(item.publishedAt, item.publishedAtKind, item.createdAt)}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-[color:var(--text-primary)] opacity-0 transition-all translate-x-2 group-hover:opacity-100 group-hover:translate-x-0">
+              <span>继续阅读</span>
+              <ArrowRightIcon />
+            </div>
+          </div>
+        </Link>
       </div>
     </div>
-  );
-}
-
-function FloatingTabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      aria-selected={active}
-      className={cx(
-        "inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-semibold transition",
-        active
-          ? "border-[color:var(--border-strong)] bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)]"
-          : "border-transparent bg-transparent text-[color:var(--text-secondary)] hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]",
-      )}
-      onClick={onClick}
-      type="button"
-    >
-      {label}
-    </button>
   );
 }
 
@@ -982,11 +619,52 @@ function LayersIcon() {
   );
 }
 
-function truncateUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return `${url.hostname}${url.pathname}`.replace(/\/$/, "");
-  } catch {
-    return value;
-  }
+function SparklesIcon() {
+  return (
+    <svg aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24">
+      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+      <path d="M20 3v4" />
+      <path d="M22 5h-4" />
+      <path d="M4 17v2" />
+      <path d="M5 18H3" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+function useScrollProgressDirect(ref: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    function handleScroll() {
+      if (!ref.current) return;
+      
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollHeight <= 0) {
+        ref.current.style.width = '0%';
+        return;
+      }
+      
+      const currentProgress = (window.scrollY / scrollHeight) * 100;
+      ref.current.style.width = `${Math.min(100, Math.max(0, currentProgress))}%`;
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [ref]);
 }

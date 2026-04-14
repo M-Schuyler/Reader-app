@@ -23,7 +23,8 @@
     "node-html-markdown": "^2.0.0",
     "openai": "^6.32.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

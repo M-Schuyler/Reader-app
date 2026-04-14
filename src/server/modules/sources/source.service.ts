@@ -1,4 +1,5 @@
 import {
+  DocumentType,
   IngestionJobKind,
   IngestionJobStatus,
   IngestionStatus,
@@ -12,7 +13,9 @@ import {
   findRssDocumentByExternalId,
   findRssDocumentByTitleAndTextHash,
   findRssDocumentByUrlCandidates,
+  findDocumentByDedupeKey,
 } from "@/server/modules/documents/document.repository";
+import { generateDedupeKey } from "@/lib/documents/dedupe";
 import {
   createRssSource,
   findSourceByFeedUrl,
@@ -301,6 +304,21 @@ async function syncRssSource(sourceId: string): Promise<SourceSyncResult> {
         continue;
       }
 
+      const dedupeKey = generateDedupeKey({
+        type: DocumentType.RSS_ITEM,
+        externalId: entry.externalId,
+        sourceUrl: entry.url,
+      });
+
+      if (dedupeKey) {
+        const existingByDedupeKey = await findDocumentByDedupeKey(dedupeKey);
+        if (existingByDedupeKey) {
+          skippedCount += 1;
+          dedupedByExternalIdCount += 1; // Count as external ID match for simplicity in stats
+          continue;
+        }
+      }
+
       const existing = await findRssDocumentByExternalId(source.feed.id, entry.externalId);
       if (existing) {
         skippedCount += 1;
@@ -332,6 +350,7 @@ async function syncRssSource(sourceId: string): Promise<SourceSyncResult> {
         sourceUrl: entry.url,
         canonicalUrl: entry.url,
         externalId: entry.externalId,
+        dedupeKey,
         lang: parsed.lang,
         excerpt: entry.excerpt,
         author: entry.author,

@@ -16,6 +16,30 @@ export function resolveDocumentFailedState(error: CaptureIngestionError | null |
   }
 
   switch (error.code) {
+    case "VIDEO_SUBTITLE_UNAVAILABLE":
+      return {
+        title: "这条视频当前没有可用字幕",
+        description: "Reader 依赖字幕来生成可阅读正文；这次没有拿到可用字幕轨道，所以暂时无法导入为视频阅读内容。",
+        nextStep: "你可以先打开原视频确认是否提供字幕，或换一条有字幕的视频链接再导入。",
+      };
+    case "VIDEO_METADATA_FETCH_FAILED":
+      return {
+        title: "视频信息暂时获取失败",
+        description: "Reader 这次没有拿到稳定的视频元数据或字幕列表，暂时无法完成导入。",
+        nextStep: "稍后重试一次；如果持续失败，可先在浏览器确认该视频是否能正常播放。",
+      };
+    case "VIDEO_FETCH_FAILED":
+      return {
+        title: "视频页面暂时访问失败",
+        description: "Reader 访问视频页面时遇到临时异常，没法完成后续字幕与正文处理。",
+        nextStep: "稍后重试，或切换网络后再导入。",
+      };
+    case "VIDEO_URL_UNSUPPORTED":
+      return {
+        title: "这个视频链接格式暂不支持",
+        description: "当前导入器只支持可稳定解析的 YouTube / B 站单视频链接，这个链接格式还无法处理。",
+        nextStep: "请改用标准视频页链接后再导入。",
+      };
     case "SOURCE_VERIFICATION_REQUIRED":
       return {
         title: "这篇文章需要先过来源验证",

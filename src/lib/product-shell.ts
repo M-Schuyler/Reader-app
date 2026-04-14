@@ -25,7 +25,6 @@ const MAIN_NAV_ITEMS = [
   { href: "/sources", label: "来源库" },
   { href: "/reading", label: "Reading" },
   { href: "/highlights", label: "高亮" },
-  { href: "/export", label: "导出" },
 ] as const;
 
 const PRIMARY_NAV_DEFS = [

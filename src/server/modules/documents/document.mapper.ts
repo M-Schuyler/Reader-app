@@ -1,5 +1,53 @@
-import type { DocumentDetailRecord, DocumentListRecord } from "./document.repository";
+import type { DocumentDetailRecord, DocumentListRecord, DocumentReaderRecord } from "./document.repository";
 import type { CaptureIngestionError, DocumentDetail, DocumentListItem } from "./document.types";
+import { normalizeVideoProvider, resolveDocumentVideoEmbed } from "@/lib/documents/video-embed";
+
+export function mapReaderDocumentDetail(record: DocumentReaderRecord): DocumentDetail {
+  return {
+    id: record.id,
+    type: record.type,
+    title: record.title,
+    sourceUrl: record.sourceUrl,
+    canonicalUrl: record.canonicalUrl,
+    videoUrl: record.videoUrl,
+    videoProvider: normalizeVideoProvider(record.videoProvider),
+    videoThumbnailUrl: null,
+    videoDurationSeconds: record.videoDurationSeconds,
+    videoEmbed: resolveDocumentVideoEmbed({
+      videoProvider: record.videoProvider,
+      videoUrl: record.videoUrl,
+      canonicalUrl: record.canonicalUrl,
+      sourceUrl: record.sourceUrl,
+      transcriptSegments: [],
+    }),
+    aiSummary: record.aiSummary,
+    aiSummaryStatus: record.aiSummaryStatus,
+    aiSummaryError: record.aiSummaryError,
+    excerpt: record.excerpt,
+    lang: null,
+    author: record.author,
+    contentOrigin: record.contentOriginLabel ? { key: "", label: record.contentOriginLabel } : null,
+    publishedAt: toIso(record.publishedAt),
+    publishedAtKind: record.publishedAtKind,
+    enteredReadingAt: toIso(record.enteredReadingAt),
+    readState: record.readState,
+    isFavorite: record.isFavorite,
+    ingestionStatus: record.ingestionStatus,
+    createdAt: new Date().toISOString(), // Mock value as it's not fetched
+    updatedAt: new Date().toISOString(), // Mock value as it's not fetched
+    tags: [],
+    source: null,
+    feed: null,
+    file: null,
+    ingestion: { error: null },
+    content: record.content ? {
+      contentHtml: record.content.contentHtml,
+      plainText: "",
+      wordCount: record.content.wordCount,
+      extractedAt: null,
+    } : null,
+  };
+}
 
 export function mapDocumentListItem(record: DocumentListRecord): DocumentListItem {
   return {
@@ -13,6 +61,8 @@ export function mapDocumentListItem(record: DocumentListRecord): DocumentListIte
     aiSummaryError: record.aiSummaryError,
     excerpt: record.excerpt,
     lang: record.lang,
+    author: record.author,
+    videoThumbnailUrl: record.videoThumbnailUrl,
     publishedAt: toIso(record.publishedAt),
     publishedAtKind: record.publishedAtKind,
     enteredReadingAt: toIso(record.enteredReadingAt),
@@ -70,6 +120,17 @@ export function mapDocumentDetail(
     title: record.title,
     sourceUrl: record.sourceUrl,
     canonicalUrl: record.canonicalUrl,
+    videoUrl: record.videoUrl,
+    videoProvider: normalizeVideoProvider(record.videoProvider),
+    videoThumbnailUrl: record.videoThumbnailUrl,
+    videoDurationSeconds: record.videoDurationSeconds,
+    videoEmbed: resolveDocumentVideoEmbed({
+      videoProvider: record.videoProvider,
+      videoUrl: record.videoUrl,
+      canonicalUrl: record.canonicalUrl,
+      sourceUrl: record.sourceUrl,
+      transcriptSegments: record.transcriptSegments,
+    }),
     aiSummary: record.aiSummary,
     aiSummaryStatus: record.aiSummaryStatus,
     aiSummaryError: record.aiSummaryError,

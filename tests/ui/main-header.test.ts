@@ -36,8 +36,10 @@ test("main layout delegates shell rendering to workspace chrome", () => {
 
   assert.match(headerShell, /sticky top-0 z-30/);
   assert.doesNotMatch(headerShell, /translate|SCROLL_HIDE_THRESHOLD|SCROLL_JITTER_THRESHOLD/);
-
   assert.match(accountMenu, /ThemeToggle/);
+  assert.match(accountMenu, /个性化/);
+  assert.match(accountMenu, /设置/);
+  assert.match(accountMenu, /href="\/export"/);
   assert.match(accountMenu, /退出登录/);
   assert.match(accountMenu, /<details/);
   assert.match(accountMenu, /onOpenChange\?: \(open: boolean\) => void/);

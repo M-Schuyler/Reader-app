@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/form-controls";
 import { Panel } from "@/components/ui/panel";
 import type { GetDocumentsResponseData } from "@/server/modules/documents/document.types";
-import type { SourceLibrarySourceContext } from "@/lib/documents/source-library";
-import { SourceLibraryDocumentList } from "./source-library-document-list";
+import { SourceLibrarySourceContext } from "@/lib/documents/source-library";
+import { DocumentList } from "./document-list";
 import { SourceLibraryDetailFilters } from "./source-library-detail-filters";
 
 type SourceLibraryDetailProps = {
@@ -21,31 +21,12 @@ type SourceLibraryDetailProps = {
 };
 
 export function SourceLibraryDetail({
-  backHref = "/sources",
-  clearHref = "/sources",
   data,
-  hasActiveFilters = false,
-  source,
 }: SourceLibraryDetailProps) {
   return (
-    <section className="space-y-5">
-      <Link
-        className="inline-flex items-center gap-2 text-sm text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
-        href={backHref}
-      >
-        <span aria-hidden="true">←</span>
-        <span>返回来源库</span>
-      </Link>
-
-      <SourceLibraryDetailFilters
-        clearHref={clearHref}
-        contentOrigin={data.contentOrigin}
-        filters={data.filters}
-        hasActiveFilters={hasActiveFilters}
-      />
-
+    <div className="space-y-6">
       {data.items.length > 0 ? (
-        <SourceLibraryDocumentList emptyRedirectHref="/sources" items={data.items} sourceTotalItems={source.totalItems} toneSeed={source.id} />
+        <DocumentList data={data} showDelete={true} />
       ) : (
         <Panel className="px-8 py-12 text-center" tone="muted">
           <div className="mx-auto max-w-lg space-y-3">
@@ -58,87 +39,6 @@ export function SourceLibraryDetail({
           </div>
         </Panel>
       )}
-    </section>
-  );
-}
-
-export function SourceLibraryDetailHeaderMeta({
-  includeCategories = [],
-  source,
-  sync,
-}: {
-  source: SourceLibrarySourceContext;
-  includeCategories?: string[];
-  sync?: {
-    sourceId: string;
-    lastSyncedAt: string | null;
-    lastSyncStatus: IngestionJobStatus | null;
-    lastSyncError: string | null;
-  };
-}) {
-  const latestLabel = formatCollectedAt(source.latestCreatedAt);
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-[color:var(--text-secondary)]">
-        <span>{formatKind(source.kind)}</span>
-        <span aria-hidden="true" className="text-[color:var(--text-tertiary)]">
-          ·
-        </span>
-        <span>{source.meta}</span>
-        <span aria-hidden="true" className="text-[color:var(--text-tertiary)]">
-          ·
-        </span>
-        <span>最近收入库 {latestLabel}</span>
-        {sync ? (
-          <>
-            <span aria-hidden="true" className="text-[color:var(--text-tertiary)]">
-              ·
-            </span>
-            <span>{formatSyncMeta(sync.lastSyncStatus, sync.lastSyncedAt)}</span>
-          </>
-        ) : null}
-      </div>
-
-      {source.customLabel ? (
-        <p className="text-sm text-[color:var(--text-tertiary)] [overflow-wrap:anywhere]">默认名称 · {source.defaultLabel}</p>
-      ) : null}
-
-      {includeCategories.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">同步分类</span>
-          {includeCategories.map((category) => (
-            <span
-              className="inline-flex min-h-7 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-2.5 text-xs text-[color:var(--text-secondary)]"
-              key={category}
-            >
-              {category}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      {sync?.lastSyncError ? <p className="text-sm text-[color:var(--badge-danger-text)]">{sync.lastSyncError}</p> : null}
-    </div>
-  );
-}
-
-export function SourceLibraryDetailFilterState({ contextChips }: { contextChips: string[] }) {
-  if (contextChips.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <p className="text-sm text-[color:var(--text-secondary)]">当前正在这一来源里查看筛选后的结果。</p>
-      {contextChips.map((chip) => (
-        <span
-          className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-sm text-[color:var(--text-secondary)]"
-          key={chip}
-        >
-          {chip}
-        </span>
-      ))}
     </div>
   );
 }

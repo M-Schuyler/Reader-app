@@ -22,15 +22,6 @@ export function resolveDocumentLead(input: ResolveDocumentLeadInput): DocumentLe
     };
   }
 
-  const aiSummary = normalizeText(input.aiSummary);
-  if (aiSummary) {
-    return {
-      label: "AI 摘要",
-      text: aiSummary,
-      note: null,
-    };
-  }
-
   const excerpt = normalizeText(input.excerpt);
   if (excerpt) {
     return {

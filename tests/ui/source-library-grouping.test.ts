@@ -478,6 +478,8 @@ function createListItem(overrides: Partial<DocumentListItem> = {}): DocumentList
     aiSummaryError: null,
     excerpt: "Default excerpt",
     lang: "zh",
+    author: null,
+    videoThumbnailUrl: null,
     publishedAt: "2026-03-27T08:30:00.000Z",
     publishedAtKind: PublishedAtKind.EXACT,
     enteredReadingAt: null,

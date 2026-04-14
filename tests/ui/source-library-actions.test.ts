@@ -8,13 +8,14 @@ function readWorkspaceFile(path: string) {
 
 test("source detail exposes rename controls and document deletion actions", () => {
   const detail = readWorkspaceFile("src/components/library/source-library-detail.tsx");
-  const list = readWorkspaceFile("src/components/library/source-library-document-list.tsx");
+  const list = readWorkspaceFile("src/components/library/document-list.tsx");
   const documentRoute = readWorkspaceFile("src/app/api/documents/[id]/route.ts");
 
   assert.match(detail, /SourceAliasEditor/);
   assert.match(detail, /重命名书架|自定义命名/);
   assert.match(detail, /source\.kind === "unknown" \|\| source\.kind === "source" \|\| !source\.value/);
-  assert.match(list, /删除/);
+  assert.match(list, /showDelete/);
+  assert.match(list, /handleDelete/);
   assert.match(list, /window\.confirm/);
   assert.match(list, /method:\s*"DELETE"/);
   assert.match(documentRoute, /export async function DELETE/);

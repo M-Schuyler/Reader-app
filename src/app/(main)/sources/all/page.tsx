@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { SourceLibraryDocumentList } from "@/components/library/source-library-document-list";
+import { DocumentList } from "@/components/library/document-list";
 import { SourceLibraryToolbar } from "@/components/library/source-library-toolbar";
-import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 import {
   buildSourceContextChips,
@@ -36,27 +35,33 @@ export default async function SourceAllDocumentsPage({ searchParams }: SourceAll
   const hasNextPage = data.pagination.page < data.pagination.totalPages;
 
   return (
-    <section className="space-y-8 md:space-y-10">
-      <PageHeader
-        actions={
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
           <Link
-            className="inline-flex min-h-10 items-center rounded-full border border-[color:var(--border-subtle)] px-4 text-sm text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
             href={backHref}
+            title="返回来源库"
           >
-            返回来源库
+            <span aria-hidden="true" className="text-lg">←</span>
           </Link>
-        }
-        eyebrow="Source Library"
-        title="全部文档"
-      />
+          <div className="h-4 w-px bg-[color:var(--border-subtle)]" />
+          <h1 className="font-ui-heading text-xl font-bold tracking-tight text-[color:var(--text-primary)]">
+            全部文档
+          </h1>
+          <span className="inline-flex h-6 items-center rounded-full bg-stone-900/5 px-2 text-[11px] font-bold text-[color:var(--text-tertiary)]">
+            {data.pagination.total} 篇
+          </span>
+        </div>
 
-      <SourceLibraryToolbar
-        clearHref={clearHref}
-        filters={data.filters}
-        hasActiveFilters={hasActiveFilters}
-        showFilters
-        sortContext="documentList"
-      />
+        <SourceLibraryToolbar
+          clearHref={clearHref}
+          filters={data.filters}
+          hasActiveFilters={hasActiveFilters}
+          showFilters
+          sortContext="documentList"
+        />
+      </div>
 
       {contextChips.length > 0 ? (
         <Panel
@@ -78,7 +83,7 @@ export default async function SourceAllDocumentsPage({ searchParams }: SourceAll
       ) : null}
 
       {data.items.length > 0 ? (
-        <SourceLibraryDocumentList emptyRedirectHref="/sources" items={data.items} sourceTotalItems={data.pagination.total} />
+        <DocumentList data={data} showDelete={true} />
       ) : (
         <Panel className="px-8 py-12 text-center" tone="muted">
           <div className="mx-auto max-w-lg space-y-3">

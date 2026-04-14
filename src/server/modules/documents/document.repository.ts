@@ -241,6 +241,59 @@ export async function getDocumentById(id: string) {
   });
 }
 
+export const documentReaderArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()({
+  select: {
+    id: true,
+    title: true,
+    type: true,
+    readState: true,
+    isFavorite: true,
+    ingestionStatus: true,
+    author: true,
+    publishedAt: true,
+    publishedAtKind: true,
+    enteredReadingAt: true,
+    sourceUrl: true,
+    canonicalUrl: true,
+    contentOriginLabel: true,
+    videoUrl: true,
+    videoProvider: true,
+    videoDurationSeconds: true,
+    aiSummary: true,
+    aiSummaryStatus: true,
+    aiSummaryError: true,
+    excerpt: true,
+    content: {
+      select: {
+        contentHtml: true,
+        wordCount: true,
+      },
+    },
+  },
+});
+
+export type DocumentReaderRecord = Prisma.DocumentGetPayload<typeof documentReaderArgs>;
+
+export async function getReaderDocumentById(id: string) {
+  return prisma.document.findUnique({
+    where: { id },
+    ...documentReaderArgs,
+  });
+}
+
+export async function getReaderNextDocument(currentId: string, query: DocumentListQuery) {
+  const where = buildDocumentWhere(query);
+  const orderBy = buildDocumentOrderBy(query.sort, query.surface);
+
+  return prisma.document.findFirst({
+    where,
+    orderBy,
+    cursor: { id: currentId },
+    skip: 1,
+    ...documentListArgs,
+  });
+}
+
 export async function findLatestCaptureErrorForDocument(document: Pick<DocumentDetailRecord, "id" | "sourceUrl" | "ingestionStatus">) {
   if (document.ingestionStatus !== IngestionStatus.FAILED) {
     return null;
@@ -426,21 +479,28 @@ type CreateWebDocumentInput = {
   title: string;
   sourceUrl: string;
   canonicalUrl: string | null;
+  externalId?: string | null;
   sourceId?: string | null;
   lang: string | null;
   excerpt: string;
   author: string | null;
   contentOriginKey: string | null;
   contentOriginLabel: string | null;
+  videoUrl?: string | null;
+  videoProvider?: string | null;
+  videoThumbnailUrl?: string | null;
+  videoDurationSeconds?: number | null;
+  transcriptSegments?: Prisma.InputJsonValue;
   publishedAt: Date | null;
   publishedAtKind: PublishedAtKind;
   ingestionStatus: IngestionStatus;
   contentHtml: string | null;
   plainText: string;
-  rawHtml: string;
+  rawHtml: string | null;
   textHash: string;
-  wordCount: number;
+  wordCount: number | null;
   extractedAt: Date;
+  dedupeKey: string | null;
 };
 
 type CreateRssDocumentInput = {
@@ -462,6 +522,7 @@ type CreateRssDocumentInput = {
   textHash: string;
   wordCount: number;
   extractedAt: Date;
+  dedupeKey: string | null;
 };
 
 export async function createWebDocument(input: CreateWebDocumentInput) {
@@ -471,12 +532,23 @@ export async function createWebDocument(input: CreateWebDocumentInput) {
       title: input.title,
       sourceUrl: input.sourceUrl,
       canonicalUrl: input.canonicalUrl,
+      dedupeKey: input.dedupeKey,
+      externalId: input.externalId ?? null,
       sourceId: input.sourceId ?? null,
       lang: input.lang,
       excerpt: input.excerpt,
       author: input.author,
       contentOriginKey: input.contentOriginKey,
       contentOriginLabel: input.contentOriginLabel,
+      videoUrl: input.videoUrl ?? null,
+      videoProvider: input.videoProvider ?? null,
+      videoThumbnailUrl: input.videoThumbnailUrl ?? null,
+      videoDurationSeconds: input.videoDurationSeconds ?? null,
+      ...(typeof input.transcriptSegments === "undefined"
+        ? {}
+        : {
+            transcriptSegments: input.transcriptSegments,
+          }),
       publishedAt: input.publishedAt,
       publishedAtKind: input.publishedAtKind,
       ingestionStatus: input.ingestionStatus,
@@ -488,6 +560,92 @@ export async function createWebDocument(input: CreateWebDocumentInput) {
           textHash: input.textHash,
           wordCount: input.wordCount,
           extractedAt: input.extractedAt,
+        },
+      },
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function findDocumentByDedupeKey(dedupeKey: string) {
+  return prisma.document.findUnique({
+    where: { dedupeKey },
+    ...documentDetailArgs,
+  });
+}
+
+export async function findDocumentByContentHash(textHash: string) {
+  return prisma.document.findFirst({
+    where: {
+      content: {
+        textHash,
+      },
+    },
+    ...documentDetailArgs,
+  });
+}
+
+type RefreshVideoWebDocumentInput = {
+  title: string;
+  sourceUrl: string;
+  canonicalUrl: string;
+  externalId: string;
+  lang: string | null;
+  excerpt: string;
+  author: string | null;
+  videoUrl: string;
+  videoProvider: string;
+  videoThumbnailUrl: string | null;
+  videoDurationSeconds: number | null;
+  transcriptSegments: Prisma.InputJsonValue;
+  publishedAt: Date | null;
+  publishedAtKind: PublishedAtKind;
+  ingestionStatus: IngestionStatus;
+  plainText: string;
+  textHash: string;
+  wordCount: number;
+  extractedAt: Date;
+};
+
+export async function refreshVideoWebDocument(id: string, input: RefreshVideoWebDocumentInput) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      title: input.title,
+      sourceUrl: input.sourceUrl,
+      canonicalUrl: input.canonicalUrl,
+      externalId: input.externalId,
+      lang: input.lang,
+      excerpt: input.excerpt,
+      author: input.author,
+      contentOriginKey: null,
+      contentOriginLabel: null,
+      videoUrl: input.videoUrl,
+      videoProvider: input.videoProvider,
+      videoThumbnailUrl: input.videoThumbnailUrl,
+      videoDurationSeconds: input.videoDurationSeconds,
+      transcriptSegments: input.transcriptSegments,
+      publishedAt: input.publishedAt,
+      publishedAtKind: input.publishedAtKind,
+      ingestionStatus: input.ingestionStatus,
+      content: {
+        upsert: {
+          create: {
+            contentHtml: null,
+            plainText: input.plainText,
+            rawHtml: null,
+            textHash: input.textHash,
+            wordCount: input.wordCount,
+            extractedAt: input.extractedAt,
+          },
+          update: {
+            contentHtml: null,
+            plainText: input.plainText,
+            rawHtml: null,
+            textHash: input.textHash,
+            wordCount: input.wordCount,
+            extractedAt: input.extractedAt,
+          },
         },
       },
     },
@@ -558,6 +716,7 @@ export async function createRssDocument(input: CreateRssDocumentInput) {
       feedId: input.feedId,
       sourceUrl: input.sourceUrl,
       canonicalUrl: input.canonicalUrl,
+      dedupeKey: input.dedupeKey,
       externalId: input.externalId,
       lang: input.lang,
       excerpt: input.excerpt,
@@ -586,6 +745,7 @@ type CreateWebDocumentPlaceholderInput = {
   canonicalUrl: string | null;
   sourceId?: string | null;
   ingestionStatus: IngestionStatus;
+  dedupeKey: string | null;
 };
 
 export async function createWebDocumentPlaceholder(input: CreateWebDocumentPlaceholderInput) {
@@ -596,6 +756,7 @@ export async function createWebDocumentPlaceholder(input: CreateWebDocumentPlace
       sourceUrl: input.sourceUrl,
       canonicalUrl: input.canonicalUrl,
       sourceId: input.sourceId ?? null,
+      dedupeKey: input.dedupeKey,
       publishedAtKind: PublishedAtKind.UNKNOWN,
       ingestionStatus: input.ingestionStatus,
     },
@@ -928,23 +1089,29 @@ function buildDocumentSourceWhere(source: NonNullable<DocumentListQuery["source"
 }
 
 function buildDocumentOrderBy(sort: DocumentListSort, surface: DocumentListQuery["surface"]): Prisma.DocumentOrderByWithRelationInput[] {
+  let base: Prisma.DocumentOrderByWithRelationInput[];
+
   if (surface === "source") {
-    return sort === "earliest" ? [{ createdAt: "asc" }] : [{ createdAt: "desc" }];
+    base = sort === "earliest" ? [{ createdAt: "asc" }] : [{ createdAt: "desc" }];
+  } else {
+    switch (sort) {
+      case "earliest":
+        base = [
+          { publishedAt: { sort: "asc", nulls: "last" } },
+          surface === "reading" ? { enteredReadingAt: "asc" } : { createdAt: "asc" },
+        ];
+        break;
+      case "latest":
+      default:
+        base = [
+          { publishedAt: { sort: "desc", nulls: "last" } },
+          surface === "reading" ? { enteredReadingAt: "desc" } : { createdAt: "desc" },
+        ];
+        break;
+    }
   }
 
-  switch (sort) {
-    case "earliest":
-      return [
-        { publishedAt: { sort: "asc", nulls: "last" } },
-        surface === "reading" ? { enteredReadingAt: "asc" } : { createdAt: "asc" },
-      ];
-    case "latest":
-    default:
-      return [
-        { publishedAt: { sort: "desc", nulls: "last" } },
-        surface === "reading" ? { enteredReadingAt: "desc" } : { createdAt: "desc" },
-      ];
-  }
+  return [...base, { id: sort === "earliest" ? "asc" : "desc" }];
 }
 
 export const __documentRepositoryForTests = {

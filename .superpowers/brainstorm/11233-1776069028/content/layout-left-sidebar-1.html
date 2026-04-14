@@ -1,0 +1,111 @@
+<h2>左侧竖栏要做到什么程度？</h2>
+<p class="subtitle">同样是把搜索、文档库、Reading、高亮放进左侧，产品气质会完全不同。我建议先选整体方向，再谈实现细节。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. Calm Sidebar</div>
+        <div class="mockup-body" style="display:flex;min-height:300px;">
+          <div style="width:220px;border-right:1px solid #d6d0c7;padding:16px;display:flex;flex-direction:column;gap:14px;background:#f7f3ec;">
+            <div style="font-size:28px;font-weight:700;letter-spacing:-0.06em;">Reader</div>
+            <input class="mock-input" value="搜索文档、来源、标题" />
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div class="mock-button" style="justify-content:flex-start;background:#1f1b18;color:#fff;">文档库</div>
+              <div class="mock-button" style="justify-content:flex-start;">Reading</div>
+              <div class="mock-button" style="justify-content:flex-start;">高亮</div>
+            </div>
+            <div style="margin-top:auto;font-size:12px;color:#7a746d;">头像 / 设置 / 导出</div>
+          </div>
+          <div style="flex:1;padding:22px;display:flex;flex-direction:column;gap:14px;">
+            <div class="placeholder" style="height:44px;">页面标题 + 操作</div>
+            <div class="placeholder" style="height:92px;">主内容区</div>
+            <div class="placeholder" style="height:92px;">主内容区</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>推荐</h3>
+      <p>左栏承担产品主导航和全局搜索，顶部横向头部大幅收缩。最像一个成熟阅读产品，而不是后台。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. Compact Rail</div>
+        <div class="mockup-body" style="display:flex;min-height:300px;">
+          <div style="width:88px;border-right:1px solid #d6d0c7;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:14px;background:#f7f3ec;">
+            <div style="font-size:24px;font-weight:700;">R</div>
+            <div class="mock-button" style="width:56px;height:56px;padding:0;">搜</div>
+            <div class="mock-button" style="width:56px;height:56px;padding:0;background:#1f1b18;color:#fff;">库</div>
+            <div class="mock-button" style="width:56px;height:56px;padding:0;">读</div>
+            <div class="mock-button" style="width:56px;height:56px;padding:0;">高</div>
+            <div style="margin-top:auto;font-size:11px;color:#7a746d;">账户</div>
+          </div>
+          <div style="flex:1;padding:22px;display:flex;flex-direction:column;gap:14px;">
+            <div class="placeholder" style="height:44px;">页面标题 + 操作</div>
+            <div class="placeholder" style="height:92px;">主内容区</div>
+            <div class="placeholder" style="height:92px;">主内容区</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>最省宽度</h3>
+      <p>给阅读页留出更多空间，但辨识度差，语义太压缩，容易把 Reader 做成工具栏应用。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. Workspace Sidebar</div>
+        <div class="mockup-body" style="display:flex;min-height:300px;">
+          <div style="width:270px;border-right:1px solid #d6d0c7;padding:16px;display:flex;flex-direction:column;gap:14px;background:#f7f3ec;">
+            <div style="font-size:28px;font-weight:700;letter-spacing:-0.06em;">Reader</div>
+            <input class="mock-input" value="搜索文档、来源、标题" />
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div class="mock-button" style="justify-content:flex-start;background:#1f1b18;color:#fff;">文档库</div>
+              <div class="mock-button" style="justify-content:flex-start;">Reading</div>
+              <div class="mock-button" style="justify-content:flex-start;">高亮</div>
+            </div>
+            <div class="placeholder" style="height:74px;">快速筛选 / 最近阅读 / 次级操作</div>
+            <div style="margin-top:auto;font-size:12px;color:#7a746d;">头像 / 设置 / 导出</div>
+          </div>
+          <div style="flex:1;padding:22px;display:flex;flex-direction:column;gap:14px;">
+            <div class="placeholder" style="height:44px;">页面标题 + 操作</div>
+            <div class="placeholder" style="height:92px;">主内容区</div>
+            <div class="placeholder" style="height:92px;">主内容区</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>功能最强</h3>
+      <p>适合后续继续塞来源、标签、筛选，但风险也最大，很容易把阅读产品做成管理后台。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>我现在的判断</h4>
+      <ul>
+        <li>A 最符合 Reader 的气质，稳定、克制、足够产品化。</li>
+        <li>B 只有在你极度重视阅读页宽度时才成立。</li>
+        <li>C 最容易失控，信息会越堆越多。</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>这轮先别做的事</h4>
+      <ul>
+        <li>不要顺手把来源、标签、筛选都塞进左栏。</li>
+        <li>不要为了“像专业产品”做复杂折叠态。</li>
+        <li>不要保留现在完整顶栏再叠加左栏，那会双重导航。</li>
+      </ul>
+    </div>
+  </div>
+</div>

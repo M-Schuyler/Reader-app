@@ -29,26 +29,32 @@ export default async function SourcesPage({ searchParams }: SourcesPageProps) {
   const contextChips = buildSourceContextChips(data.filters, undefined, { sortContext: "sourceIndex" });
 
   return (
-    <section className="space-y-7 md:space-y-8">
-      <PageHeader
-        actions={
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-            <span className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]">
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <h1 className="font-ui-heading text-2xl font-bold tracking-tight text-[color:var(--text-primary)]">
+            Sources
+          </h1>
+          <div className="h-4 w-px bg-[color:var(--border-subtle)] hidden sm:block" />
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-8 items-center rounded-full bg-stone-900/5 px-3 text-[13px] font-bold text-[color:var(--text-secondary)]">
               {data.documentCount} 篇
             </span>
             {contextChips.map((chip) => (
               <span
-                className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3.5 text-sm text-[color:var(--text-secondary)]"
+                className="inline-flex h-8 items-center rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-3 text-[13px] font-medium text-[color:var(--text-tertiary)]"
                 key={chip}
               >
                 {chip}
               </span>
             ))}
-            <SourceLibraryMoreMenu />
           </div>
-        }
-        title="来源库"
-      />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <SourceLibraryMoreMenu />
+        </div>
+      </div>
 
       <SourceLibraryIndex allDocumentsHref={allDocumentsHref} data={data} />
     </section>

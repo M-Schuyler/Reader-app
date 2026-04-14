@@ -6,7 +6,7 @@ import {
   resolveDocumentContentOrigin,
 } from "@/lib/documents/content-origin";
 import { buildSourceAliasMap, buildSourceLibraryIndexGroups, collectSourceAliasLookups } from "@/lib/documents/source-library";
-import { mapDocumentDetail, mapDocumentListItem } from "./document.mapper";
+import { mapDocumentDetail, mapDocumentListItem, mapReaderDocumentDetail } from "./document.mapper";
 import {
   getSummaryQueueStatus,
   getSummaryRuntimeIssues,
@@ -19,6 +19,8 @@ import {
   type DocumentDetailRecord,
   findLatestCaptureErrorForDocument,
   getDocumentById,
+  getReaderDocumentById,
+  getReaderNextDocument,
   listDocumentOriginRows,
   listDocumentsByIds,
   listSourceIndexRows,
@@ -40,6 +42,7 @@ import type {
   DocumentSourceFilter,
   GenerateAiSummaryError,
   GetDocumentResponseData,
+  GetReaderDocumentResponseData,
   GetDocumentsResponseData,
   GetSourceLibraryIndexResponseData,
   PrioritizeDocumentAiSummaryResponseData,
@@ -210,6 +213,47 @@ export async function openDocument(id: string, dependencies: DocumentDetailDepen
   return buildDocumentDetailResponse(document, dependencies);
 }
 
+export async function openReaderDocument(
+  id: string,
+  options: {
+    searchParams?: Record<string, string | undefined>;
+    dependencies?: {
+      getReaderDocumentById?: typeof getReaderDocumentById;
+      getReaderNextDocument?: typeof getReaderNextDocument;
+      markDocumentEnteredReading?: typeof markDocumentEnteredReading;
+    };
+  } = {},
+): Promise<GetReaderDocumentResponseData | null> {
+  const dependencies = options.dependencies ?? {};
+  const fetchDocument = dependencies.getReaderDocumentById ?? getReaderDocumentById;
+  const fetchNextDocument = dependencies.getReaderNextDocument ?? getReaderNextDocument;
+  const markOpened = dependencies.markDocumentEnteredReading ?? markDocumentEnteredReading;
+
+  const existing = await fetchDocument(id);
+
+  if (!existing) {
+    return null;
+  }
+
+  if (!existing.enteredReadingAt) {
+    await markOpened(id).catch(() => undefined);
+  }
+
+  const document = await fetchDocument(id);
+
+  if (!document) {
+    return null;
+  }
+
+  const query = parseDocumentListQuery(new URLSearchParams(options.searchParams as any));
+  const nextRecord = await fetchNextDocument(id, query).catch(() => null);
+
+  return {
+    document: mapReaderDocumentDetail(document),
+    nextUp: nextRecord ? mapDocumentListItem(nextRecord as any) : null,
+  };
+}
+
 export async function getQuickSearchResults(query: string): Promise<QuickSearchResponseData> {
   const q = query.trim();
 
@@ -226,15 +270,19 @@ export async function getQuickSearchResults(query: string): Promise<QuickSearchR
     q,
     items: items.map(mapDocumentListItem).map((item) => ({
       id: item.id,
+      type: item.type,
       title: item.title,
+      author: item.author,
       sourceUrl: item.sourceUrl,
       canonicalUrl: item.canonicalUrl,
       aiSummary: item.aiSummary,
       excerpt: item.excerpt,
+      wordCount: item.wordCount,
       publishedAt: item.publishedAt,
       publishedAtKind: item.publishedAtKind,
       readState: item.readState,
       ingestionStatus: item.ingestionStatus,
+      tags: item.tags,
     })),
   };
 }

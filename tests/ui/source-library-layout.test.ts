@@ -20,14 +20,8 @@ test("sources page uses the dedicated source index view with a compact overflow 
   assert.match(sourcesPage, /SourceLibraryIndex/);
   assert.match(sourcesPage, /SourceLibraryMoreMenu/);
   assert.match(sourcesPage, /getSourceLibraryIndex/);
-  assert.doesNotMatch(sourcesPage, /SourceLibraryToolbar/);
-  assert.doesNotMatch(sourcesPage, /description=/);
-  assert.doesNotMatch(sourcesPage, /getDocuments\(\{/);
-  assert.doesNotMatch(sourcesPage, /DocumentList/);
-  assert.doesNotMatch(sourcesPage, /最近收进来/);
-  assert.doesNotMatch(sourcesPage, /近七天/);
-  assert.doesNotMatch(sourcesPage, /更早/);
-  assert.match(sourcesPage, /className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto"/);
+  assert.doesNotMatch(sourcesPage, /PageHeader/);
+  assert.match(sourcesPage, /font-ui-heading text-2xl font-bold/);
   assert.match(menu, /CaptureUrlForm/);
   assert.match(menu, /CreateSourceForm/);
   assert.match(menu, /导入 Cubox/);
@@ -88,7 +82,7 @@ test("source library toolbar supports an index-only mode with just the two captu
 test("sources all page uses the fused source-library document list instead of the source card wall", () => {
   const allDocumentsPage = readWorkspaceFile("src/app/(main)/sources/all/page.tsx");
 
-  assert.match(allDocumentsPage, /SourceLibraryDocumentList/);
+  assert.match(allDocumentsPage, /DocumentList/);
   assert.match(allDocumentsPage, /SourceLibraryToolbar/);
   assert.match(allDocumentsPage, /showFilters/);
   assert.match(allDocumentsPage, /filters=\{data\.filters\}/);
@@ -98,7 +92,7 @@ test("sources all page uses the fused source-library document list instead of th
   assert.match(allDocumentsPage, /上一页/);
   assert.match(allDocumentsPage, /下一页/);
   assert.doesNotMatch(allDocumentsPage, /SourceLibraryIndex/);
-  assert.doesNotMatch(allDocumentsPage, /import\s+\{\s*DocumentList\s*\}/);
+  assert.doesNotMatch(allDocumentsPage, /SourceLibraryDocumentList/);
 });
 
 test("source detail routes and unknown source route use the dedicated detail surface", () => {
@@ -107,7 +101,7 @@ test("source detail routes and unknown source route use the dedicated detail sur
   const unknownPage = readWorkspaceFile("src/app/(main)/sources/unknown/page.tsx");
   const namedSourcePage = readWorkspaceFile("src/app/(main)/sources/[sourceId]/page.tsx");
   const detailComponent = readWorkspaceFile("src/components/library/source-library-detail.tsx");
-  const documentList = readWorkspaceFile("src/components/library/source-library-document-list.tsx");
+  const documentList = readWorkspaceFile("src/components/library/document-list.tsx");
   const detailPage = readWorkspaceFile("src/app/(main)/sources/source-detail-page.tsx");
   const detailFilters = readWorkspaceFile("src/components/library/source-library-detail-filters.tsx");
 
@@ -126,6 +120,7 @@ test("source detail routes and unknown source route use the dedicated detail sur
   assert.match(namedSourcePage, /meta=\{/);
   assert.doesNotMatch(namedSourcePage, /SourceLibraryToolbar/);
   assert.doesNotMatch(namedSourcePage, /import \{ Panel \}/);
+  const sourceCard = readWorkspaceFile("src/components/library/source-library-source-card.tsx");
   assert.match(detailPage, /SourceLibraryDetail/);
   assert.match(detailPage, /getDocuments/);
   assert.match(detailPage, /shouldEnableContentOriginForSourceDetail/);
@@ -133,17 +128,16 @@ test("source detail routes and unknown source route use the dedicated detail sur
   assert.match(detailPage, /meta=\{/);
   assert.doesNotMatch(detailPage, /SourceLibraryToolbar/);
   assert.doesNotMatch(detailPage, /import \{ Panel \}/);
-  assert.match(detailComponent, /SourceLibraryDocumentList/);
+  assert.match(detailComponent, /DocumentList/);
   assert.match(detailComponent, /SourceLibraryDetailFilters/);
   assert.match(detailComponent, /返回来源库/);
   assert.doesNotMatch(detailComponent, /SourceLibrarySourceCard/);
   assert.doesNotMatch(detailComponent, /Source detail/);
-  assert.match(documentList, /toneSeed\?: string/);
-  assert.match(documentList, /getSourceLibraryToneForSeed\(toneSeed\)/);
-  assert.match(detailFilters, /创作来源/);
-  assert.match(detailFilters, /排序/);
-  assert.match(detailFilters, /应用筛选/);
-  assert.match(detailFilters, /清空/);
+  assert.doesNotMatch(detailComponent, /SourceLibraryDocumentList/);
+  assert.match(sourceCard, /h-\[18rem\]/);
+  assert.match(detailFilters, /SelectInput/);
+  assert.match(detailFilters, /应用/);
+  assert.match(detailFilters, /Clear/);
   assert.doesNotMatch(detailFilters, /文档类型/);
   assert.doesNotMatch(detailFilters, /CaptureUrlForm/);
   assert.doesNotMatch(detailFilters, /CreateSourceForm/);
