@@ -24,11 +24,11 @@ test("sources page uses the dedicated source index view with a compact overflow 
   assert.match(sourcesPage, /font-ui-heading text-2xl font-bold/);
   assert.match(menu, /CaptureUrlForm/);
   assert.match(menu, /CreateSourceForm/);
-  assert.match(menu, /导入 Cubox/);
+  assert.doesNotMatch(menu, /导入 Cubox/);
   assert.match(menu, /保存网页链接/);
   assert.match(menu, /添加 RSS 来源/);
   assert.match(menu, /补跑摘要/);
-  assert.match(menu, /导入 Cubox[\s\S]*保存网页链接[\s\S]*添加 RSS 来源[\s\S]*补跑摘要/);
+  assert.match(menu, /保存网页链接[\s\S]*添加 RSS 来源[\s\S]*补跑摘要/);
   assert.match(menu, /min-w-\[280px\]/);
   assert.match(menu, /props\.expanded \? "∨" : "›"/);
   assert.doesNotMatch(readingPage, /description=/);

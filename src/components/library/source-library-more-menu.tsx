@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { CaptureUrlForm } from "@/components/library/capture-url-form";
 import { CreateSourceForm } from "@/components/library/create-source-form";
@@ -59,13 +58,6 @@ export function SourceLibraryMoreMenu({ sweepHref }: SourceLibraryMoreMenuProps)
           />
           <div className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[280px] w-[min(92vw,24rem)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[20px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] shadow-[var(--shadow-surface)]">
             <div className="p-1.5">
-              <Link
-                className="flex w-full items-center gap-2.5 rounded-[12px] px-3 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-surface-soft)] hover:text-[color:var(--text-primary)]"
-                href="/sources/import/cubox"
-                onClick={closeMenu}
-              >
-                导入 Cubox
-              </Link>
               <ExpandableMenuSection
                 expanded={expandedSection === "capture"}
                 label="保存网页链接"

@@ -52,6 +52,12 @@ export function HeaderAccountMenu({
             <p className="text-xs font-medium text-[color:var(--text-secondary)]">设置</p>
             <Link
               className="inline-flex min-h-9 w-full items-center rounded-[16px] px-3.5 text-sm font-semibold text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]"
+              href="/sources/import/cubox"
+            >
+              导入 Cubox
+            </Link>
+            <Link
+              className="inline-flex min-h-9 w-full items-center rounded-[16px] px-3.5 text-sm font-semibold text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-quiet-hover-bg)] hover:text-[color:var(--text-primary)]"
               href="/export"
             >
               导出

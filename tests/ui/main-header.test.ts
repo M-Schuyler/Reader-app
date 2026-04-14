@@ -39,7 +39,9 @@ test("main layout delegates shell rendering to workspace chrome", () => {
   assert.match(accountMenu, /ThemeToggle/);
   assert.match(accountMenu, /个性化/);
   assert.match(accountMenu, /设置/);
+  assert.match(accountMenu, /href="\/sources\/import\/cubox"/);
   assert.match(accountMenu, /href="\/export"/);
+  assert.match(accountMenu, /href="\/sources\/import\/cubox"[\s\S]*href="\/export"/);
   assert.match(accountMenu, /退出登录/);
   assert.match(accountMenu, /<details/);
   assert.match(accountMenu, /onOpenChange\?: \(open: boolean\) => void/);
