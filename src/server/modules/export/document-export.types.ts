@@ -1,4 +1,4 @@
-export type DocumentDownloadFormat = "markdown" | "html";
+export type DocumentDownloadFormat = "markdown" | "html" | "obsidian";
 
 export type BuiltDocumentDownload = {
   content: string;

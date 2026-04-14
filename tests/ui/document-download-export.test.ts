@@ -5,13 +5,15 @@ import test from "node:test";
 
 const root = process.cwd();
 
-test("document reader exposes markdown and html download actions", () => {
-  const reader = readFileSync(path.join(root, "src/components/reader/document-reader.tsx"), "utf8");
+test("reader panel exposes markdown, obsidian, and html download actions", () => {
+  const panel = readFileSync(path.join(root, "src/components/reader/reader-floating-panel.tsx"), "utf8");
 
-  assert.match(reader, /下载 Markdown/);
-  assert.match(reader, /下载 HTML/);
-  assert.match(reader, /\/api\/documents\/\$\{readerDocument\.id\}\/download\?format=markdown/);
-  assert.match(reader, /\/api\/documents\/\$\{readerDocument\.id\}\/download\?format=html/);
+  assert.match(panel, /下载 Markdown/);
+  assert.match(panel, /下载 Obsidian/);
+  assert.match(panel, /下载 HTML/);
+  assert.match(panel, /\/api\/documents\/\$\{readerDocument\.id\}\/download\?format=markdown/);
+  assert.match(panel, /\/api\/documents\/\$\{readerDocument\.id\}\/download\?format=obsidian/);
+  assert.match(panel, /\/api\/documents\/\$\{readerDocument\.id\}\/download\?format=html/);
 });
 
 test("document download route requires auth and supports attachment responses", () => {

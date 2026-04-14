@@ -55,6 +55,7 @@ export function ReaderFloatingPanel({
   const documentAttribution = resolveDocumentAttribution(readerDocument);
   const markdownDownloadHref = `/api/documents/${readerDocument.id}/download?format=markdown`;
   const htmlDownloadHref = `/api/documents/${readerDocument.id}/download?format=html`;
+  const obsidianDownloadHref = `/api/documents/${readerDocument.id}/download?format=obsidian`;
 
   function handleHighlightSaveModeChange(mode: typeof highlightSaveMode) {
     setHighlightSaveMode(mode);
@@ -141,6 +142,12 @@ export function ReaderFloatingPanel({
                     href={markdownDownloadHref}
                   >
                     下载 Markdown
+                  </a>
+                  <a
+                    className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"
+                    href={obsidianDownloadHref}
+                  >
+                    下载 Obsidian
                   </a>
                   <a
                     className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-strong)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--button-secondary-hover-bg)]"

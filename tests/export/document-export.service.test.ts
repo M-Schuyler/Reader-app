@@ -13,6 +13,7 @@ import {
   buildDocumentDownloadFileName,
   buildDocumentHtmlExport,
   buildDocumentMarkdownExport,
+  buildDocumentObsidianExport,
   parseDocumentDownloadFormat,
 } from "@/server/modules/export/document-export.service";
 
@@ -164,16 +165,63 @@ test("html export falls back to preformatted plainText when structured html is u
   assert.match(exported, /<pre class="document-export__plain-text">第一行\n第二行<\/pre>/);
 });
 
-test("download format parser only accepts markdown and html", () => {
+test("download format parser only accepts markdown, obsidian, and html", () => {
   assert.equal(parseDocumentDownloadFormat("markdown"), "markdown");
+  assert.equal(parseDocumentDownloadFormat("obsidian"), "obsidian");
   assert.equal(parseDocumentDownloadFormat("html"), "html");
   assert.throws(() => parseDocumentDownloadFormat("pdf"), /Unsupported download format/);
 });
 
 test("download filename builder slugifies titles and falls back to document id", () => {
   assert.equal(buildDocumentDownloadFileName(createDocument(), "markdown"), "结构化导出测试.md");
+  assert.equal(buildDocumentDownloadFileName(createDocument(), "obsidian"), "结构化导出测试.obsidian.md");
   assert.equal(
     buildDocumentDownloadFileName(createDocument({ title: "    " }), "html"),
     "document-doc_123.html",
   );
+  assert.equal(
+    buildDocumentDownloadFileName(createDocument({ title: "    " }), "obsidian"),
+    "document-doc_123.obsidian.md",
+  );
+});
+
+test("obsidian export adds summary, highlights, and正文 sections with stable frontmatter", () => {
+  const exported = buildDocumentObsidianExport(
+    createDocument({
+      aiSummary: "这是一条面向 Obsidian 的摘要。",
+      readState: ReadState.READING,
+      readingProgress: 42.4,
+      tags: [
+        { name: "导出", slug: "export" },
+        { name: "Obsidian", slug: "obsidian" },
+      ],
+    }),
+    [
+      {
+        quoteText: "第一条高亮",
+        note: "这段值得复盘",
+        color: "yellow",
+        createdAt: "2026-04-03T09:46:00.000Z",
+      },
+      {
+        quoteText: "第二条高亮",
+        note: null,
+        color: null,
+        createdAt: "2026-04-03T09:47:00.000Z",
+      },
+    ],
+    "2026-04-03T10:00:00.000Z",
+  );
+
+  assert.match(exported, /^---\n/);
+  assert.match(exported, /read_state: "READING"/);
+  assert.match(exported, /reading_progress: 42/);
+  assert.match(exported, /tags:\n  - "export"\n  - "obsidian"/);
+  assert.match(exported, /## AI 摘要\n\n这是一条面向 Obsidian 的摘要。/);
+  assert.match(exported, /## 高亮与批注/);
+  assert.match(exported, /### 高亮 1/);
+  assert.match(exported, /> 第一条高亮/);
+  assert.match(exported, /- 批注：这段值得复盘/);
+  assert.match(exported, /## 正文/);
+  assert.match(exported, /## 小标题/);
 });

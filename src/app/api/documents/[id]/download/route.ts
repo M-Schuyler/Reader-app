@@ -1,6 +1,7 @@
 import { RouteError, handleRouteError } from "@/server/api/response";
 import { requireApiUser } from "@/server/auth/session";
 import { getDocument } from "@/server/modules/documents/document.service";
+import { listHighlightsByDocumentId } from "@/server/modules/highlights/highlight.repository";
 import {
   buildDocumentDownload,
   buildDocumentDownloadFileName,
@@ -22,7 +23,15 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     const format = parseDocumentDownloadFormat(new URL(request.url).searchParams.get("format"));
-    const download = buildDocumentDownload(documentData.document, format);
+    const highlights = await listHighlightsByDocumentId(id);
+    const download = buildDocumentDownload(documentData.document, format, {
+      highlights: highlights.map((highlight) => ({
+        quoteText: highlight.quoteText,
+        note: highlight.note,
+        color: highlight.color,
+        createdAt: highlight.createdAt,
+      })),
+    });
     const fileName = buildDocumentDownloadFileName(documentData.document, format);
 
     return new Response(download.content, {
