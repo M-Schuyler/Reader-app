@@ -29,6 +29,7 @@ import {
   listSourceAliases,
   markDocumentRead,
   markDocumentEnteredReading,
+  updateDocumentReadingProgress,
   upsertSourceAlias,
   updateDocumentFavorite,
 } from "./document.repository";
@@ -349,6 +350,27 @@ export async function updateDocumentReadState(
   };
 }
 
+export async function updateDocumentProgress(
+  id: string,
+  progress: number,
+): Promise<UpdateDocumentReadStateResponseData | null> {
+  const existingDocument = await getDocumentById(id);
+
+  if (!existingDocument) {
+    return null;
+  }
+
+  // Cap progress between 0 and 100
+  const normalizedProgress = Math.max(0, Math.min(100, progress));
+  const document = await updateDocumentReadingProgress(id, normalizedProgress);
+
+  return {
+    document: await mapDocumentDetailWithResolvedContentOrigin(document, {
+      listWechatSubsourcesByBiz,
+    }),
+  };
+}
+
 export async function deleteDocument(id: string): Promise<DeleteDocumentResponseData | null> {
   const existingDocument = await getDocumentById(id);
 
@@ -614,6 +636,22 @@ export function parseUpdateDocumentReadStateInput(body: unknown): UpdateDocument
 
   return {
     readState: ReadState.READ,
+  };
+}
+
+export function parseUpdateDocumentProgressInput(body: unknown): { progress: number } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new RouteError("INVALID_BODY", 400, "Request body must be a JSON object.");
+  }
+
+  const progress = (body as { progress?: unknown }).progress;
+
+  if (typeof progress !== "number") {
+    throw new RouteError("INVALID_BODY", 400, '"progress" must be a number.');
+  }
+
+  return {
+    progress,
   };
 }
 

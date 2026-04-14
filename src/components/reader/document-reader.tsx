@@ -9,6 +9,7 @@ import { useDocumentHighlights } from "@/components/reader/reader-highlights";
 import { ReaderRichContent } from "@/components/reader/reader-rich-content";
 import { ReaderAutoHighlightFeedback, ReaderSelectionActions } from "@/components/reader/reader-selection-actions";
 import { useDocumentReadCompletion, type DocumentReadCompletionPhase } from "@/components/reader/use-document-read-completion";
+import { useDocumentReadingProgress } from "@/components/reader/use-document-reading-progress";
 import { VideoReader } from "@/components/reader/video-reader";
 import { usePrioritizedDocumentAiSummary } from "@/components/reader/use-prioritized-document-ai-summary";
 import { useReaderSelection } from "@/components/reader/reader-selection-controller";
@@ -59,6 +60,12 @@ export function DocumentReader({ document: initialDocument, nextUp }: DocumentRe
   const readCompletion = useDocumentReadCompletion({
     documentId: readerDocument.id,
     isEnabled: canHighlight,
+    readState: readerDocument.readState,
+  });
+
+  useDocumentReadingProgress({
+    documentId: readerDocument.id,
+    initialProgress: readerDocument.readingProgress,
     readState: readerDocument.readState,
   });
 

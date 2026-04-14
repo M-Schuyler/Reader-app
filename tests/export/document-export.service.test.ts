@@ -39,6 +39,7 @@ function createDocument(overrides: Partial<DocumentDetail> = {}): DocumentDetail
     publishedAtKind: PublishedAtKind.EXACT,
     enteredReadingAt: null,
     readState: ReadState.UNREAD,
+    readingProgress: 0,
     isFavorite: true,
     ingestionStatus: IngestionStatus.READY,
     createdAt: "2026-04-03T09:40:00.000Z",

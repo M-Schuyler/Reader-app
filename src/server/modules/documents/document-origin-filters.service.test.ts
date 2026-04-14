@@ -401,6 +401,7 @@ function createDocumentListRecord(overrides: Partial<DocumentListRecord>): Docum
     publishedAtKind: PublishedAtKind.UNKNOWN,
     enteredReadingAt: null,
     readState: ReadState.UNREAD,
+    readingProgress: 0,
     isFavorite: false,
     ingestionStatus: IngestionStatus.READY,
     sourceId: null,

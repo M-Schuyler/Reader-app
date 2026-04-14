@@ -31,6 +31,7 @@ export function mapReaderDocumentDetail(record: DocumentReaderRecord): DocumentD
     publishedAtKind: record.publishedAtKind,
     enteredReadingAt: toIso(record.enteredReadingAt),
     readState: record.readState,
+    readingProgress: record.readingProgress,
     isFavorite: record.isFavorite,
     ingestionStatus: record.ingestionStatus,
     createdAt: new Date().toISOString(), // Mock value as it's not fetched
@@ -67,6 +68,7 @@ export function mapDocumentListItem(record: DocumentListRecord): DocumentListIte
     publishedAtKind: record.publishedAtKind,
     enteredReadingAt: toIso(record.enteredReadingAt),
     readState: record.readState,
+    readingProgress: record.readingProgress,
     isFavorite: record.isFavorite,
     ingestionStatus: record.ingestionStatus,
     createdAt: record.createdAt.toISOString(),
@@ -142,6 +144,7 @@ export function mapDocumentDetail(
     publishedAtKind: record.publishedAtKind,
     enteredReadingAt: toIso(record.enteredReadingAt),
     readState: record.readState,
+    readingProgress: record.readingProgress,
     isFavorite: record.isFavorite,
     ingestionStatus: record.ingestionStatus,
     createdAt: record.createdAt.toISOString(),

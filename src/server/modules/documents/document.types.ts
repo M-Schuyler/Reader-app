@@ -61,6 +61,7 @@ export type DocumentListItem = {
   publishedAtKind: PublishedAtKind;
   enteredReadingAt: string | null;
   readState: ReadState;
+  readingProgress: number;
   isFavorite: boolean;
   ingestionStatus: IngestionStatus;
   createdAt: string;
@@ -179,6 +180,7 @@ export type DocumentDetail = {
   publishedAtKind: PublishedAtKind;
   enteredReadingAt: string | null;
   readState: ReadState;
+  readingProgress: number;
   isFavorite: boolean;
   ingestionStatus: IngestionStatus;
   createdAt: string;

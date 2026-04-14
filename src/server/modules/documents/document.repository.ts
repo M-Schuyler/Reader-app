@@ -247,6 +247,7 @@ export const documentReaderArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()
     title: true,
     type: true,
     readState: true,
+    readingProgress: true,
     isFavorite: true,
     ingestionStatus: true,
     author: true,
@@ -392,6 +393,24 @@ export async function markDocumentRead(id: string) {
     where: { id },
     data: {
       readState: ReadState.READ,
+      readingProgress: 100,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function updateDocumentReadingProgress(id: string, progress: number) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      readingProgress: progress,
+      ...(progress > 0 && progress < 100
+        ? {
+            readState: {
+              set: ReadState.READING,
+            },
+          }
+        : {}),
     },
     ...documentDetailArgs,
   });

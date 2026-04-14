@@ -121,6 +121,9 @@ function DocumentCard({
             <span>{formatDocumentType(item.type)}</span>
             <span>·</span>
             <span>{formatPublishedAtLabel(item.publishedAt, item.publishedAtKind, item.createdAt)}</span>
+            {item.readState === "READ" && (
+              <Badge tone="neutral">已读</Badge>
+            )}
             {shouldShowStatusBadge ? (
               <Badge tone={statusTone(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</Badge>
             ) : null}
@@ -137,20 +140,26 @@ function DocumentCard({
               </p>
             )}
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-[12px] font-medium text-[color:var(--text-tertiary)] opacity-40 transition-opacity group-hover:opacity-80">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-[12px] font-medium text-[color:var(--text-tertiary)] transition-colors group-hover:text-[color:var(--text-secondary)]">
               {!isFailed && item.wordCount ? (
-                <>
+                <div className="flex items-center gap-2 rounded-full bg-stone-900/[0.03] px-2 py-0.5 group-hover:bg-stone-900/[0.05]">
                   <span>{formatWordCount(item.wordCount)}</span>
-                  <span className="opacity-40">·</span>
-                </>
+                  <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)] opacity-30" />
+                  <span className="text-[11px] font-bold text-[color:var(--ai-card-accent)]">
+                    {formatReadingTime(item.wordCount)}
+                  </span>
+                </div>
               ) : null}
               {item.author && (
-                <>
-                  <span className="text-[color:var(--text-secondary)]">{item.author}</span>
-                  <span className="opacity-40">·</span>
-                </>
+                <div className="flex items-center gap-1.5 opacity-60">
+                  <span className="h-3 w-px bg-[color:var(--border-subtle)]" />
+                  <span>{item.author}</span>
+                </div>
               )}
-              <span className="truncate">{truncateUrl(item.canonicalUrl ?? item.sourceUrl)}</span>
+              <div className="flex items-center gap-1.5 truncate opacity-40 group-hover:opacity-60">
+                <span className="h-3 w-px bg-[color:var(--border-subtle)]" />
+                <span className="truncate">{truncateUrl(item.canonicalUrl ?? item.sourceUrl)}</span>
+              </div>
             </div>
           </Link>
 
@@ -197,6 +206,15 @@ function DocumentCard({
       
       {favorite.actionError && <p className="mt-2 text-xs text-red-500">{favorite.actionError}</p>}
       {deleteError && <p className="mt-2 text-xs text-red-500">{deleteError}</p>}
+
+      {item.readState !== "UNREAD" && (
+        <div className="absolute bottom-0 left-0 h-0.5 w-full bg-stone-900/5">
+          <div
+            className="h-full bg-[color:var(--ai-card-accent)] transition-all duration-700 ease-out"
+            style={{ width: item.readState === "READ" ? "100%" : `${item.readingProgress}%` }}
+          />
+        </div>
+      )}
     </article>
   );
 }
@@ -242,6 +260,12 @@ function formatDocumentType(value: string) {
 
 function formatWordCount(value: number) {
   return `${new Intl.NumberFormat("zh-CN").format(value)} 字`;
+}
+
+function formatReadingTime(wordCount: number) {
+  const wpm = 350; // Average Chinese/English mixed reading speed
+  const minutes = Math.max(1, Math.ceil(wordCount / wpm));
+  return `约 ${minutes} 分钟`;
 }
 
 function truncateUrl(value: string | null) {

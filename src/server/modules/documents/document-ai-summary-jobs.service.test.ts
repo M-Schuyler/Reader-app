@@ -716,6 +716,7 @@ function createSummaryDocumentRecord(
     publishedAtKind: "EXACT",
     enteredReadingAt: now,
     readState: "READING",
+    readingProgress: 0,
     isFavorite: false,
     ingestionStatus: IngestionStatus.READY,
     feedId: null,

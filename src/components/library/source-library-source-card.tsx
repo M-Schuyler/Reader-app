@@ -82,16 +82,27 @@ export function SourceLibrarySourceCard({
           </div>
           
           <div className="space-y-3">
-            <h3
-              className={cx(
-                "max-w-full font-ui-heading font-bold tracking-[-0.04em] text-[color:var(--text-primary)] [overflow-wrap:anywhere] transition-colors group-hover:text-[color:var(--text-primary-strong)]",
-                isHero
-                  ? "line-clamp-3 text-[clamp(2.2rem,5vw,3rem)] leading-[1.05]"
-                  : "line-clamp-4 text-[clamp(1.65rem,3.5vw,1.9rem)] leading-[1.1]",
+            <div className="flex items-start gap-3">
+              {host && (
+                <div className="mt-1 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border-subtle)] bg-white p-1 shadow-sm transition-all group-hover:border-[color:var(--border-strong)] group-hover:shadow-md">
+                  <img
+                    alt=""
+                    className="h-6 w-6 object-contain"
+                    src={`https://www.google.com/s2/favicons?sz=64&domain=${host}`}
+                  />
+                </div>
               )}
-            >
-              {label}
-            </h3>
+              <h3
+                className={cx(
+                  "max-w-full font-ui-heading font-bold tracking-[-0.04em] text-[color:var(--text-primary)] [overflow-wrap:anywhere] transition-colors group-hover:text-[color:var(--text-primary-strong)]",
+                  isHero
+                    ? "line-clamp-3 text-[clamp(2.2rem,5vw,3rem)] leading-[1.05]"
+                    : "line-clamp-4 text-[clamp(1.65rem,3.5vw,1.9rem)] leading-[1.1]",
+                )}
+              >
+                {label}
+              </h3>
+            </div>
             <p className="max-w-full text-[13px] font-medium leading-5 text-[color:var(--text-tertiary)] [overflow-wrap:anywhere] opacity-60">
               {host && host !== label ? host : "来源频道"}
             </p>

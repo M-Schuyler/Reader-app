@@ -167,6 +167,7 @@ model Document {
   enteredReadingAt DateTime?
   readState       ReadState        @default(UNREAD)
   isFavorite      Boolean          @default(false)
+  readingProgress Float            @default(0)
   ingestionStatus IngestionStatus  @default(PENDING)
 
   feedId          String?

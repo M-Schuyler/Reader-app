@@ -6,6 +6,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 
 const COMPLETION_NEAR_BOTTOM_OFFSET_PX = 400;
 const COMPLETION_EXTRA_PULL_THRESHOLD_PX = 120;
+const COMPLETION_MIN_SCROLLABLE_HEIGHT_PX = 240;
+const COMPLETION_SHORT_DOC_BOTTOM_TOLERANCE_PX = 2;
 const COMPLETION_ANIMATION_TOTAL_MS = 1600;
 const COMPLETION_RETRY_DELAY_MS = 1200;
 const COMPLETION_REFRESH_DELAY_MS = 1750;
@@ -16,6 +18,8 @@ export type DocumentReadCompletionGeometry = {
   isEnabled: boolean;
   isTriggered: boolean;
   readState: ReadState;
+  scrollY: number;
+  scrollableHeight: number;
   sentinelTop: number;
   viewportBottom: number;
 };
@@ -107,6 +111,19 @@ export function useDocumentReadCompletion(options: UseDocumentReadCompletionOpti
         setPhase("animating");
         persistTimeoutRef.current = window.setTimeout(() => {
           persistTimeoutRef.current = null;
+          const latestGeometry = measureDocumentReadCompletionGeometry({
+            isEnabled: options.isEnabled,
+            isTriggered: false,
+            readState: options.readState,
+            sentinelElement: sentinelRef.current,
+          });
+
+          if (!latestGeometry || !shouldTriggerDocumentReadCompletion(latestGeometry)) {
+            hasTriggeredRef.current = false;
+            setPhase(latestGeometry ? resolveDocumentReadCompletionPhase("idle", latestGeometry) : "idle");
+            return;
+          }
+
           void persistReadState();
         }, COMPLETION_ANIMATION_TOTAL_MS);
         return;
@@ -168,6 +185,10 @@ function shouldArmDocumentReadCompletion(geometry: DocumentReadCompletionGeometr
     return false;
   }
 
+  if (isShortScrollableDocument(geometry)) {
+    return geometry.scrollY > 0 && isNearDocumentBottom(geometry);
+  }
+
   return geometry.sentinelTop <= geometry.viewportBottom + COMPLETION_NEAR_BOTTOM_OFFSET_PX;
 }
 
@@ -187,9 +208,19 @@ function measureDocumentReadCompletionGeometry(options: {
     isEnabled: options.isEnabled,
     isTriggered: options.isTriggered,
     readState: options.readState,
+    scrollY: window.scrollY,
+    scrollableHeight: Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
     sentinelTop: rect.top + window.scrollY,
     viewportBottom: window.scrollY + window.innerHeight,
   };
+}
+
+function isShortScrollableDocument(geometry: DocumentReadCompletionGeometry) {
+  return geometry.scrollableHeight <= COMPLETION_MIN_SCROLLABLE_HEIGHT_PX;
+}
+
+function isNearDocumentBottom(geometry: DocumentReadCompletionGeometry) {
+  return geometry.scrollableHeight - geometry.scrollY <= COMPLETION_SHORT_DOC_BOTTOM_TOLERANCE_PX;
 }
 
 async function sendReadCompletionRequest(documentId: string) {

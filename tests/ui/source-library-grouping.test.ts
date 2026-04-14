@@ -484,6 +484,7 @@ function createListItem(overrides: Partial<DocumentListItem> = {}): DocumentList
     publishedAtKind: PublishedAtKind.EXACT,
     enteredReadingAt: null,
     readState: ReadState.UNREAD,
+    readingProgress: 0,
     isFavorite: false,
     ingestionStatus: IngestionStatus.READY,
     createdAt: "2026-03-27T08:30:00.000Z",

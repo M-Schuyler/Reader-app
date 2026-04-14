@@ -32,6 +32,7 @@ export function getHighlightsQaFixtureDocument(): DocumentDetail {
     publishedAtKind: "EXACT",
     enteredReadingAt: "2026-03-27T10:10:00.000Z",
     readState: ReadState.UNREAD,
+    readingProgress: 0,
     isFavorite: false,
     ingestionStatus: IngestionStatus.READY,
     createdAt: "2026-03-27T10:00:00.000Z",
