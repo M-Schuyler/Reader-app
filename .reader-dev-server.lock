@@ -1,0 +1,7 @@
+{
+  "command": "/usr/local/bin/node /Users/chenshukai/projects/reader-app/scripts/dev/run-worktree-command.mjs dev",
+  "createdAt": "2026-04-14T03:05:45.588Z",
+  "cwd": "/Users/chenshukai/projects/reader-app",
+  "pid": 60381,
+  "token": "60381-1776135945588-vpudomm3"
+}
