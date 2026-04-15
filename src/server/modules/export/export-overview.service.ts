@@ -1,6 +1,8 @@
 import { IngestionStatus } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 
+const EXPORT_CANDIDATE_LIMIT = 50;
+
 export type ExportOverview = {
   starredDocuments: number;
   summarizedDocuments: number;
@@ -60,7 +62,7 @@ export async function getExportOverview(): Promise<ExportOverview> {
       orderBy: {
         updatedAt: "desc",
       },
-      take: 8,
+      take: EXPORT_CANDIDATE_LIMIT,
       select: {
         id: true,
         title: true,

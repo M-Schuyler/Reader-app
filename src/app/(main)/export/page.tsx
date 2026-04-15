@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ExportCandidateBatchActions } from "@/components/export/export-candidate-batch-actions";
 import { PageHeader } from "@/components/ui/page-header";
 import { Panel } from "@/components/ui/panel";
 import { getExportOverview } from "@/server/modules/export/export-overview.service";
@@ -34,24 +34,7 @@ export default async function ExportPage() {
               还没有适合导出的文档。先收藏内容、等待摘要完成，再积累一些高亮，导出会更完整。
             </p>
           ) : (
-            <div className="divide-y divide-[color:var(--border-subtle)]">
-              {overview.candidates.map((candidate) => (
-                <article className="space-y-3 py-5 first:pt-0 last:pb-0" key={candidate.id}>
-                  <div className="flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-                    {candidate.hasSummary ? <span>摘要已就绪</span> : null}
-                    {candidate.isFavorite ? <span>已收藏</span> : null}
-                    {candidate.highlightCount > 0 ? <span>{candidate.highlightCount} 条高亮</span> : null}
-                  </div>
-                  <Link
-                    className="block font-ui-heading text-[1.6rem] leading-tight tracking-[-0.04em] text-[color:var(--text-primary)] transition hover:text-[color:var(--text-primary-strong)]"
-                    href={`/documents/${candidate.id}`}
-                  >
-                    {candidate.title}
-                  </Link>
-                  <p className="text-sm text-[color:var(--text-secondary)]">{truncateUrl(candidate.canonicalUrl ?? candidate.sourceUrl)}</p>
-                </article>
-              ))}
-            </div>
+            <ExportCandidateBatchActions candidates={overview.candidates} />
           )}
         </Panel>
 
@@ -79,17 +62,4 @@ function MetricPanel({ hint, label, value }: { hint: string; label: string; valu
       <p className="font-display text-[2.4rem] leading-none tracking-[-0.04em] text-[color:var(--text-primary)]">{value}</p>
     </Panel>
   );
-}
-
-function truncateUrl(value: string | null) {
-  if (!value) {
-    return "暂无来源链接";
-  }
-
-  try {
-    const url = new URL(value);
-    return `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`;
-  } catch {
-    return value;
-  }
 }
