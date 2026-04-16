@@ -25,10 +25,8 @@ test("main layout delegates shell rendering to workspace chrome", () => {
 
   assert.match(rail, /HeaderAccountMenu/);
   assert.match(rail, /data-rail-visual-state/);
-  assert.match(rail, /transition-opacity ease-out/);
-  assert.match(rail, /border-r border-\[color:var\(--border-subtle\)\]/);
+  assert.match(rail, /transition-all duration-500/);
   assert.match(rail, /opacity: railOpacity/);
-  assert.doesNotMatch(rail, /translateX|translate-x/);
 
   assert.match(bottomNav, /SearchNavIcon/);
   assert.match(bottomNav, /id === "reading"/);

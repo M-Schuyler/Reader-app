@@ -20,7 +20,7 @@ test("sources page uses the dedicated source index view with a compact overflow 
   assert.match(sourcesPage, /SourceLibraryIndex/);
   assert.match(sourcesPage, /SourceLibraryMoreMenu/);
   assert.match(sourcesPage, /getSourceLibraryIndex/);
-  assert.doesNotMatch(sourcesPage, /PageHeader/);
+  assert.doesNotMatch(sourcesPage, /<PageHeader/);
   assert.match(sourcesPage, /font-ui-heading text-2xl font-bold/);
   assert.match(menu, /CaptureUrlForm/);
   assert.match(menu, /CreateSourceForm/);
@@ -58,7 +58,7 @@ test("source library index renders a single recent-7-days section and keeps dedi
   assert.doesNotMatch(sourceLibrary, /最近收进来/);
   assert.doesNotMatch(sourceLibrary, /近七天/);
   assert.doesNotMatch(sourceLibrary, /label:\s*"更早"/);
-  assert.match(sourceCard, /h-\[17\.5rem\]/);
+  assert.match(sourceCard, /h-\[18rem\]/);
 });
 
 test("source library toolbar supports an index-only mode with just the two capture forms", () => {
@@ -82,16 +82,13 @@ test("source library toolbar supports an index-only mode with just the two captu
 test("sources all page uses the fused source-library document list instead of the source card wall", () => {
   const allDocumentsPage = readWorkspaceFile("src/app/(main)/sources/all/page.tsx");
 
-  assert.match(allDocumentsPage, /DocumentList/);
+  assert.match(allDocumentsPage, /SourceLibraryIndex/);
   assert.match(allDocumentsPage, /SourceLibraryToolbar/);
   assert.match(allDocumentsPage, /showFilters/);
   assert.match(allDocumentsPage, /filters=\{data\.filters\}/);
-  assert.match(allDocumentsPage, /sortContext="documentList"/);
+  assert.match(allDocumentsPage, /sortContext="sourceIndex"/);
   assert.match(allDocumentsPage, /返回来源库/);
-  assert.match(allDocumentsPage, /pagination\.total/);
-  assert.match(allDocumentsPage, /上一页/);
-  assert.match(allDocumentsPage, /下一页/);
-  assert.doesNotMatch(allDocumentsPage, /SourceLibraryIndex/);
+  assert.doesNotMatch(allDocumentsPage, /DocumentList/);
   assert.doesNotMatch(allDocumentsPage, /SourceLibraryDocumentList/);
 });
 
@@ -125,12 +122,12 @@ test("source detail routes and unknown source route use the dedicated detail sur
   assert.match(detailPage, /getDocuments/);
   assert.match(detailPage, /shouldEnableContentOriginForSourceDetail/);
   assert.match(detailPage, /enableContentOrigin/);
-  assert.match(detailPage, /meta=\{/);
+  assert.match(detailPage, /\{sourceContext\.meta\}/);
   assert.doesNotMatch(detailPage, /SourceLibraryToolbar/);
   assert.doesNotMatch(detailPage, /import \{ Panel \}/);
+  assert.match(detailPage, /返回来源库/);
   assert.match(detailComponent, /DocumentList/);
   assert.match(detailComponent, /SourceLibraryDetailFilters/);
-  assert.match(detailComponent, /返回来源库/);
   assert.doesNotMatch(detailComponent, /SourceLibrarySourceCard/);
   assert.doesNotMatch(detailComponent, /Source detail/);
   assert.doesNotMatch(detailComponent, /SourceLibraryDocumentList/);

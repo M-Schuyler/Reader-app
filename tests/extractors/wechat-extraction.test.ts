@@ -79,7 +79,8 @@ test("extracts WeChat text-share pages when readable content only exists in inli
   });
 
   assert.equal(result.title, "成功人士的话，该不该听？");
-  assert.equal(result.author, "请辩");
+  assert.equal(result.author, null);
+  assert.equal(result.wechatAccountName, "请辩");
   assert.ok(result.publishedAt instanceof Date);
   assert.equal(result.publishedAt?.toISOString(), "2026-04-07T05:17:26.000Z");
   assert.ok(result.contentHtml);

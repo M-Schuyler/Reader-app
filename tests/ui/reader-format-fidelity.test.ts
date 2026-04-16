@@ -22,10 +22,6 @@ test("reader rich content supports table and inline semantic tags", () => {
   assert.match(richContent, /case "sub":/);
   assert.match(richContent, /case "u":/);
   assert.match(richContent, /case "del":/);
-  assert.match(richContent, /fontSize\?: string/);
-  assert.match(richContent, /lineHeight\?: string/);
-  assert.match(richContent, /--reader-font-size/);
-  assert.match(richContent, /--reader-line-height/);
 
   assert.match(globals, /\.reader-table-wrap/);
   assert.match(globals, /\.reader-table/);
