@@ -218,7 +218,7 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
                 </div>
                 
                 <Link
-                  className="block font-display text-[1.5rem] leading-[1.2] tracking-tight text-[color:var(--text-primary)] transition hover:text-[color:var(--text-primary-strong)] sm:text-[1.8rem]"
+                  className="block max-w-4xl font-ui-heading text-[1.3rem] font-bold leading-[1.2] tracking-[-0.02em] text-[color:var(--text-primary)] transition hover:text-[color:var(--text-primary-strong)] sm:text-[1.4rem]"
                   href={`/documents/${candidate.id}`}
                 >
                   {candidate.title}

@@ -74,7 +74,7 @@ export default async function HighlightsPage({ searchParams }: HighlightsPagePro
                     
                     {/* 高亮正文：使用 Reading 页 Prose 风格 */}
                     <div className="relative">
-                      <blockquote className="text-[19px] font-serif leading-[1.8] text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)] sm:text-[21px]">
+                      <blockquote className="max-w-4xl text-base font-serif leading-relaxed text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)] sm:text-[17px]">
                         <Link href={`/documents/${highlight.document.id}#highlight-${highlight.id}`} className="block">
                           “{highlight.quoteText}”
                         </Link>
