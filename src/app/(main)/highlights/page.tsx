@@ -46,9 +46,9 @@ export default async function HighlightsPage({ searchParams }: HighlightsPagePro
           <p className="text-[15px] text-[color:var(--text-tertiary)]">还没有任何高亮轨迹</p>
         </div>
       ) : (
-        <div className="space-y-24">
+        <div className="space-y-16">
           {Object.entries(groupedHighlights).map(([date, highlights]) => (
-            <div className="space-y-12" key={date}>
+            <div className="space-y-6" key={date}>
               {/* 日期分隔：极具节奏感 */}
               <div className="sticky top-0 z-10 flex items-center gap-4 bg-[color:var(--bg-body)]/90 py-6 backdrop-blur-md">
                 <span className="text-[11px] font-bold uppercase tracking-[0.35em] text-[color:var(--text-tertiary)]">
@@ -57,9 +57,9 @@ export default async function HighlightsPage({ searchParams }: HighlightsPagePro
                 <div className="h-px flex-1 bg-gradient-to-r from-[color:var(--border-subtle)] to-transparent" />
               </div>
 
-              <div className="space-y-20">
+              <div className="space-y-12">
                 {highlights.map((highlight) => (
-                  <article className="group relative space-y-5" key={highlight.id}>
+                  <article className="group relative space-y-4" key={highlight.id}>
                     {/* 来源信息：与 Reading 页 Meta 信息对齐 */}
                     <div className="flex items-center gap-2.5 text-[12px] text-[color:var(--text-tertiary)]">
                       <span className="tabular-nums opacity-60">{formatTime(highlight.createdAt)}</span>
