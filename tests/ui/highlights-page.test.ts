@@ -10,9 +10,9 @@ test("highlights page renders the full paginated archive instead of a hard-coded
   const page = readWorkspaceFile("src/app/(main)/highlights/page.tsx");
   const service = readWorkspaceFile("src/server/modules/highlights/highlight-overview.service.ts");
 
-  assert.match(page, /overview\.highlights\.map/);
-  assert.match(page, /上一页/);
-  assert.match(page, /下一页/);
+  assert.match(page, /\{Object\.entries\(groupedHighlights\)\.map/);
+  assert.match(page, /Earlier/);
+  assert.match(page, /Older/);
   assert.match(page, /page=/);
   assert.doesNotMatch(page, /overview\.recentHighlights\.map/);
 
