@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MagicWandIcon, PremiumStarIcon, NibIcon } from "@/components/icons/magic-wand-icon";
-import { cx } from "@/utils/cx";
 import { formatPublishedAtLabel } from "@/lib/documents/published-at";
+import { cx } from "@/utils/cx";
 
 export type ExportCandidate = {
   id: string;
@@ -50,7 +50,10 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
   function handleToggleDocumentSelection(documentId: string, checked: boolean) {
     setSelectedDocumentIds((current) => {
       if (checked) {
-        if (current.includes(documentId)) return current;
+        if (current.includes(documentId)) {
+          return current;
+        }
+
         return [...current, documentId];
       }
       return current.filter((id) => id !== documentId);
@@ -58,23 +61,41 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
   }
 
   async function handleBatchDownload() {
-    if (!canDownload) return;
+    if (!canDownload) {
+      return;
+    }
     setIsDownloading(true);
     setActionError(null);
 
     try {
       const response = await fetch("/api/export/batch-download", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ documentIds: selectedDocumentIds, format }),
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          documentIds: selectedDocumentIds,
+          format,
+        }),
       });
 
       if (!response.ok) {
         let message = "批量导出失败，请稍后再试。";
+
         try {
-          const payload = (await response.json()) as { ok?: boolean; error?: { message?: string } };
-          if (payload.ok === false && payload.error?.message) message = payload.error.message;
-        } catch {}
+          const payload = (await response.json()) as {
+            ok?: boolean;
+            error?: {
+              message?: string;
+            };
+          };
+
+          if (payload.ok === false && payload.error?.message) {
+            message = payload.error.message;
+          }
+        } catch {
+          // Ignore JSON parsing failure and keep the default error message.
+        }
         setActionError(message);
         return;
       }
@@ -83,6 +104,7 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
+
       anchor.href = objectUrl;
       anchor.download = fileName;
       anchor.style.display = "none";
@@ -103,13 +125,13 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <span className="text-[13px] font-bold tabular-nums text-[color:var(--text-primary)]">
-              {selectedCount} <span className="text-[color:var(--text-tertiary)] font-medium">Selected</span>
+              {selectedCount} <span className="font-medium text-[color:var(--text-tertiary)]">已选</span>
             </span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[color:var(--text-tertiary)]">
-            <button className="transition hover:text-[color:var(--text-primary)]" onClick={handleSelectAll} type="button">All</button>
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-[color:var(--text-tertiary)]">
+            <button className="transition hover:text-[color:var(--text-primary)]" onClick={handleSelectAll} type="button">全选</button>
             <span className="h-2 w-px bg-[color:var(--border-subtle)]" />
-            <button className="transition hover:text-[color:var(--text-primary)]" onClick={handleClearSelection} type="button">None</button>
+            <button className="transition hover:text-[color:var(--text-primary)]" onClick={handleClearSelection} type="button">清空</button>
           </div>
         </div>
 
@@ -133,18 +155,20 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
             ))}
           </div>
           <Button 
-            className="rounded-full px-8 py-6 text-[12px] font-bold uppercase tracking-widest shadow-xl shadow-black/5 transition-all active:scale-95 hover:shadow-black/10" 
+            className="rounded-full px-8 py-6 text-[12px] font-bold shadow-xl shadow-black/5 transition-all active:scale-95 hover:shadow-black/10" 
             disabled={!canDownload} 
             onClick={() => void handleBatchDownload()} 
             variant="primary"
           >
-            {isDownloading ? "..." : "Export"}
+            {isDownloading ? "导出中…" : "批量导出"}
           </Button>
         </div>
       </div>
 
       {actionError ? (
-        <p className="rounded-2xl bg-[color:var(--badge-danger-bg)] px-4 py-3 text-[13px] text-[color:var(--badge-danger-text)] border border-[color:var(--badge-danger-text)]/10">{actionError}</p>
+        <p className="rounded-2xl border border-[color:var(--badge-danger-text)]/10 bg-[color:var(--badge-danger-bg)] px-4 py-3 text-[13px] text-[color:var(--badge-danger-text)]">
+          {actionError}
+        </p>
       ) : null}
 
       <div className="space-y-6">
@@ -194,8 +218,8 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/10 text-amber-500 transition-all duration-300 group-hover/badge:scale-110 group-hover/badge:bg-amber-400/20">
                         <PremiumStarIcon className="h-4 w-4" />
                       </div>
-                      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[color:var(--text-primary)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white opacity-0 transition-opacity group-hover/badge:opacity-100 shadow-xl">
-                        Favorite
+                      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[color:var(--text-primary)] px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-xl transition-opacity group-hover/badge:opacity-100">
+                        收藏
                       </span>
                     </div>
                   ) : null}
@@ -207,8 +231,8 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
                           {candidate.highlightCount}
                         </span>
                       </div>
-                      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[color:var(--text-primary)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white opacity-0 transition-opacity group-hover/badge:opacity-100 shadow-xl">
-                        {candidate.highlightCount} Highlights
+                      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[color:var(--text-primary)] px-2 py-1 text-[10px] font-bold text-white opacity-0 shadow-xl transition-opacity group-hover/badge:opacity-100">
+                        {candidate.highlightCount} 条高亮
                       </span>
                     </div>
                   ) : null}
@@ -239,7 +263,7 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
                   </div>
                   
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[color:var(--text-primary)] opacity-0 transition-all translate-x-2 group-hover:opacity-100 group-hover:translate-x-0">
-                    <span className="tracking-widest uppercase text-[10px]">Open</span>
+                    <span className="text-[10px] tracking-[0.18em]">打开</span>
                     <ArrowRightIcon />
                   </div>
                 </div>
@@ -263,9 +287,14 @@ function ArrowRightIcon() {
 function resolveDownloadFileName(contentDisposition: string | null, format: BatchDownloadFormat) {
   if (contentDisposition) {
     const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-    if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1]);
+    if (utf8Match?.[1]) {
+      return decodeURIComponent(utf8Match[1]);
+    }
+
     const fallbackMatch = contentDisposition.match(/filename="([^"]+)"/i);
-    if (fallbackMatch?.[1]) return fallbackMatch[1];
+    if (fallbackMatch?.[1]) {
+      return fallbackMatch[1];
+    }
   }
   const timestamp = new Date().toISOString().replaceAll(":", "").replaceAll("-", "").slice(0, 15);
   return `reader-batch-export-${format}-${timestamp}.zip`;

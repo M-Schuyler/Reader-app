@@ -1,7 +1,7 @@
+import type { ReactNode } from "react";
 import { ExportCandidateBatchActions } from "@/components/export/export-candidate-batch-actions";
-import { getExportOverview } from "@/server/modules/export/export-overview.service";
 import { MagicWandIcon } from "@/components/icons/magic-wand-icon";
-import Link from "next/link";
+import { getExportOverview } from "@/server/modules/export/export-overview.service";
 import { cx } from "@/utils/cx";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,11 @@ export default async function ExportPage() {
 
         <div className="flex items-center gap-2">
           <StatBadge icon={<StarIcon className="text-amber-500" />} label="Starred" value={overview.starredDocuments} />
-          <StatBadge icon={<MagicWandIcon className="text-[color:var(--ai-card-accent)]" />} label="Summaries" value={overview.summarizedDocuments} />
+          <StatBadge
+            icon={<MagicWandIcon className="text-[color:var(--ai-card-accent)]" />}
+            label="Summaries"
+            value={overview.summarizedDocuments}
+          />
           <StatBadge icon={<HighlighterIcon className="text-[color:var(--text-primary)]" />} label="Highlights" value={overview.highlightedDocuments} />
         </div>
       </div>
@@ -45,7 +49,7 @@ export default async function ExportPage() {
   );
 }
 
-function StatBadge({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function StatBadge({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
     <div className="group/stat relative flex items-center gap-2.5 rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] px-4 py-1.5 transition-all hover:border-[color:var(--border-strong)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:translate-y-[-1px]">
       {/* 背景极光微光 */}

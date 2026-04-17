@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type MouseEvent, type ReactNode } from "react";
 import { IngestionStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { DocumentTagPills } from "@/components/documents/document-tag-pills";
@@ -88,7 +88,10 @@ function DocumentCard({
   const favorite = useDocumentFavoriteController(item);
   const shouldShowStatusBadge = item.ingestionStatus !== IngestionStatus.READY;
 
-  async function handleDelete(e: React.MouseEvent) {
+  const sourceLabel = item.author || truncateUrl(item.canonicalUrl ?? item.sourceUrl);
+  const faviconUrl = resolveFaviconUrl(item.canonicalUrl ?? item.sourceUrl);
+
+  async function handleDelete(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     
@@ -125,10 +128,10 @@ function DocumentCard({
             
             <div className="flex items-center gap-2 ml-1">
               {item.readState === "READ" && (
-                <StatusIconTooltip icon={<CheckCircleIcon className="text-emerald-500" />} label="Read" />
+                <StatusIconTooltip icon={<CheckCircleIcon className="text-emerald-500" />} label="已读" />
               )}
               {item.isFavorite && (
-                <StatusIconTooltip icon={<PremiumStarIcon className="text-amber-500" />} label="Favorite" />
+                <StatusIconTooltip icon={<PremiumStarIcon className="text-amber-500" />} label="收藏" />
               )}
               {shouldShowStatusBadge ? (
                 <Badge tone={statusTone(item.ingestionStatus)}>{formatIngestionStatus(item.ingestionStatus)}</Badge>
@@ -169,17 +172,16 @@ function DocumentCard({
                   </span>
                 </div>
               ) : null}
-              
               <div className="flex items-center gap-2 truncate opacity-60">
                 <span className="h-3 w-px bg-[color:var(--border-subtle)]" />
-                {item.canonicalUrl && (
+                {faviconUrl ? (
                   <img
                     alt=""
                     className="h-3.5 w-3.5 rounded-sm grayscale opacity-70 transition-all group-hover:grayscale-0 group-hover:opacity-100"
-                    src={`https://www.google.com/s2/favicons?sz=32&domain=${new URL(item.canonicalUrl).hostname}`}
+                    src={faviconUrl}
                   />
-                )}
-                <span className="truncate">{item.author || truncateUrl(item.canonicalUrl ?? item.sourceUrl)}</span>
+                ) : null}
+                <span className="truncate">{sourceLabel}</span>
               </div>
             </div>
           </Link>
@@ -259,13 +261,13 @@ function CheckCircleIcon({ className }: { className?: string }) {
   );
 }
 
-function StatusIconTooltip({ icon, label }: { icon: React.ReactNode; label: string }) {
+function StatusIconTooltip({ icon, label }: { icon: ReactNode; label: string }) {
   return (
     <div className="group/status relative flex items-center justify-center">
       <div className="flex h-6 w-6 items-center justify-center transition-transform group-hover/status:scale-110">
         {icon}
       </div>
-      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[color:var(--text-primary)] px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white opacity-0 transition-opacity group-hover/status:opacity-100">
+      <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[color:var(--text-primary)] px-2 py-1 text-[9px] font-bold text-white opacity-0 transition-opacity group-hover/status:opacity-100">
         {label}
       </span>
     </div>
@@ -318,5 +320,15 @@ function truncateUrl(value: string | null) {
     return `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`;
   } catch {
     return value;
+  }
+}
+
+function resolveFaviconUrl(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return `https://www.google.com/s2/favicons?sz=32&domain=${url.hostname}`;
+  } catch {
+    return null;
   }
 }

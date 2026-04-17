@@ -8,8 +8,6 @@ import {
   PublishedAtKind,
   ReadState,
   SourceKind,
-  TranscriptSource,
-  TranscriptStatus,
 } from "@prisma/client";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 import {

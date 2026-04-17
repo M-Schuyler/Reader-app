@@ -15,11 +15,11 @@ test("export page renders the batch actions component for candidate queue", () =
 test("batch export candidate component includes selection controls and batch download request", () => {
   const component = readFileSync(path.join(root, "src/components/export/export-candidate-batch-actions.tsx"), "utf8");
 
-  assert.match(component, /Selected/);
-  assert.match(component, />All</);
-  assert.match(component, />None</);
+  assert.match(component, /已选/);
+  assert.match(component, /全选/);
+  assert.match(component, /清空/);
   assert.match(component, /type="checkbox"/);
-  assert.match(component, /Export/);
+  assert.match(component, /批量导出/);
   assert.match(component, /\/api\/export\/batch-download/);
   assert.match(component, /documentIds: selectedDocumentIds/);
   assert.match(component, /format,/);
