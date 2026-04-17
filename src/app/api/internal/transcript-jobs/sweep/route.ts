@@ -3,6 +3,14 @@ import { requireInternalApiAccess } from "@/server/auth/internal";
 import { sweepTranscriptQueueForReader } from "@/server/modules/documents/document.service";
 
 export async function POST(request: Request) {
+  return handleSweepRequest(request);
+}
+
+export async function GET(request: Request) {
+  return handleSweepRequest(request);
+}
+
+async function handleSweepRequest(request: Request) {
   try {
     requireInternalApiAccess(request);
     return ok(await sweepTranscriptQueueForReader());

@@ -9,6 +9,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/internal/transcript-jobs/sweep",
+      "schedule": "17 * * * *"
+    },
+    {
       "path": "/api/internal/content-origin/wechat-backfill",
       "schedule": "30 4 * * *"
     }

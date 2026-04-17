@@ -7,6 +7,7 @@ import { Panel } from "@/components/ui/panel";
 import type { DocumentVideoEmbed } from "@/lib/documents/video-types";
 
 const YOUTUBE_POLL_INTERVAL_MS = 600;
+const TRANSCRIPT_PENDING_POLL_INTERVAL_MS = 10_000;
 const VIDEO_READ_THRESHOLD = 0.88;
 
 type VideoReaderProps = {
@@ -57,6 +58,7 @@ export function VideoReader({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const segmentRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const markedReadRef = useRef(false);
+  const transcriptSweepRequestedRef = useRef(false);
   const [currentTimeSeconds, setCurrentTimeSeconds] = useState<number | null>(null);
   const [playerDurationSeconds, setPlayerDurationSeconds] = useState<number | null>(null);
   const [manualFocusedSegmentIndex, setManualFocusedSegmentIndex] = useState<number | null>(null);
@@ -66,6 +68,8 @@ export function VideoReader({
   const isSeekMode = videoEmbed.syncMode === "seek";
   const canSeek = isYouTubeFullSync || isSeekMode;
   const effectiveDurationSeconds = playerDurationSeconds ?? videoDurationSeconds;
+  const isPendingGeminiTranscript =
+    videoEmbed.transcriptStatus === "PENDING" && videoEmbed.transcriptSource === "GEMINI";
 
   useEffect(() => {
     if (!canSeek || !iframeRef.current) {
@@ -164,6 +168,38 @@ export function VideoReader({
       behavior: "smooth",
     });
   }, [activeSegmentIndex]);
+
+  useEffect(() => {
+    if (!isPendingGeminiTranscript) {
+      transcriptSweepRequestedRef.current = false;
+      return;
+    }
+
+    if (transcriptSweepRequestedRef.current) {
+      return;
+    }
+
+    transcriptSweepRequestedRef.current = true;
+    void fetch("/api/transcript-jobs/sweep", { method: "POST" })
+      .then(() => {
+        router.refresh();
+      })
+      .catch(() => undefined);
+  }, [isPendingGeminiTranscript, router]);
+
+  useEffect(() => {
+    if (!isPendingGeminiTranscript) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      router.refresh();
+    }, TRANSCRIPT_PENDING_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isPendingGeminiTranscript, router]);
 
   useEffect(() => {
     if (!canSeek || readState === ReadState.READ) {

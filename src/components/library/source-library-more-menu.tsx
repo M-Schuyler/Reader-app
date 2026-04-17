@@ -139,7 +139,7 @@ function SweepButton({ onDone }: { onDone: () => void }) {
       disabled={state === "running"}
       onClick={handleSweep}
     >
-      {state === "idle" && "补跑摘要"}
+      {state === "idle" && "补跑 AI 队列"}
       {state === "running" && "运行中…"}
       {state === "done" && "完成"}
     </button>

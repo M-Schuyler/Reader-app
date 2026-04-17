@@ -65,13 +65,20 @@ export async function runPendingDocumentTranscriptJobs(limit = TRANSCRIPT_JOB_BA
 }
 
 async function processTranscriptJob(job: Prisma.IngestionJobGetPayload<Record<string, never>>) {
-  await prisma.ingestionJob.update({
-    where: { id: job.id },
+  const claimedJob = await prisma.ingestionJob.updateMany({
+    where: {
+      id: job.id,
+      status: IngestionJobStatus.PENDING,
+    },
     data: {
       status: IngestionJobStatus.PROCESSING,
       startedAt: new Date(),
     },
   });
+
+  if (claimedJob.count === 0) {
+    return { jobId: job.id, outcome: "skipped" };
+  }
 
   if (!job.documentId) {
     return failTranscriptJob(job.id, "Missing documentId");
