@@ -13,12 +13,12 @@ Reader is intentionally **not** a full personal knowledge system. It does not tr
 
 ## Product Surfaces
 
-### Library
-- The intake queue for everything worth reading
-- Primary actions: capture, scan, filter, star, defer, archive
+### Sources
+- The main intake and browsing surface for everything worth reading
+- Primary actions: capture, scan, filter, review by source, and move into active reading
 
-### Reader
-- The core surface
+### Reading
+- The active reading queue and reading detail flow
 - Reading stays central; controls remain secondary
 
 ### Highlights
@@ -49,8 +49,8 @@ Reader is not responsible for:
 
 The next stage follows the **Input Hub Reader** direction:
 
-- keep Library as the main intake queue
-- keep Reader as the main stage
+- keep Sources as the main intake and browsing surface
+- keep Reading as the active reading flow
 - add Highlights as the review surface
 - add Export as the exit lane
 - expand sources without expanding into a bloated workspace product
@@ -83,6 +83,31 @@ Use this flow instead:
 - `.env.worktree.local`
 
 They do **not** read `.env.local`, which prevents the worktree from accidentally booting against the wrong database.
+
+## Engineering Workflow
+
+Use these commands as the local verification baseline:
+
+- `npm test`
+- `npm run typecheck`
+- `npm run verify:local`
+
+`verify:local` is the full local check. It runs:
+
+- `npm test`
+- `npm run typecheck`
+- `npm run build:local`
+
+Test placement follows three explicit boundaries:
+
+- `src/**/*.test.ts` and `src/**/*.test.tsx`
+  - Source-adjacent unit and module tests
+- `tests/**/*.test.ts` and `tests/**/*.test.tsx`
+  - Cross-module, integration, UI, and file-content assertion tests
+- `scripts/**/*.test.mjs`
+  - Node-side workflow and workspace script tests
+
+This repository does **not** currently define a project linter. Do not add a `lint` script that implies coverage we do not actually have.
 
 ## Cloud Deployment
 

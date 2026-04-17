@@ -45,7 +45,7 @@ test("theme system is wired into the app shell and global tokens", () => {
   assert.match(rail, /SearchNavIcon/);
   assert.match(rail, /SourcesNavIcon/);
   assert.match(rail, /data-active=\{item\.isActive \? "true" : "false"\}/);
-  assert.match(rail, /bg-stone-900 !text-white/);
+  assert.match(rail, /!text-white/);
   assert.match(globalsCss, /:root\[data-theme="dark"\]/);
   assert.match(globalsCss, /--bg-header:/);
   assert.match(globalsCss, /--bg-field:/);

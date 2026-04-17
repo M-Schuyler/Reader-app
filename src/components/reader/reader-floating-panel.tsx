@@ -349,19 +349,6 @@ function ReaderTypographyControl() {
         </div>
       </div>
 
-      <div className="space-y-2.5">
-        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">实时预览</p>
-        <div className="rounded-[14px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3.5">
-          <p
-            className="reader-prose font-display text-[color:var(--text-primary)]"
-          >
-            今天的阅读，从一个清晰的段落开始。The interface should stay calm, while the text stays legible and focused.
-            <br />
-            <br />
-            短句用来确认节奏。Longer sentences help you feel how spacing affects sustained reading comfort over time.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }

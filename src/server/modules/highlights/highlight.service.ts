@@ -1,9 +1,9 @@
 import { IngestionStatus, Prisma, type Prisma as PrismaTypes } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
-import { getDocumentById } from "@/server/modules/documents/document.repository";
 import {
   createHighlight,
   deleteHighlight,
+  getHighlightableDocumentById,
   getHighlightById,
   listHighlightsByDocumentId,
   updateHighlight,
@@ -109,13 +109,13 @@ export async function addDocumentHighlight(
   documentId: string,
   input: CreateHighlightInput,
 ): Promise<HighlightMutationResponseData | null> {
-  const document = await getDocumentById(documentId);
+  const document = await getHighlightableDocumentById(documentId);
 
   if (!document) {
     return null;
   }
 
-  const hasContent = Boolean(document.content?.plainText.trim() || document.content?.contentHtml?.trim());
+  const hasContent = Boolean(document.content);
 
   if (!shouldAllowHighlightCreation({ ingestionStatus: document.ingestionStatus, hasContent })) {
     throw new RouteError("DOCUMENT_NOT_HIGHLIGHTABLE", 409, "Highlights are only available for readable documents.");

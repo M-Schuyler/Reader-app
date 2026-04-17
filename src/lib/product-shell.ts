@@ -85,7 +85,7 @@ export function buildReadingViewHref(view: ReadingViewId, baseParams: URLSearchP
 
 function isNavItemActive(pathname: string, href: string) {
   if (href === "/reading") {
-    return pathname === "/reading" || pathname.startsWith("/documents/");
+    return pathname === "/reading" || pathname.startsWith("/reading/");
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

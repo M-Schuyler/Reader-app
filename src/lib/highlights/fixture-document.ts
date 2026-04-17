@@ -1,4 +1,11 @@
-import { AiSummaryStatus, DocumentType, IngestionStatus, ReadState } from "@prisma/client";
+import {
+  AiSummaryStatus,
+  DocumentType,
+  IngestionStatus,
+  ReadState,
+  TranscriptSource,
+  TranscriptStatus,
+} from "@prisma/client";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 
 export const QA_HIGHLIGHTS_DOCUMENT_ID = "qa-highlights-document";
@@ -19,6 +26,8 @@ export function getHighlightsQaFixtureDocument(): DocumentDetail {
     videoThumbnailUrl: null,
     videoDurationSeconds: null,
     videoEmbed: null,
+    transcriptSource: null,
+    transcriptStatus: null,
     aiSummary:
       "This fixture exists to verify that selection anchoring, note editing, and reload persistence stay reliable on the real Reader surface.",
     aiSummaryStatus: AiSummaryStatus.READY,

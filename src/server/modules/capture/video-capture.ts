@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { load } from "cheerio";
+import { TranscriptSource, TranscriptStatus } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
 import {
   buildVideoExternalId,
@@ -23,6 +24,14 @@ type YoutubeCaptionTrack = {
   kind?: string;
 };
 
+type YoutubeCaptureMetadata = {
+  title: string | null;
+  author: string | null;
+  publishedAt: Date | null;
+  videoThumbnailUrl: string | null;
+  videoDurationSeconds: number | null;
+};
+
 export type CapturedVideoDocument = {
   provider: VideoProvider;
   externalId: string;
@@ -39,6 +48,8 @@ export type CapturedVideoDocument = {
   videoThumbnailUrl: string | null;
   videoDurationSeconds: number | null;
   transcriptSegments: TranscriptSegment[];
+  transcriptSource: TranscriptSource;
+  transcriptStatus: TranscriptStatus;
 };
 
 export function resolveVideoExternalIdHint(inputUrl: string) {
@@ -97,66 +108,72 @@ export async function captureVideoDocument(inputUrl: string): Promise<CapturedVi
 }
 
 async function captureYoutubeVideoDocument(identity: ResolvedVideoIdentity): Promise<CapturedVideoDocument> {
-  const watchUrl = new URL("https://www.youtube.com/watch");
-  watchUrl.searchParams.set("v", identity.id);
-  const rawHtml = await fetchText(watchUrl.toString(), {
-    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  });
-  const innertubePlayerResponse = await fetchYoutubePlayerResponseFromInnertube(identity.id, rawHtml);
-  const watchPlayerResponse = extractYoutubePlayerResponse(rawHtml);
+  const canonicalUrl = buildYoutubeCanonicalUrl(identity.id);
+  const watchFetchUrl = new URL(canonicalUrl);
+  watchFetchUrl.searchParams.set("hl", "en"); // Ensure English metadata/captions are prioritized
+
+  let rawHtml: string | null = null;
+  try {
+    rawHtml = await fetchText(watchFetchUrl.toString(), {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    });
+  } catch (error) {
+    if (!(error instanceof RouteError) || error.code !== "VIDEO_FETCH_FAILED") {
+      throw error;
+    }
+  }
+
+  const innertubePlayerResponse = rawHtml ? await fetchYoutubePlayerResponseFromInnertube(identity.id, rawHtml) : null;
+  const watchPlayerResponse = rawHtml ? extractYoutubePlayerResponse(rawHtml) : null;
   const playerResponse = innertubePlayerResponse ?? watchPlayerResponse;
-  if (!playerResponse) {
+
+  const captionTracks = rawHtml
+    ? [
+        ...extractYoutubeCaptionTracks(innertubePlayerResponse, rawHtml),
+        ...extractYoutubeCaptionTracks(watchPlayerResponse, rawHtml),
+      ]
+    : [];
+  const selectedTrack = selectYoutubeCaptionTrack(captionTracks);
+
+  let transcriptSegments: TranscriptSegment[] = [];
+  if (selectedTrack?.baseUrl) {
+    try {
+      const transcriptPayload = await fetchYoutubeTranscriptPayload(selectedTrack.baseUrl);
+      transcriptSegments = parseYouTubeTranscriptSegments(transcriptPayload);
+    } catch (error) {
+      if (!(error instanceof RouteError) || error.code !== "VIDEO_FETCH_FAILED") {
+        throw error;
+      }
+    }
+  }
+
+  const resolvedMetadata =
+    resolveYoutubeCaptureMetadata(playerResponse, watchPlayerResponse) ??
+    (await fetchYoutubeOEmbedMetadata(canonicalUrl));
+
+  if (!resolvedMetadata && transcriptSegments.length === 0) {
     throw new RouteError("VIDEO_METADATA_FETCH_FAILED", 502, "YouTube 页面解析失败。");
   }
 
-  const captionTracks = [
-    ...extractYoutubeCaptionTracks(innertubePlayerResponse),
-    ...extractYoutubeCaptionTracks(watchPlayerResponse),
-  ];
-  const selectedTrack = selectYoutubeCaptionTrack(captionTracks);
+  const plainText = transcriptSegments.length > 0 ? buildTranscriptPlainText(transcriptSegments) : "";
+  const transcriptStatus = transcriptSegments.length > 0 ? TranscriptStatus.READY : TranscriptStatus.PENDING;
+  const transcriptSource = transcriptSegments.length > 0 ? TranscriptSource.NATIVE : TranscriptSource.GEMINI;
 
-  if (!selectedTrack?.baseUrl) {
-    throw new RouteError("VIDEO_SUBTITLE_UNAVAILABLE", 422, "该视频暂时没有可用字幕，无法导入。");
-  }
-
-  const transcriptPayload = await fetchYoutubeTranscriptPayload(selectedTrack.baseUrl);
-  const transcriptSegments = parseYouTubeTranscriptSegments(transcriptPayload);
-  if (transcriptSegments.length === 0) {
-    throw new RouteError("VIDEO_SUBTITLE_UNAVAILABLE", 422, "该视频暂时没有可用字幕，无法导入。");
-  }
-
-  const plainText = buildTranscriptPlainText(transcriptSegments);
-  const canonicalUrl = watchUrl.toString();
-  const videoDetails = readObject(playerResponse, "videoDetails") ?? readObject(watchPlayerResponse, "videoDetails");
-  const microformat =
-    readObject(readObject(playerResponse, "microformat"), "playerMicroformatRenderer") ??
-    readObject(readObject(watchPlayerResponse, "microformat"), "playerMicroformatRenderer");
-  const title = readString(videoDetails, "title") ?? readString(microformat, "title") ?? "YouTube Video";
-  const author = readString(videoDetails, "author");
-  const durationSeconds = parseDurationSeconds(readString(videoDetails, "lengthSeconds"));
-  const thumbnailUrl = resolveYoutubeThumbnailUrl(videoDetails, microformat);
-  const publishedAt = parseDate(readString(microformat, "publishDate") ?? readString(microformat, "uploadDate"));
-
-  return {
-    provider: "youtube",
-    externalId: buildVideoExternalId({
-      provider: "youtube",
-      id: identity.id,
-    }),
+  return buildYoutubeCapturedDocument({
+    videoId: identity.id,
     canonicalUrl,
-    videoUrl: canonicalUrl,
-    title,
-    author,
-    lang: selectedTrack.languageCode ?? null,
-    excerpt: plainText.slice(0, 240),
+    title: resolvedMetadata?.title ?? "YouTube Video",
+    author: resolvedMetadata?.author ?? null,
+    lang: transcriptSegments.length > 0 ? selectedTrack?.languageCode ?? null : null,
+    excerpt: null,
     plainText,
-    textHash: createHash("sha256").update(plainText).digest("hex"),
-    wordCount: countReadableUnits(plainText),
-    publishedAt,
-    videoThumbnailUrl: thumbnailUrl,
-    videoDurationSeconds: durationSeconds,
+    publishedAt: resolvedMetadata?.publishedAt ?? null,
+    videoThumbnailUrl: resolvedMetadata?.videoThumbnailUrl ?? null,
+    videoDurationSeconds: resolvedMetadata?.videoDurationSeconds ?? null,
     transcriptSegments,
-  };
+    transcriptSource,
+    transcriptStatus,
+  });
 }
 
 async function captureBilibiliVideoDocument(sourceUrl: string, bvid: string): Promise<CapturedVideoDocument> {
@@ -243,6 +260,8 @@ async function captureBilibiliVideoDocument(sourceUrl: string, bvid: string): Pr
     videoThumbnailUrl: thumbnailUrl,
     videoDurationSeconds: durationSeconds,
     transcriptSegments,
+    transcriptSource: TranscriptSource.NATIVE,
+    transcriptStatus: TranscriptStatus.READY,
   };
 }
 
@@ -442,6 +461,128 @@ function buildYoutubeTranscriptCandidateUrls(baseUrl: string) {
   return [...candidates];
 }
 
+function buildYoutubeCanonicalUrl(videoId: string) {
+  const url = new URL("https://www.youtube.com/watch");
+  url.searchParams.set("v", videoId);
+  return url.toString();
+}
+
+function buildYoutubeCapturedDocument(input: {
+  videoId: string;
+  canonicalUrl: string;
+  title: string;
+  author: string | null;
+  lang: string | null;
+  excerpt: string | null;
+  plainText: string;
+  publishedAt: Date | null;
+  videoThumbnailUrl: string | null;
+  videoDurationSeconds: number | null;
+  transcriptSegments: TranscriptSegment[];
+  transcriptSource: TranscriptSource;
+  transcriptStatus: TranscriptStatus;
+}): CapturedVideoDocument {
+  const plainText = input.plainText.trim();
+  const excerpt = typeof input.excerpt === "string" ? input.excerpt.trim() : plainText.slice(0, 240);
+
+  return {
+    provider: "youtube",
+    externalId: buildVideoExternalId({
+      provider: "youtube",
+      id: input.videoId,
+    }),
+    canonicalUrl: input.canonicalUrl,
+    videoUrl: input.canonicalUrl,
+    title: input.title,
+    author: input.author,
+    lang: input.lang,
+    excerpt,
+    plainText,
+    textHash: createHash("sha256").update(plainText).digest("hex"),
+    wordCount: countReadableUnits(plainText),
+    publishedAt: input.publishedAt,
+    videoThumbnailUrl: input.videoThumbnailUrl,
+    videoDurationSeconds: input.videoDurationSeconds,
+    transcriptSegments: input.transcriptSegments,
+    transcriptSource: input.transcriptSource,
+    transcriptStatus: input.transcriptStatus,
+  };
+}
+
+function resolveYoutubeCaptureMetadata(
+  playerResponse: Record<string, unknown> | null,
+  watchPlayerResponse: Record<string, unknown> | null,
+): YoutubeCaptureMetadata | null {
+  const effectivePlayerResponse = playerResponse ?? watchPlayerResponse;
+  const videoDetails =
+    readObject(effectivePlayerResponse, "videoDetails") ?? readObject(watchPlayerResponse, "videoDetails");
+  const microformat =
+    readObject(readObject(effectivePlayerResponse, "microformat"), "playerMicroformatRenderer") ??
+    readObject(readObject(watchPlayerResponse, "microformat"), "playerMicroformatRenderer");
+
+  const title = readString(videoDetails, "title") ?? readString(microformat, "title");
+  if (!title) {
+    return null;
+  }
+
+  return {
+    title,
+    author: readString(videoDetails, "author"),
+    publishedAt: parseDate(readString(microformat, "publishDate") ?? readString(microformat, "uploadDate")),
+    videoThumbnailUrl: resolveYoutubeThumbnailUrl(videoDetails, microformat),
+    videoDurationSeconds: parseDurationSeconds(readString(videoDetails, "lengthSeconds")),
+  };
+}
+
+async function fetchYoutubeOEmbedMetadata(canonicalUrl: string): Promise<YoutubeCaptureMetadata | null> {
+  let response: Response;
+  try {
+    const oEmbedUrl = new URL("https://www.youtube.com/oembed");
+    oEmbedUrl.searchParams.set("url", canonicalUrl);
+    oEmbedUrl.searchParams.set("format", "json");
+    response = await fetch(oEmbedUrl, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+      headers: {
+        accept: "application/json,text/plain;q=0.9,*/*;q=0.8",
+        "user-agent": VIDEO_CAPTURE_USER_AGENT,
+      },
+      signal: AbortSignal.timeout(VIDEO_FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return null;
+  }
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const title = readString(payload as Record<string, unknown>, "title");
+  if (!title) {
+    return null;
+  }
+
+  return {
+    title,
+    author: readString(payload as Record<string, unknown>, "author_name"),
+    publishedAt: null,
+    videoThumbnailUrl: readString(payload as Record<string, unknown>, "thumbnail_url"),
+    videoDurationSeconds: null,
+  };
+}
+
 function extractJsonObjectAfterMarker(raw: string, marker: string) {
   const markerIndex = raw.indexOf(marker);
   if (markerIndex < 0) {
@@ -506,10 +647,25 @@ function readBalancedJsonObject(raw: string, startIndex: number) {
   return null;
 }
 
-function extractYoutubeCaptionTracks(playerResponse: Record<string, unknown> | null): YoutubeCaptionTrack[] {
+function extractYoutubeCaptionTracks(playerResponse: Record<string, unknown> | null, rawHtml?: string): YoutubeCaptionTrack[] {
   const captions = readObject(playerResponse, "captions");
   const trackListRenderer = readObject(captions, "playerCaptionsTracklistRenderer");
-  const tracks = trackListRenderer?.captionTracks;
+  let tracks = trackListRenderer?.captionTracks;
+
+  if (!Array.isArray(tracks)) {
+    const captionsRenderer = readObject(captions, "playerCaptionsRenderer");
+    tracks = captionsRenderer?.captionTracks;
+  }
+
+  if (!Array.isArray(tracks) && rawHtml) {
+    const match = rawHtml.match(/"captionTracks":\s*(\[[^\]]+\])/);
+    if (match?.[1]) {
+      try {
+        tracks = JSON.parse(match[1]);
+      } catch {}
+    }
+  }
+
   if (!Array.isArray(tracks)) {
     return [];
   }
@@ -999,6 +1155,7 @@ function safeParseUrl(value: string) {
 }
 
 export const __videoCaptureForTests = {
+  buildYoutubeCapturedDocument,
   buildYoutubeTranscriptCandidateUrls,
   extractJsonObjectAfterMarker,
   extractYoutubeInnertubeApiKey,

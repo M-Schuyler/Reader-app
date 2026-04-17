@@ -10,6 +10,7 @@ import {
   type CapturedVideoDocument,
 } from "@/server/modules/capture/video-capture";
 import { queueAndRunAutomaticDocumentAiSummary } from "@/server/modules/documents/document-ai-summary-jobs.service";
+import { hydrateDocumentTranscriptIfPossible } from "@/server/modules/documents/document-transcript-jobs.service";
 import { mapDocumentDetail } from "@/server/modules/documents/document.mapper";
 import {
   backfillHostnamePublishedAtUpperBound,
@@ -38,7 +39,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
   if (dedupeKey) {
     const existingByDedupeKey = await findDocumentByDedupeKey(dedupeKey);
     if (existingByDedupeKey && (!isVideoCaptureCandidate(normalizedUrl) || !needsVideoTranscriptRefresh(existingByDedupeKey))) {
-      const enrichedDocument = await hydrateAutomaticSummaryIfPossible(existingByDedupeKey);
+      const enrichedDocument = await hydrateDocumentMetadataIfPossible(existingByDedupeKey);
 
       return {
         document: mapDocumentDetail(enrichedDocument),
@@ -57,7 +58,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
   if (videoExternalIdHint) {
     const existingByExternalId = await findWebDocumentByExternalId(videoExternalIdHint);
     if (existingByExternalId && (!shouldTryVideoCapture || !needsVideoTranscriptRefresh(existingByExternalId))) {
-      const enrichedDocument = await hydrateAutomaticSummaryIfPossible(existingByExternalId);
+      const enrichedDocument = await hydrateDocumentMetadataIfPossible(existingByExternalId);
 
       return {
         document: mapDocumentDetail(enrichedDocument),
@@ -72,7 +73,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
 
   const existingBySourceUrl = await findWebDocumentByUrlCandidates([normalizedUrl]);
   if (existingBySourceUrl && (!shouldTryVideoCapture || !needsVideoTranscriptRefresh(existingBySourceUrl))) {
-    const enrichedDocument = await hydrateAutomaticSummaryIfPossible(existingBySourceUrl);
+    const enrichedDocument = await hydrateDocumentMetadataIfPossible(existingBySourceUrl);
 
     return {
       document: mapDocumentDetail(enrichedDocument),
@@ -110,7 +111,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
         const targetDocument = refreshed
           ? await refreshVideoDocumentFromCapture(existingByExternalId.id, normalizedUrl, capturedVideo)
           : existingByExternalId;
-        const enrichedDocument = await hydrateAutomaticSummaryIfPossible(targetDocument);
+        const enrichedDocument = await hydrateDocumentMetadataIfPossible(targetDocument);
 
         await prisma.ingestionJob.update({
           where: { id: job.id },
@@ -144,7 +145,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
         const targetDocument = refreshed
           ? await refreshVideoDocumentFromCapture(existingByResolvedUrl.id, normalizedUrl, capturedVideo)
           : existingByResolvedUrl;
-        const enrichedDocument = await hydrateAutomaticSummaryIfPossible(targetDocument);
+        const enrichedDocument = await hydrateDocumentMetadataIfPossible(targetDocument);
 
         await prisma.ingestionJob.update({
           where: { id: job.id },
@@ -193,6 +194,8 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
         videoThumbnailUrl: capturedVideo.videoThumbnailUrl,
         videoDurationSeconds: capturedVideo.videoDurationSeconds,
         transcriptSegments: capturedVideo.transcriptSegments,
+        transcriptSource: capturedVideo.transcriptSource,
+        transcriptStatus: capturedVideo.transcriptStatus,
         publishedAt: capturedVideo.publishedAt,
         publishedAtKind: capturedVideo.publishedAt ? PublishedAtKind.EXACT : PublishedAtKind.UNKNOWN,
         ingestionStatus: IngestionStatus.READY,
@@ -213,7 +216,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
         });
       }
 
-      const enrichedDocument = await hydrateAutomaticSummaryIfPossible(videoDocument);
+      const enrichedDocument = await hydrateDocumentMetadataIfPossible(videoDocument);
 
       await prisma.ingestionJob.update({
         where: { id: job.id },
@@ -252,7 +255,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
     if (finalDedupeKey) {
       const existingByFinalKey = await findDocumentByDedupeKey(finalDedupeKey);
       if (existingByFinalKey) {
-        const enrichedDocument = await hydrateAutomaticSummaryIfPossible(existingByFinalKey);
+        const enrichedDocument = await hydrateDocumentMetadataIfPossible(existingByFinalKey);
         await prisma.ingestionJob.update({
           where: { id: job.id },
           data: {
@@ -269,7 +272,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
     // Secondary dedupe check by content hash
     const existingByContentHash = await findDocumentByContentHash(extracted.textHash);
     if (existingByContentHash) {
-      const enrichedDocument = await hydrateAutomaticSummaryIfPossible(existingByContentHash);
+      const enrichedDocument = await hydrateDocumentMetadataIfPossible(existingByContentHash);
       await prisma.ingestionJob.update({
         where: { id: job.id },
         data: {
@@ -305,7 +308,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
 
     const existingByResolvedUrl = await findWebDocumentByUrlCandidates(urlCandidates);
     if (existingByResolvedUrl) {
-      const enrichedDocument = await hydrateAutomaticSummaryIfPossible(existingByResolvedUrl);
+      const enrichedDocument = await hydrateDocumentMetadataIfPossible(existingByResolvedUrl);
 
       await prisma.ingestionJob.update({
         where: { id: job.id },
@@ -360,7 +363,7 @@ export async function captureUrl(inputUrl: string): Promise<CaptureUrlResponseDa
       });
     }
 
-    const enrichedDocument = await hydrateAutomaticSummaryIfPossible(document);
+    const enrichedDocument = await hydrateDocumentMetadataIfPossible(document);
 
     await prisma.ingestionJob.update({
       where: { id: job.id },
@@ -509,6 +512,8 @@ async function refreshVideoDocumentFromCapture(documentId: string, sourceUrl: st
     videoThumbnailUrl: capturedVideo.videoThumbnailUrl,
     videoDurationSeconds: capturedVideo.videoDurationSeconds,
     transcriptSegments: capturedVideo.transcriptSegments,
+    transcriptSource: capturedVideo.transcriptSource,
+    transcriptStatus: capturedVideo.transcriptStatus,
     publishedAt: capturedVideo.publishedAt,
     publishedAtKind: capturedVideo.publishedAt ? PublishedAtKind.EXACT : PublishedAtKind.UNKNOWN,
     ingestionStatus: IngestionStatus.READY,
@@ -544,15 +549,26 @@ async function findLatestCaptureError(document: DocumentDetailRecord): Promise<C
   return findLatestCaptureErrorForDocument(document);
 }
 
-async function hydrateAutomaticSummaryIfPossible(document: DocumentDetailRecord) {
+async function hydrateDocumentMetadataIfPossible(document: DocumentDetailRecord) {
+  let currentDocument = document;
+
   try {
-    return await queueAndRunAutomaticDocumentAiSummary(document);
+    currentDocument = await queueAndRunAutomaticDocumentAiSummary(currentDocument);
   } catch (error) {
     console.error("Failed to generate automatic AI summary.", {
       documentId: document.id,
       error,
     });
-
-    return document;
   }
+
+  try {
+    currentDocument = (await hydrateDocumentTranscriptIfPossible(currentDocument)) ?? currentDocument;
+  } catch (error) {
+    console.error("Failed to hydrate document transcript.", {
+      documentId: document.id,
+      error,
+    });
+  }
+
+  return currentDocument;
 }

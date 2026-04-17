@@ -8,6 +8,7 @@ const root = process.cwd();
 test("reader panel exposes markdown, obsidian, and html download actions", () => {
   const panel = readFileSync(path.join(root, "src/components/reader/reader-floating-panel.tsx"), "utf8");
 
+  assert.doesNotMatch(panel, /实时预览/);
   assert.match(panel, /下载 Markdown/);
   assert.match(panel, /下载 Obsidian/);
   assert.match(panel, /下载 HTML/);

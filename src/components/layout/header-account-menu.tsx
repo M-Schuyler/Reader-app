@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { useEffect, useRef } from "react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 
@@ -19,11 +20,34 @@ export function HeaderAccountMenu({
   panelHorizontal = "right",
 }: HeaderAccountMenuProps) {
   const avatarLabel = resolveAvatarLabel(email);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      const details = detailsRef.current;
+      if (!details?.open) {
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof Node && details.contains(target)) {
+        return;
+      }
+
+      details.open = false;
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, []);
 
   return (
     <details
       className="group relative inline-block [&_summary::-webkit-details-marker]:hidden"
       onToggle={(event) => onOpenChange?.((event.currentTarget as HTMLDetailsElement).open)}
+      ref={detailsRef}
     >
       <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full bg-stone-800 text-[13px] font-semibold text-white transition hover:ring-2 hover:ring-stone-300">
         <span className="sr-only">打开账户菜单</span>

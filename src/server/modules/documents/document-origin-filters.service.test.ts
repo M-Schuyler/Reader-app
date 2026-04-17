@@ -387,6 +387,8 @@ function createDocumentListRecord(overrides: Partial<DocumentListRecord>): Docum
     videoThumbnailUrl: null,
     videoDurationSeconds: null,
     transcriptSegments: null,
+    transcriptSource: null,
+    transcriptStatus: null,
     dedupeKey: null,
     externalId: null,
     aiSummary: null,

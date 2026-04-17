@@ -19,7 +19,7 @@ test("only reading pages can enter weakened rail state", () => {
 test("reading pages weaken the rail only while scrolling down away from top", () => {
   assert.equal(
     resolveNavigationRailVisualState({
-      pathname: "/documents/doc-123",
+      pathname: "/reading",
       nearTop: false,
       scrollingDown: true,
       searchOpen: false,
@@ -31,7 +31,19 @@ test("reading pages weaken the rail only while scrolling down away from top", ()
 
   assert.equal(
     resolveNavigationRailVisualState({
-      pathname: "/documents/doc-123",
+      pathname: "/reading/doc-123",
+      nearTop: false,
+      scrollingDown: true,
+      searchOpen: false,
+      accountMenuOpen: false,
+      pointerInside: false,
+    }),
+    "weakened",
+  );
+
+  assert.equal(
+    resolveNavigationRailVisualState({
+      pathname: "/reading/doc-123",
       nearTop: false,
       scrollingDown: true,
       searchOpen: true,
@@ -43,7 +55,7 @@ test("reading pages weaken the rail only while scrolling down away from top", ()
 
   assert.equal(
     resolveNavigationRailVisualState({
-      pathname: "/documents/doc-123",
+      pathname: "/reading/doc-123",
       nearTop: false,
       scrollingDown: true,
       searchOpen: false,

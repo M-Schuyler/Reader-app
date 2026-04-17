@@ -37,6 +37,23 @@ export async function createHighlight(data: Prisma.HighlightUncheckedCreateInput
   return prisma.highlight.create({ data });
 }
 
+export async function getHighlightableDocumentById(documentId: string) {
+  return prisma.document.findUnique({
+    where: {
+      id: documentId,
+    },
+    select: {
+      id: true,
+      ingestionStatus: true,
+      content: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
+}
+
 export async function updateHighlight(id: string, data: Prisma.HighlightUpdateInput) {
   return prisma.highlight.update({
     where: { id },

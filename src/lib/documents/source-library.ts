@@ -229,7 +229,28 @@ function formatSourceLibraryFilterSummary(includeCategories: string[]) {
 }
 
 function resolveSourceHost(item: Pick<SourceIdentityInput, "canonicalUrl" | "sourceUrl">) {
-  return parseHostname(item.canonicalUrl) ?? parseHostname(item.sourceUrl);
+  const host = parseHostname(item.canonicalUrl) ?? parseHostname(item.sourceUrl);
+  return normalizeSourceHost(host);
+}
+
+const YOUTUBE_DOMAINS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"]);
+const BILIBILI_DOMAINS = new Set(["bilibili.com", "www.bilibili.com", "m.bilibili.com", "b23.tv"]);
+
+function normalizeSourceHost(host: string | null): string | null {
+  if (!host) {
+    return null;
+  }
+
+  const normalized = host.toLowerCase();
+  if (YOUTUBE_DOMAINS.has(normalized)) {
+    return "www.youtube.com";
+  }
+
+  if (BILIBILI_DOMAINS.has(normalized)) {
+    return "www.bilibili.com";
+  }
+
+  return host;
 }
 
 function isWithinRecentSevenDays(createdAt: string, now: Date) {

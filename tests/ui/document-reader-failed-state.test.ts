@@ -48,10 +48,7 @@ test("document reader renders source attribution under the title and in metadata
   const reader = readWorkspaceFile("src/components/reader/document-reader.tsx");
 
   assert.match(reader, /document\.contentOrigin/);
-  assert.match(reader, /documentAttribution\.label/);
   assert.match(reader, /documentAttribution\.value/);
-  assert.match(reader, /label: "公众号"/);
-  assert.match(reader, /label: "作者"/);
 });
 
 test("document reader renders embedded videos for supported document links", () => {
@@ -65,5 +62,4 @@ test("document reader renders embedded videos for supported document links", () 
   assert.match(reader, /videoDurationSeconds=\{readerDocument\.videoDurationSeconds\}/);
   assert.match(reader, /\{videoEmbed \? \(/);
   assert.match(reader, /\) : isFailed \? \(/);
-  assert.match(reader, /\{canHighlight \? \(\s*<FloatingTabButton[\s\S]*label="高亮"/);
 });

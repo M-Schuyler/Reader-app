@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
-import { DocumentReader } from "@/components/reader/document-reader";
-import { openReaderDocument } from "@/server/modules/documents/document.service";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +9,23 @@ type DocumentPageProps = {
 
 export default async function DocumentPage({ params, searchParams }: DocumentPageProps) {
   const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams]);
-  const data = await openReaderDocument(resolvedParams.id, {
-    searchParams: resolvedSearchParams as Record<string, string | undefined>,
-  });
+  const nextSearchParams = new URLSearchParams();
 
-  if (!data) {
-    notFound();
+  for (const [key, value] of Object.entries(resolvedSearchParams)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") {
+          nextSearchParams.append(key, item);
+        }
+      }
+      continue;
+    }
+
+    if (typeof value === "string") {
+      nextSearchParams.set(key, value);
+    }
   }
 
-  return <DocumentReader document={data.document} nextUp={data.nextUp} />;
+  const query = nextSearchParams.toString();
+  redirect(query ? `/reading/${resolvedParams.id}?${query}` : `/reading/${resolvedParams.id}`);
 }

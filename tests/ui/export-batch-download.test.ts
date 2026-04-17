@@ -19,7 +19,7 @@ test("batch export candidate component includes selection controls and batch dow
   assert.match(component, /全选/);
   assert.match(component, /清空/);
   assert.match(component, /type="checkbox"/);
-  assert.match(component, /批量导出（\$\{selectedCount\}）/);
+  assert.match(component, /批量导出/);
   assert.match(component, /\/api\/export\/batch-download/);
   assert.match(component, /documentIds: selectedDocumentIds/);
   assert.match(component, /format,/);

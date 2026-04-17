@@ -1,4 +1,11 @@
-import type { DocumentVideoEmbed, TranscriptSegment, VideoProvider, VideoSyncMode } from "./video-types";
+import type {
+  DocumentVideoEmbed,
+  TranscriptSegment,
+  TranscriptSource,
+  TranscriptStatus,
+  VideoProvider,
+  VideoSyncMode,
+} from "./video-types";
 
 const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com"]);
 const BILIBILI_HOSTS = new Set(["www.bilibili.com", "m.bilibili.com", "bilibili.com", "player.bilibili.com"]);
@@ -17,12 +24,16 @@ export function resolveDocumentVideoEmbed({
   canonicalUrl,
   sourceUrl,
   transcriptSegments,
+  transcriptSource,
+  transcriptStatus,
 }: {
   videoProvider?: string | null;
   videoUrl?: string | null;
   canonicalUrl: string | null;
   sourceUrl: string | null;
   transcriptSegments?: unknown;
+  transcriptSource?: string | null;
+  transcriptStatus?: string | null;
 }): DocumentVideoEmbed | null {
   const normalizedProvider = normalizeVideoProvider(videoProvider);
   const candidates = [videoUrl, canonicalUrl, sourceUrl].filter((value): value is string => Boolean(value?.trim()));
@@ -55,7 +66,9 @@ export function resolveDocumentVideoEmbed({
     provider: identity.provider,
     embedUrl: buildVideoEmbedUrl(identity),
     segments: normalizeTranscriptSegments(transcriptSegments),
-    syncMode: resolveVideoSyncMode(identity.provider),
+    syncMode: resolveVideoSyncMode(identity.provider, transcriptSource),
+    transcriptSource: normalizeTranscriptSource(transcriptSource),
+    transcriptStatus: normalizeTranscriptStatus(transcriptStatus),
   };
 }
 
@@ -136,8 +149,36 @@ export function buildVideoExternalId(identity: Pick<ResolvedVideoIdentity, "prov
   return `${identity.provider}:${identity.id}`;
 }
 
-export function resolveVideoSyncMode(provider: VideoProvider): VideoSyncMode {
+export function resolveVideoSyncMode(provider: VideoProvider, transcriptSource?: string | null): VideoSyncMode {
+  if (transcriptSource === "GEMINI") {
+    return "seek";
+  }
+
   return provider === "youtube" ? "full" : "manual";
+}
+
+export function normalizeTranscriptSource(value: string | null | undefined): TranscriptSource {
+  if (value === "GEMINI") {
+    return "GEMINI";
+  }
+
+  if (value === "NATIVE") {
+    return "NATIVE";
+  }
+
+  return "NONE";
+}
+
+export function normalizeTranscriptStatus(value: string | null | undefined): TranscriptStatus {
+  if (value === "PENDING") {
+    return "PENDING";
+  }
+
+  if (value === "FAILED") {
+    return "FAILED";
+  }
+
+  return "READY";
 }
 
 export function normalizeTranscriptSegments(value: unknown): TranscriptSegment[] {

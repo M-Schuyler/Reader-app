@@ -16,6 +16,7 @@ import { useReaderSelection } from "@/components/reader/reader-selection-control
 import { useReaderToc, useScrollSpy } from "@/components/reader/use-reader-toc";
 import { ReaderTableOfContents } from "@/components/reader/reader-toc";
 import { Badge } from "@/components/ui/badge";
+import { MagicWandIcon } from "@/components/icons/magic-wand-icon";
 import { Panel } from "@/components/ui/panel";
 import { resolveDocumentLead } from "@/lib/documents/document-lead";
 import { resolveDocumentFailedState } from "@/lib/documents/document-failed-state";
@@ -205,8 +206,8 @@ export function DocumentReader({ document: initialDocument, nextUp }: DocumentRe
 
       <header className="mx-auto max-w-[var(--content-measure)] space-y-6">
         <div className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-[color:var(--text-tertiary)]">
-          <Link className="transition hover:text-[color:var(--text-primary)]" href="/reading">
-            Library
+          <Link className="transition hover:text-[color:var(--text-primary)]" href="/sources">
+            Sources
           </Link>
           <span>·</span>
           <span>{formatDocumentType(readerDocument.type)}</span>
@@ -252,7 +253,7 @@ export function DocumentReader({ document: initialDocument, nextUp }: DocumentRe
           <div className="space-y-4 rounded-2xl border border-[color:var(--ai-card-border)] bg-[color:var(--ai-card-bg)] px-6 py-5">
             <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-[color:var(--ai-card-accent)]">
               <div className="animate-ai-sparkle">
-                <SparklesIcon />
+                <MagicWandIcon className="h-3.5 w-3.5" />
               </div>
               <span>AI is thinking...</span>
             </div>
@@ -268,7 +269,7 @@ export function DocumentReader({ document: initialDocument, nextUp }: DocumentRe
           <div className="relative space-y-2.5 overflow-hidden rounded-2xl border border-[color:var(--ai-card-border)] bg-[color:var(--ai-card-bg)] px-6 py-5 shadow-[var(--shadow-surface-muted)]">
             <div className="absolute left-0 top-0 h-full w-1 bg-[color:var(--ai-card-accent)] opacity-40" />
             <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-[color:var(--ai-card-accent)]">
-              <SparklesIcon />
+              <MagicWandIcon className="h-3.5 w-3.5" />
               <span>AI Summary</span>
             </div>
             <p className="text-[15px] leading-relaxed text-[color:var(--text-primary)] opacity-90">
@@ -569,7 +570,7 @@ function ReaderNextUpCard({ document: item }: { document: DocumentListItem }) {
 
         <Link
           className="group block space-y-5 rounded-[32px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-soft)] p-8 transition-all hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-surface-strong)] hover:shadow-[var(--shadow-surface)]"
-          href={`/documents/${item.id}`}
+          href={`/reading/${item.id}`}
         >
           <div className="space-y-3.5">
             <h2 className="font-display text-[1.85rem] leading-tight tracking-[-0.025em] text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)]">
@@ -622,18 +623,6 @@ function LayersIcon() {
       <path d="m10 3.2 7 3.6-7 3.6-7-3.6Z" />
       <path d="m3 10.3 7 3.6 7-3.6" />
       <path d="m3 13.6 7 3.6 7-3.6" />
-    </svg>
-  );
-}
-
-function SparklesIcon() {
-  return (
-    <svg aria-hidden="true" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24">
-      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-      <path d="M20 3v4" />
-      <path d="M22 5h-4" />
-      <path d="M4 17v2" />
-      <path d="M5 18H3" />
     </svg>
   );
 }

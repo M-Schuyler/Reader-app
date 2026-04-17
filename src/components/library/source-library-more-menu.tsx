@@ -120,7 +120,10 @@ function SweepButton({ onDone }: { onDone: () => void }) {
   async function handleSweep() {
     setState("running");
     try {
-      await fetch("/api/summary-jobs/sweep", { method: "POST" });
+      await Promise.all([
+        fetch("/api/summary-jobs/sweep", { method: "POST" }),
+        fetch("/api/transcript-jobs/sweep", { method: "POST" }),
+      ]);
     } finally {
       setState("done");
       setTimeout(() => {

@@ -8,6 +8,8 @@ import {
   PublishedAtKind,
   ReadState,
   SourceAliasKind,
+  TranscriptSource,
+  TranscriptStatus,
 } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import type {
@@ -260,6 +262,9 @@ export const documentReaderArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()
     videoUrl: true,
     videoProvider: true,
     videoDurationSeconds: true,
+    transcriptSegments: true,
+    transcriptSource: true,
+    transcriptStatus: true,
     aiSummary: true,
     aiSummaryStatus: true,
     aiSummaryError: true,
@@ -510,6 +515,8 @@ type CreateWebDocumentInput = {
   videoThumbnailUrl?: string | null;
   videoDurationSeconds?: number | null;
   transcriptSegments?: Prisma.InputJsonValue;
+  transcriptSource?: TranscriptSource | null;
+  transcriptStatus?: TranscriptStatus | null;
   publishedAt: Date | null;
   publishedAtKind: PublishedAtKind;
   ingestionStatus: IngestionStatus;
@@ -567,6 +574,8 @@ export async function createWebDocument(input: CreateWebDocumentInput) {
         ? {}
         : {
             transcriptSegments: input.transcriptSegments,
+            transcriptSource: input.transcriptSource,
+            transcriptStatus: input.transcriptStatus,
           }),
       publishedAt: input.publishedAt,
       publishedAtKind: input.publishedAtKind,
@@ -617,6 +626,8 @@ type RefreshVideoWebDocumentInput = {
   videoThumbnailUrl: string | null;
   videoDurationSeconds: number | null;
   transcriptSegments: Prisma.InputJsonValue;
+  transcriptSource: TranscriptSource;
+  transcriptStatus: TranscriptStatus;
   publishedAt: Date | null;
   publishedAtKind: PublishedAtKind;
   ingestionStatus: IngestionStatus;
@@ -644,6 +655,8 @@ export async function refreshVideoWebDocument(id: string, input: RefreshVideoWeb
       videoThumbnailUrl: input.videoThumbnailUrl,
       videoDurationSeconds: input.videoDurationSeconds,
       transcriptSegments: input.transcriptSegments,
+      transcriptSource: input.transcriptSource,
+      transcriptStatus: input.transcriptStatus,
       publishedAt: input.publishedAt,
       publishedAtKind: input.publishedAtKind,
       ingestionStatus: input.ingestionStatus,

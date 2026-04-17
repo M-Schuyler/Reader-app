@@ -344,7 +344,7 @@ test("runPendingDocumentAiSummaryJobs leaves a fairness gap between successful j
     runNextJob: async () => runs.shift()!,
   });
 
-  assert.deepEqual(sleeps, [150, 150]);
+  assert.deepEqual(sleeps, [50, 50]);
   assert.equal(response.processed, 2);
   assert.equal(response.generated, 1);
   assert.equal(response.skipped, 1);
@@ -495,7 +495,7 @@ test("prioritizeDocumentAiSummary returns queued runner_busy when another instan
   assert.equal(response?.summary.status, "queued");
   assert.equal(response?.summary.error, null);
   assert.equal(response?.summary.throttle?.reason, "runner_busy");
-  assert.equal(response?.summary.throttle?.retryAfterMs, 1_500);
+  assert.equal(response?.summary.throttle?.retryAfterMs, 400);
   assert.equal(response?.summary.throttle?.cooldownUntil, null);
 });
 
@@ -702,6 +702,8 @@ function createSummaryDocumentRecord(
     videoThumbnailUrl: null,
     videoDurationSeconds: null,
     transcriptSegments: null,
+    transcriptSource: null,
+    transcriptStatus: null,
     dedupeKey: null,
     externalId: null,
     aiSummary: null,

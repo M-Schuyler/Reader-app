@@ -121,6 +121,8 @@ function createDocument(id: string, title: string, plainText: string): DocumentD
     videoThumbnailUrl: null,
     videoDurationSeconds: null,
     videoEmbed: null,
+    transcriptSource: null,
+    transcriptStatus: null,
     aiSummary: "摘要",
     aiSummaryStatus: AiSummaryStatus.READY,
     aiSummaryError: null,

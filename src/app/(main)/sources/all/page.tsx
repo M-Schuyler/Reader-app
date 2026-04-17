@@ -51,7 +51,7 @@ export default async function SourceAllDocumentsPage({ searchParams }: SourceAll
                 所有来源
               </h1>
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[color:var(--text-tertiary)]">
-                Library / All Sources
+                Sources / All Sources
               </p>
             </div>
           </div>

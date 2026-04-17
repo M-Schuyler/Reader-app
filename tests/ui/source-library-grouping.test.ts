@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AiSummaryStatus, DocumentType, IngestionStatus, PublishedAtKind, ReadState } from "@prisma/client";
+import {
+  AiSummaryStatus,
+  DocumentType,
+  IngestionStatus,
+  PublishedAtKind,
+  ReadState,
+  TranscriptSource,
+  TranscriptStatus,
+} from "@prisma/client";
 import {
   buildSourceAliasMap,
   buildSourceLibraryIndexGroups,
@@ -480,6 +488,8 @@ function createListItem(overrides: Partial<DocumentListItem> = {}): DocumentList
     lang: "zh",
     author: null,
     videoThumbnailUrl: null,
+    transcriptSource: null,
+    transcriptStatus: null,
     publishedAt: "2026-03-27T08:30:00.000Z",
     publishedAtKind: PublishedAtKind.EXACT,
     enteredReadingAt: null,

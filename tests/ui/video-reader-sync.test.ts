@@ -12,6 +12,8 @@ test("video reader keeps youtube full-sync and bilibili manual-sync branches exp
   assert.match(source, /const isYouTubeFullSync = videoEmbed\.provider === "youtube" && videoEmbed\.syncMode === "full"/);
   assert.match(source, /YouTube 同步模式：点击字幕可跳转到对应时间点，并随播放进度自动高亮/);
   assert.match(source, /B 站手动模式：当前仅提供播放器与字幕阅读，不承诺自动时间同步/);
+  assert.match(source, /当前还没拿到可用字幕/);
+  assert.match(source, /YouTube 暂时拦截了字幕抓取/);
   assert.match(source, /markDocumentAsRead/);
   assert.match(source, /VIDEO_READ_THRESHOLD/);
   assert.match(source, /inline-block rounded-\[10px\]/);

@@ -63,10 +63,12 @@ export function VideoReader({
   const [seekTo, setSeekTo] = useState<(seconds: number) => void>(() => () => undefined);
 
   const isYouTubeFullSync = videoEmbed.provider === "youtube" && videoEmbed.syncMode === "full";
+  const isSeekMode = videoEmbed.syncMode === "seek";
+  const canSeek = isYouTubeFullSync || isSeekMode;
   const effectiveDurationSeconds = playerDurationSeconds ?? videoDurationSeconds;
 
   useEffect(() => {
-    if (!isYouTubeFullSync || !iframeRef.current) {
+    if (!canSeek || !iframeRef.current) {
       setSeekTo(() => () => undefined);
       setCurrentTimeSeconds(null);
       setPlayerDurationSeconds(null);
@@ -143,13 +145,13 @@ export function VideoReader({
       setPlayerDurationSeconds(null);
       player?.destroy();
     };
-  }, [isYouTubeFullSync, videoEmbed.embedUrl]);
+  }, [canSeek, videoEmbed.embedUrl]);
 
   const syncedActiveSegmentIndex = useMemo(
     () => resolveActiveTranscriptSegment(videoEmbed.segments, currentTimeSeconds),
     [videoEmbed.segments, currentTimeSeconds],
   );
-  const activeSegmentIndex = isYouTubeFullSync ? syncedActiveSegmentIndex : manualFocusedSegmentIndex;
+  const activeSegmentIndex = canSeek ? syncedActiveSegmentIndex : manualFocusedSegmentIndex;
 
   useEffect(() => {
     if (activeSegmentIndex === null) {
@@ -164,7 +166,7 @@ export function VideoReader({
   }, [activeSegmentIndex]);
 
   useEffect(() => {
-    if (!isYouTubeFullSync || readState === ReadState.READ) {
+    if (!canSeek || readState === ReadState.READ) {
       return;
     }
 
@@ -186,7 +188,7 @@ export function VideoReader({
         router.refresh();
       })
       .catch(() => undefined);
-  }, [currentTimeSeconds, documentId, effectiveDurationSeconds, isYouTubeFullSync, readState, router]);
+  }, [currentTimeSeconds, documentId, effectiveDurationSeconds, canSeek, readState, router]);
 
   return (
     <div className="space-y-6">
@@ -206,6 +208,8 @@ export function VideoReader({
         <p className="text-xs leading-6 text-[color:var(--text-tertiary)]">
           {isYouTubeFullSync
             ? "YouTube 同步模式：点击字幕可跳转到对应时间点，并随播放进度自动高亮。"
+            : isSeekMode 
+            ? "Gemini 生成字幕：点击可跳转播放，由于非原生字幕，同步可能存在微小偏差。"
             : "B 站手动模式：当前仅提供播放器与字幕阅读，不承诺自动时间同步。"}
         </p>
       </div>
@@ -227,7 +231,7 @@ export function VideoReader({
                       }`}
                       key={`${segment.start}-${segment.end}-${index}`}
                       onClick={() => {
-                        if (isYouTubeFullSync) {
+                        if (canSeek) {
                           seekTo(segment.start);
                         } else {
                           setManualFocusedSegmentIndex(index);
@@ -253,7 +257,13 @@ export function VideoReader({
               </div>
             </div>
           ) : (
-            <p className="text-sm leading-7 text-[color:var(--text-secondary)]">当前视频暂无可用字幕。</p>
+            <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
+              {videoEmbed.transcriptStatus === "PENDING"
+                ? "字幕生成中..."
+                : videoEmbed.provider === "youtube"
+                ? "当前还没拿到可用字幕。常见原因是视频本身没开放字幕，或者 YouTube 暂时拦截了字幕抓取；之后重新导入时，Reader 会继续重试。"
+                : "当前视频暂无可用字幕。"}
+            </p>
           )}
 
           {sourceUrl ? (

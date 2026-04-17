@@ -21,7 +21,7 @@ export function MainWorkspaceChrome({ children, email }: MainWorkspaceChromeProp
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = useState(false);
   const items = getPrimaryNavItems({ pathname, searchOpen });
-  const isDocumentPage = pathname.startsWith("/documents/");
+  const isDocumentPage = pathname.startsWith("/reading/");
 
   return (
     <div className="min-h-screen pb-[5.5rem] md:pb-0">

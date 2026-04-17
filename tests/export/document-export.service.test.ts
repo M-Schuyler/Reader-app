@@ -7,6 +7,8 @@ import {
   PublishedAtKind,
   ReadState,
   SourceKind,
+  TranscriptSource,
+  TranscriptStatus,
 } from "@prisma/client";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 import {
@@ -29,6 +31,8 @@ function createDocument(overrides: Partial<DocumentDetail> = {}): DocumentDetail
     videoThumbnailUrl: null,
     videoDurationSeconds: null,
     videoEmbed: null,
+    transcriptSource: null,
+    transcriptStatus: null,
     aiSummary: null,
     aiSummaryStatus: AiSummaryStatus.READY,
     aiSummaryError: null,

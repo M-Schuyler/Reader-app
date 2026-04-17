@@ -10,8 +10,12 @@ export type ExportOverview = {
   candidates: Array<{
     id: string;
     title: string;
+    author: string | null;
     sourceUrl: string | null;
     canonicalUrl: string | null;
+    publishedAt: string | null;
+    publishedAtKind: any;
+    createdAt: string;
     updatedAt: string;
     isFavorite: boolean;
     hasSummary: boolean;
@@ -66,8 +70,12 @@ export async function getExportOverview(): Promise<ExportOverview> {
       select: {
         id: true,
         title: true,
+        author: true,
         sourceUrl: true,
         canonicalUrl: true,
+        publishedAt: true,
+        publishedAtKind: true,
+        createdAt: true,
         updatedAt: true,
         isFavorite: true,
         aiSummary: true,
@@ -87,8 +95,12 @@ export async function getExportOverview(): Promise<ExportOverview> {
     candidates: candidates.map((document) => ({
       id: document.id,
       title: document.title,
+      author: document.author,
       sourceUrl: document.sourceUrl,
       canonicalUrl: document.canonicalUrl,
+      publishedAt: document.publishedAt?.toISOString() ?? null,
+      publishedAtKind: document.publishedAtKind,
+      createdAt: document.createdAt.toISOString(),
       updatedAt: document.updatedAt.toISOString(),
       isFavorite: document.isFavorite,
       hasSummary: Boolean(document.aiSummary),

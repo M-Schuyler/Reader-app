@@ -65,7 +65,7 @@ test("global search becomes a controlled overlay instead of a permanent top inpu
   assert.match(component, /open: boolean/);
   assert.match(component, /onOpenChange: \(open: boolean\) => void/);
   assert.match(component, /fixed inset-0/);
-  assert.match(component, /placeholder="搜索文档"/);
+  assert.match(component, /placeholder="输入关键字搜索，或输入 \/ 使用快捷命令"/);
   assert.doesNotMatch(component, /min-h-9 rounded-full border-stone-200 bg-white\/80/);
 });
 

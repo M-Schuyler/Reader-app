@@ -4,6 +4,7 @@ import { IngestionStatus, DocumentType } from "@prisma/client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { MagicWandIcon } from "@/components/icons/magic-wand-icon";
 import { TextInput } from "@/components/ui/form-controls";
 import { Badge } from "@/components/ui/badge";
 import { resolveGlobalSearchPanelState } from "@/lib/search/global-search-panel";
@@ -157,7 +158,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
       return;
     }
     if (activeResult) {
-      handleSelect(`/documents/${activeResult.id}`);
+      handleSelect(`/reading/${activeResult.id}`);
       return;
     }
     if (trimmedQuery && !isCommandMode) {
@@ -287,7 +288,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                               ? "bg-[color:var(--bg-surface-soft)] ring-1 ring-inset ring-[color:var(--border-strong)] shadow-sm"
                               : "hover:bg-[color:var(--bg-surface-soft)]",
                           )}
-                          onClick={() => handleSelect(`/documents/${item.id}`)}
+                          onClick={() => handleSelect(`/reading/${item.id}`)}
                           onMouseEnter={() => setActiveIndex(index)}
                           type="button"
                         >
@@ -358,7 +359,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                       <div className="relative space-y-3 overflow-hidden rounded-2xl border border-[color:var(--ai-card-border)] bg-[color:var(--ai-card-bg)] px-6 py-5 shadow-sm">
                         <div className="absolute left-0 top-0 h-full w-1 bg-[color:var(--ai-card-accent)] opacity-40" />
                         <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[color:var(--ai-card-accent)]">
-                          <SparklesIcon className="h-3.5 w-3.5" />
+                          <MagicWandIcon className="h-3.5 w-3.5" />
                           <span>AI Summary</span>
                         </div>
                         <p className="text-[15px] font-medium leading-relaxed text-[color:var(--text-primary)] opacity-90">
@@ -517,16 +518,6 @@ function DocumentTypeIcon({ type }: { type: DocumentType }) {
         </svg>
       );
   }
-}
-
-function SparklesIcon({ className }: { className?: string }) {
-  return (
-    <svg aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
-      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-      <path d="M20 3v4" />
-      <path d="M22 5h-4" />
-    </svg>
-  );
 }
 
 function formatDocumentType(value: DocumentType) {
