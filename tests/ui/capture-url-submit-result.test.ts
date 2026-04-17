@@ -19,7 +19,7 @@ test("deduped capture responses now redirect straight into the existing article"
       },
     }),
     {
-      href: "/documents/doc-existing",
+      href: "/reading/doc-existing",
       kind: "redirect",
     },
   );
@@ -37,7 +37,7 @@ test("new capture responses redirect straight into the imported article", () => 
       },
     }),
     {
-      href: "/documents/doc-new",
+      href: "/reading/doc-new",
       kind: "redirect",
     },
   );
@@ -58,7 +58,7 @@ test("failed capture responses surface the specific reason with a recovery actio
       },
     }),
     {
-      actionHref: "/documents/doc-failed",
+      actionHref: "/reading/doc-failed",
       actionLabel: "查看失败记录",
       kind: "failed",
       message: "这篇微信文章触发了来源验证，当前环境下还抓不到正文。",
@@ -74,7 +74,7 @@ test("capture form only keeps failed imports in place and redirects successful i
   assert.match(captureUrlForm, /submitResult\.kind === "failed"/);
   assert.match(captureUrlForm, /router\.push\(submitResult\.href\)/);
   assert.doesNotMatch(captureUrlForm, /submitResult\.kind === "deduped"/);
-  assert.match(submitResult, /\/documents\/\$\{encodeURIComponent\(data\.document\.id\)\}/);
+  assert.match(submitResult, /\/reading\/\$\{encodeURIComponent\(data\.document\.id\)\}/);
   assert.doesNotMatch(submitResult, /前往已有文章/);
   assert.doesNotMatch(submitResult, /这篇文章已收藏，不再重复导入。/);
   assert.match(captureUrlForm, /submitResult\.kind === "failed"/);

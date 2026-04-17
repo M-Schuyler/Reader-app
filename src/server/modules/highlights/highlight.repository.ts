@@ -8,8 +8,50 @@ export async function listHighlightsByDocumentId(documentId: string) {
   });
 }
 
+export async function listExportHighlightsByDocumentIds(documentIds: string[]) {
+  if (documentIds.length === 0) {
+    return [];
+  }
+
+  return prisma.highlight.findMany({
+    where: {
+      documentId: {
+        in: documentIds,
+      },
+    },
+    orderBy: [
+      { documentId: "asc" },
+      { createdAt: "asc" },
+    ],
+    select: {
+      documentId: true,
+      quoteText: true,
+      note: true,
+      color: true,
+      createdAt: true,
+    },
+  });
+}
+
 export async function createHighlight(data: Prisma.HighlightUncheckedCreateInput) {
   return prisma.highlight.create({ data });
+}
+
+export async function getHighlightableDocumentById(documentId: string) {
+  return prisma.document.findUnique({
+    where: {
+      id: documentId,
+    },
+    select: {
+      id: true,
+      ingestionStatus: true,
+      content: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
 }
 
 export async function updateHighlight(id: string, data: Prisma.HighlightUpdateInput) {

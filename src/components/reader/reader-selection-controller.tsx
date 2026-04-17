@@ -194,13 +194,9 @@ export function useReaderSelection({ canHighlight, documentHighlights, onFloatin
       return;
     }
 
-    const createdHighlight = await documentHighlights.createHighlightFromSelection(selectionState.draft);
-
-    if (!createdHighlight) {
-      return;
-    }
-
+    const selectionDraft = selectionState.draft;
     setSelectionState(null);
+    await documentHighlights.createHighlightFromSelection(selectionDraft);
   }
 
   async function handleCreateHighlightNote() {
@@ -208,13 +204,14 @@ export function useReaderSelection({ canHighlight, documentHighlights, onFloatin
       return;
     }
 
-    const createdHighlight = await documentHighlights.createHighlightFromSelection(selectionState.draft);
+    const selectionDraft = selectionState.draft;
+    setSelectionState(null);
+    const createdHighlight = await documentHighlights.createHighlightFromSelection(selectionDraft);
 
     if (!createdHighlight) {
       return;
     }
 
-    setSelectionState(null);
     documentHighlights.requestHighlightNoteFocus(createdHighlight.id);
   }
 

@@ -8,6 +8,8 @@ import {
   PublishedAtKind,
   ReadState,
   SourceAliasKind,
+  TranscriptSource,
+  TranscriptStatus,
 } from "@prisma/client";
 import { prisma } from "@/server/db/client";
 import type {
@@ -247,6 +249,7 @@ export const documentReaderArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()
     title: true,
     type: true,
     readState: true,
+    readingProgress: true,
     isFavorite: true,
     ingestionStatus: true,
     author: true,
@@ -259,6 +262,9 @@ export const documentReaderArgs = Prisma.validator<Prisma.DocumentDefaultArgs>()
     videoUrl: true,
     videoProvider: true,
     videoDurationSeconds: true,
+    transcriptSegments: true,
+    transcriptSource: true,
+    transcriptStatus: true,
     aiSummary: true,
     aiSummaryStatus: true,
     aiSummaryError: true,
@@ -392,6 +398,24 @@ export async function markDocumentRead(id: string) {
     where: { id },
     data: {
       readState: ReadState.READ,
+      readingProgress: 100,
+    },
+    ...documentDetailArgs,
+  });
+}
+
+export async function updateDocumentReadingProgress(id: string, progress: number) {
+  return prisma.document.update({
+    where: { id },
+    data: {
+      readingProgress: progress,
+      ...(progress > 0 && progress < 100
+        ? {
+            readState: {
+              set: ReadState.READING,
+            },
+          }
+        : {}),
     },
     ...documentDetailArgs,
   });
@@ -491,6 +515,8 @@ type CreateWebDocumentInput = {
   videoThumbnailUrl?: string | null;
   videoDurationSeconds?: number | null;
   transcriptSegments?: Prisma.InputJsonValue;
+  transcriptSource?: TranscriptSource | null;
+  transcriptStatus?: TranscriptStatus | null;
   publishedAt: Date | null;
   publishedAtKind: PublishedAtKind;
   ingestionStatus: IngestionStatus;
@@ -548,6 +574,8 @@ export async function createWebDocument(input: CreateWebDocumentInput) {
         ? {}
         : {
             transcriptSegments: input.transcriptSegments,
+            transcriptSource: input.transcriptSource,
+            transcriptStatus: input.transcriptStatus,
           }),
       publishedAt: input.publishedAt,
       publishedAtKind: input.publishedAtKind,
@@ -598,6 +626,8 @@ type RefreshVideoWebDocumentInput = {
   videoThumbnailUrl: string | null;
   videoDurationSeconds: number | null;
   transcriptSegments: Prisma.InputJsonValue;
+  transcriptSource: TranscriptSource;
+  transcriptStatus: TranscriptStatus;
   publishedAt: Date | null;
   publishedAtKind: PublishedAtKind;
   ingestionStatus: IngestionStatus;
@@ -625,6 +655,8 @@ export async function refreshVideoWebDocument(id: string, input: RefreshVideoWeb
       videoThumbnailUrl: input.videoThumbnailUrl,
       videoDurationSeconds: input.videoDurationSeconds,
       transcriptSegments: input.transcriptSegments,
+      transcriptSource: input.transcriptSource,
+      transcriptStatus: input.transcriptStatus,
       publishedAt: input.publishedAt,
       publishedAtKind: input.publishedAtKind,
       ingestionStatus: input.ingestionStatus,

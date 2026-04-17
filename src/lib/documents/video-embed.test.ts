@@ -16,6 +16,8 @@ test("resolveDocumentVideoEmbed resolves youtu.be links", () => {
     embedUrl: "https://www.youtube.com/embed/VIIIP_uNGSU?enablejsapi=1&playsinline=1&rel=0",
     segments: [],
     syncMode: "full",
+    transcriptSource: "NONE",
+    transcriptStatus: "READY",
   });
 });
 
@@ -32,6 +34,8 @@ test("resolveDocumentVideoEmbed resolves youtube watch links and keeps start off
     embedUrl: "https://www.youtube.com/embed/VIIIP_uNGSU?enablejsapi=1&playsinline=1&rel=0&start=62",
     segments: [],
     syncMode: "full",
+    transcriptSource: "NONE",
+    transcriptStatus: "READY",
   });
 });
 
@@ -77,6 +81,8 @@ test("resolveDocumentVideoEmbed resolves bilibili links with manual sync mode", 
       { start: 2.5, end: 7.1, text: "第二段" },
     ],
     syncMode: "manual",
+    transcriptSource: "NONE",
+    transcriptStatus: "READY",
   });
 });
 

@@ -6,7 +6,14 @@ import type { AiSummarySource } from "./document.types";
 
 const DEFAULT_AI_PROVIDER = "gemini";
 const DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/";
-const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_FLASH_LITE_PREVIEW_MODEL = "models/gemini-3.1-flash-lite-preview";
+const GEMINI_FLASH_LITE_MODEL_ALIASES = new Set([
+  "gemini-3.1-flash-lite",
+  "models/gemini-3.1-flash-lite",
+  "gemini-3.1-flash-lite-preview",
+  "models/gemini-3.1-flash-lite-preview",
+]);
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 const MAX_SOURCE_TEXT_CHARS = 12_000;
@@ -25,6 +32,7 @@ type AiProviderConfig = {
   apiKey: string;
   baseURL: string;
   model: string;
+  fallbackModels: string[];
 };
 
 export async function generateDocumentAiSummary(document: DocumentDetailRecord) {
@@ -63,31 +71,44 @@ async function createSummaryCompletion(
   preparedInput: PreparedSummaryInput,
 ) {
   let lastError: unknown;
+  const modelCandidates = [provider.model, ...provider.fallbackModels];
 
-  for (let attempt = 0; attempt <= EXTRA_RETRY_DELAYS_MS.length; attempt += 1) {
-    try {
-      return await client.chat.completions.create({
-        model: provider.model,
-        messages: [
-          {
-            role: "system",
-            content: buildSummaryInstructions(),
-          },
-          {
-            role: "user",
-            content: buildSummaryInput(document, preparedInput),
-          },
-        ],
-        ...(provider.provider === "gemini" ? { reasoning_effort: "none" as const } : {}),
-      });
-    } catch (error) {
-      lastError = error;
+  for (let modelIndex = 0; modelIndex < modelCandidates.length; modelIndex += 1) {
+    const model = modelCandidates[modelIndex];
 
-      if (!shouldRetryAiProviderRequest(error) || attempt === EXTRA_RETRY_DELAYS_MS.length) {
+    for (let attempt = 0; attempt <= EXTRA_RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        return await client.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: buildSummaryInstructions(),
+            },
+            {
+              role: "user",
+              content: buildSummaryInput(document, preparedInput),
+            },
+          ],
+          ...(provider.provider === "gemini" ? { reasoning_effort: "none" as const } : {}),
+        });
+      } catch (error) {
+        lastError = error;
+
+        if (shouldRetryAiProviderRequest(error) && attempt < EXTRA_RETRY_DELAYS_MS.length) {
+          await sleep(resolveRetryDelayMs(error, attempt));
+          continue;
+        }
+
+        if (
+          modelIndex < modelCandidates.length - 1 &&
+          shouldTryNextModelCandidate(provider.provider, error)
+        ) {
+          break;
+        }
+
         throw error;
       }
-
-      await sleep(resolveRetryDelayMs(error, attempt));
     }
   }
 
@@ -204,11 +225,14 @@ function resolveAiProviderConfig(): AiProviderConfig {
       throw new RouteError("AI_PROVIDER_NOT_CONFIGURED", 503, "GEMINI_API_KEY is not configured.");
     }
 
+    const geminiModel = resolveGeminiModelConfig(process.env.GEMINI_MODEL);
+
     return {
       provider,
       apiKey,
       baseURL: process.env.GEMINI_BASE_URL?.trim() || DEFAULT_GEMINI_BASE_URL,
-      model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL,
+      model: geminiModel.model,
+      fallbackModels: geminiModel.fallbackModels,
     };
   }
 
@@ -222,6 +246,24 @@ function resolveAiProviderConfig(): AiProviderConfig {
     apiKey,
     baseURL: process.env.OPENAI_BASE_URL?.trim() || DEFAULT_OPENAI_BASE_URL,
     model: process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
+    fallbackModels: [],
+  };
+}
+
+function resolveGeminiModelConfig(configuredModel: string | undefined) {
+  const model = configuredModel?.trim() || DEFAULT_GEMINI_MODEL;
+  const normalizedModel = model.toLowerCase();
+
+  if (!GEMINI_FLASH_LITE_MODEL_ALIASES.has(normalizedModel)) {
+    return {
+      model,
+      fallbackModels: [] as string[],
+    };
+  }
+
+  return {
+    model: GEMINI_FLASH_LITE_PREVIEW_MODEL,
+    fallbackModels: [DEFAULT_GEMINI_MODEL],
   };
 }
 
@@ -284,6 +326,19 @@ function isConnectionError(error: unknown) {
       typeof (error as { message?: unknown }).message === "string" &&
       (error as { message: string }).message.toLowerCase().includes("connection error"),
   );
+}
+
+function shouldTryNextModelCandidate(provider: AiProvider, error: unknown) {
+  if (provider !== "gemini") {
+    return false;
+  }
+
+  const status = getAiProviderStatus(error);
+  if (status === 404 || status === 503) {
+    return true;
+  }
+
+  return isConnectionError(error);
 }
 
 function extractOutputText(completion: {
@@ -349,3 +404,8 @@ function sleep(ms: number) {
     setTimeout(resolve, ms);
   });
 }
+
+export const __documentAiSummaryForTests = {
+  resolveGeminiModelConfig,
+  shouldTryNextModelCandidate,
+};

@@ -6,6 +6,8 @@ import type {
   PublishedAtKind,
   ReadState,
   SourceKind,
+  TranscriptSource,
+  TranscriptStatus,
 } from "@prisma/client";
 import type { DocumentVideoEmbed, VideoProvider } from "@/lib/documents/video-types";
 export type { DocumentVideoEmbed, TranscriptSegment, VideoProvider, VideoSyncMode } from "@/lib/documents/video-types";
@@ -61,8 +63,11 @@ export type DocumentListItem = {
   publishedAtKind: PublishedAtKind;
   enteredReadingAt: string | null;
   readState: ReadState;
+  readingProgress: number;
   isFavorite: boolean;
   ingestionStatus: IngestionStatus;
+  transcriptSource: TranscriptSource | null;
+  transcriptStatus: TranscriptStatus | null;
   createdAt: string;
   updatedAt: string;
   wordCount: number | null;
@@ -179,8 +184,11 @@ export type DocumentDetail = {
   publishedAtKind: PublishedAtKind;
   enteredReadingAt: string | null;
   readState: ReadState;
+  readingProgress: number;
   isFavorite: boolean;
   ingestionStatus: IngestionStatus;
+  transcriptSource: TranscriptSource | null;
+  transcriptStatus: TranscriptStatus | null;
   createdAt: string;
   updatedAt: string;
   tags: DocumentTagLabel[];

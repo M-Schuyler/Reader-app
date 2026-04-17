@@ -185,12 +185,9 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
               <div className="min-w-0 flex-1 space-y-4">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {candidate.hasSummary ? (
-                     <div className="group/badge relative flex items-center justify-center">
-                        <div className="absolute inset-0 scale-150 rounded-full bg-[color:var(--ai-card-accent)]/25 blur-xl opacity-0 transition-opacity duration-700 group-hover/badge:opacity-100" />
-                        <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--ai-card-accent)]/10 text-[color:var(--ai-card-accent)] ring-1 ring-[color:var(--ai-card-accent)]/20 transition-all duration-300 group-hover/badge:scale-110 group-hover/badge:rotate-[15deg] group-hover/badge:bg-[color:var(--ai-card-accent)]/20">
-                          <MagicWandIcon />
-                        </div>
-                     </div>
+                    <div className="flex h-8 w-8 items-center justify-center text-[color:var(--ai-card-accent)] transition-all duration-300 hover:scale-110 hover:rotate-[15deg]">
+                      <MagicWandIcon className="h-5 w-5" />
+                    </div>
                   ) : null}
                   {candidate.isFavorite ? (
                     <div className="group/badge relative flex items-center justify-center">
@@ -219,7 +216,7 @@ export function ExportCandidateBatchActions({ candidates }: { candidates: Export
                 
                 <Link
                   className="block max-w-4xl font-ui-heading text-[1.3rem] font-bold leading-[1.2] tracking-[-0.02em] text-[color:var(--text-primary)] transition hover:text-[color:var(--text-primary-strong)] sm:text-[1.4rem]"
-                  href={`/documents/${candidate.id}`}
+                  href={`/reading/${candidate.id}`}
                 >
                   {candidate.title}
                 </Link>

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   deriveContentOriginMetadata,
@@ -6,6 +7,10 @@ import {
 } from "@/lib/documents/content-origin";
 import { RouteError } from "@/server/api/response";
 import { normalizeCaptureInputUrl } from "@/server/modules/capture/capture.service";
+
+function readWorkspaceFile(path: string) {
+  return readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+}
 
 test("normalizeCaptureInputUrl trims input and strips hash", () => {
   const normalized = normalizeCaptureInputUrl("  https://example.com/article#section  ");
@@ -95,4 +100,19 @@ test("syncWechatSubsourceFromContentOrigin only writes biz-backed WeChat rows an
       displayName: "请辩",
     },
   ]);
+});
+
+test("new video captures persist transcript status and source when creating a document", () => {
+  const source = readWorkspaceFile("src/server/modules/capture/capture.service.ts");
+  const createPathStart = source.indexOf("const videoDocument = await createWebDocument({");
+  const createPathEnd = source.indexOf("const sourceHostname =", createPathStart);
+
+  assert.notEqual(createPathStart, -1);
+  assert.notEqual(createPathEnd, -1);
+
+  const createPath = source.slice(createPathStart, createPathEnd);
+
+  assert.match(createPath, /transcriptSegments: capturedVideo\.transcriptSegments,/);
+  assert.match(createPath, /transcriptSource: capturedVideo\.transcriptSource,/);
+  assert.match(createPath, /transcriptStatus: capturedVideo\.transcriptStatus,/);
 });

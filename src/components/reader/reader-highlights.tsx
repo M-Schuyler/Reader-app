@@ -40,7 +40,9 @@ type HighlightMutationApiResponse =
 export type ReaderHighlight = Pick<
   HighlightRecord,
   "id" | "quoteText" | "note" | "color" | "startOffset" | "endOffset" | "selectorJson"
->;
+> & {
+  isPending?: boolean;
+};
 
 type ReadSelectionOptions = {
   point?: {
@@ -112,6 +114,28 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
     };
   }, [canHighlight, documentId]);
 
+  useEffect(() => {
+    if (isLoading || highlights.length === 0 || typeof window === "undefined") {
+      return;
+    }
+
+    const hash = window.location.hash;
+    if (hash.startsWith("#highlight-")) {
+      const id = hash.replace("#highlight-", "");
+      if (highlights.some((h) => h.id === id)) {
+        setFocusedHighlightId(id);
+        
+        // Use a timeout to ensure the DOM is ready for scrolling
+        window.setTimeout(() => {
+          const element = document.getElementById(`highlight-${id}`);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 100);
+      }
+    }
+  }, [isLoading, highlights]);
+
   function readSelection(options?: ReadSelectionOptions): CapturedSelection | null {
     if (!canHighlight || !contentRef.current || typeof window === "undefined") {
       return null;
@@ -140,6 +164,9 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
       return null;
     }
 
+    const optimisticHighlight = buildOptimisticHighlight(nextSelectionDraft);
+    setHighlights((current) => sortHighlights([...current, optimisticHighlight]));
+    window.getSelection()?.removeAllRanges();
     setIsCreating(true);
     setActionError(null);
 
@@ -155,14 +182,27 @@ export function useDocumentHighlights({ canHighlight, documentId }: UseDocumentH
       const payload = (await response.json()) as HighlightMutationApiResponse;
 
       if (!payload.ok) {
+        setHighlights((current) => current.filter((highlight) => highlight.id !== optimisticHighlight.id));
         setActionError("保存高亮失败，请稍后再试。");
         return null;
       }
 
-      setHighlights((current) => sortHighlights([...current, payload.data.highlight]));
-      window.getSelection()?.removeAllRanges();
+      setHighlights((current) =>
+        (() => {
+          const optimisticHighlightIndex = current.findIndex((highlight) => highlight.id === optimisticHighlight.id);
+
+          if (optimisticHighlightIndex === -1) {
+            return sortHighlights([...current, payload.data.highlight]);
+          }
+
+          const nextHighlights = [...current];
+          nextHighlights[optimisticHighlightIndex] = payload.data.highlight;
+          return sortHighlights(nextHighlights);
+        })(),
+      );
       return payload.data.highlight;
     } catch {
+      setHighlights((current) => current.filter((highlight) => highlight.id !== optimisticHighlight.id));
       setActionError("保存高亮失败，请稍后再试。");
       return null;
     } finally {
@@ -484,6 +524,19 @@ function sortHighlights(highlights: ReaderHighlight[]) {
   });
 }
 
+function buildOptimisticHighlight(draft: SelectionDraft): ReaderHighlight {
+  return {
+    id: `pending-highlight-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    quoteText: draft.quoteText,
+    note: null,
+    color: null,
+    startOffset: draft.startOffset,
+    endOffset: draft.endOffset,
+    selectorJson: draft.selectorJson,
+    isPending: true,
+  };
+}
+
 function HighlightCard({
   cardRef,
   highlight,
@@ -501,12 +554,22 @@ function HighlightCard({
   onDelete: (id: string) => Promise<void>;
   onOpenEditor: (highlight: ReaderHighlight) => void;
 }) {
+  const isPending = highlight.isPending === true;
+
   function handleTriggerMouseDown(event: MouseEvent<HTMLTextAreaElement>) {
+    if (isPending) {
+      return;
+    }
+
     event.preventDefault();
     onOpenEditor(highlight);
   }
 
   function handleTriggerClick() {
+    if (isPending) {
+      return;
+    }
+
     onOpenEditor(highlight);
   }
 
@@ -531,14 +594,15 @@ function HighlightCard({
       />
       <div className="flex items-center justify-between gap-3">
         <Button
+          disabled={isPending}
           onClick={() => onOpenEditor(highlight)}
           size="sm"
           variant="secondary"
         >
-          写批注
+          {isPending ? "保存中…" : "写批注"}
         </Button>
         <button
-          disabled={isSaving}
+          disabled={isSaving || isPending}
           className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--badge-danger-text)]"
           onClick={() => void onDelete(highlight.id)}
           type="button"

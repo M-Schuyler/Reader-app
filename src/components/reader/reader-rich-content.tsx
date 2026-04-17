@@ -381,6 +381,7 @@ function renderPlainTextFallback(sourceText: string, highlights: ReaderHighlight
           <mark
             className={highlightClassName}
             data-highlight-id={segment.id}
+            id={`highlight-${segment.id}`}
             key={`plain-highlight-${paragraph.index}-${segment.id}-${index}`}
           >
             {segment.text}
@@ -424,7 +425,12 @@ function renderTextWithHighlights(
     <Fragment key={key}>
       {segments.map((segment, index) =>
         segment.type === "highlight" ? (
-          <mark className={highlightClassName} data-highlight-id={segment.id} key={`${key}.highlight.${segment.id}.${index}`}>
+          <mark 
+            className={highlightClassName} 
+            data-highlight-id={segment.id} 
+            id={`highlight-${segment.id}`}
+            key={`${key}.highlight.${segment.id}.${index}`}
+          >
             {segment.text}
           </mark>
         ) : (

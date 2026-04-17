@@ -136,7 +136,7 @@ function DocumentCard({
             </div>
           </div>
 
-          <Link className="block space-y-3.5" href={`/documents/${item.id}`}>
+          <Link className="block space-y-3.5" href={`/reading/${item.id}`}>
             <h3 className="max-w-4xl font-ui-heading text-[1.8rem] font-bold leading-[1.1] tracking-[-0.045em] text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)]">
               {item.title}
             </h3>
@@ -149,10 +149,8 @@ function DocumentCard({
                   : "text-[color:var(--text-secondary)] opacity-85"
               )}>
                 {item.aiSummary && (
-                  <div className="mb-2 flex items-center gap-2">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--ai-card-accent)]/15 text-[color:var(--ai-card-accent)]">
-                      <MagicWandIcon className="h-3.5 w-3.5" />
-                    </div>
+                  <div className="mb-2">
+                    <MagicWandIcon className="h-4 w-4 text-[color:var(--ai-card-accent)]" />
                   </div>
                 )}
                 <p className="line-clamp-3">

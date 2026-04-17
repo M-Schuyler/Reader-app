@@ -29,13 +29,13 @@ export function resolveCaptureUrlSubmitSuccess(data: CaptureUrlSubmitPayload): C
       kind: "failed",
       message: localizeCaptureIngestionError(data.ingestion.error),
       actionLabel: "查看失败记录",
-      actionHref: `/documents/${encodeURIComponent(data.document.id)}`,
+      actionHref: `/reading/${encodeURIComponent(data.document.id)}`,
     };
   }
 
   return {
     kind: "redirect",
-    href: `/documents/${encodeURIComponent(data.document.id)}`,
+    href: `/reading/${encodeURIComponent(data.document.id)}`,
   };
 }
 

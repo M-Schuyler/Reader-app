@@ -13,6 +13,8 @@ export function resolveNavigationRailVisualState(input: {
     return "full";
   }
 
-  // Fade and indent when scrolling down on any page to focus on content.
-  return input.scrollingDown ? "weakened" : "full";
+  const isReadingSurface = input.pathname === "/reading" || input.pathname.startsWith("/reading/");
+
+  // Only the reading surface fades the rail back while the user is moving deeper into content.
+  return isReadingSurface && input.scrollingDown ? "weakened" : "full";
 }

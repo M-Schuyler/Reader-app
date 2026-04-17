@@ -36,7 +36,7 @@ const AI_SUMMARY_PROVIDER_LOCK_KEYS = {
   openai: 2,
 } as const;
 const AI_SUMMARY_PROVIDER_LOCK_MAX_WAIT_MS = 5_000;
-const AI_SUMMARY_PROVIDER_LOCK_TRANSACTION_TIMEOUT_MS = 30_000;
+const AI_SUMMARY_PROVIDER_LOCK_TRANSACTION_TIMEOUT_MS = 120_000;
 
 type SummaryAiProvider = keyof typeof AI_SUMMARY_PROVIDER_LOCK_KEYS;
 type SummaryDbClient = Prisma.TransactionClient | typeof prisma;

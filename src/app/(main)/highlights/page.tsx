@@ -66,7 +66,7 @@ export default async function HighlightsPage({ searchParams }: HighlightsPagePro
                       <span>·</span>
                       <Link 
                         className="truncate font-medium transition hover:text-[color:var(--text-primary)]" 
-                        href={`/documents/${highlight.document.id}#highlight-${highlight.id}`}
+                        href={`/reading/${highlight.document.id}#highlight-${highlight.id}`}
                       >
                         {highlight.document.title}
                       </Link>
@@ -75,7 +75,7 @@ export default async function HighlightsPage({ searchParams }: HighlightsPagePro
                     {/* 高亮正文：使用 Reading 页 Prose 风格 */}
                     <div className="relative">
                       <blockquote className="max-w-4xl text-base font-serif leading-relaxed text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)] sm:text-[17px]">
-                        <Link href={`/documents/${highlight.document.id}#highlight-${highlight.id}`} className="block">
+                        <Link href={`/reading/${highlight.document.id}#highlight-${highlight.id}`} className="block">
                           “{highlight.quoteText}”
                         </Link>
                       </blockquote>

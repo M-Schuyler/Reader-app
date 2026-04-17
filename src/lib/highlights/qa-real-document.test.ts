@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AiSummaryStatus, DocumentType, IngestionStatus, ReadState } from "@prisma/client";
+import {
+  AiSummaryStatus,
+  DocumentType,
+  IngestionStatus,
+  ReadState,
+  TranscriptSource,
+  TranscriptStatus,
+} from "@prisma/client";
 import type { HighlightRecord } from "@/server/modules/highlights/highlight.types";
 import type { DocumentDetail } from "@/server/modules/documents/document.types";
 import {
@@ -44,6 +51,8 @@ test("mapping a QA real document only rewrites the public id", () => {
     videoThumbnailUrl: null,
     videoDurationSeconds: null,
     videoEmbed: null,
+    transcriptSource: null,
+    transcriptStatus: null,
     aiSummary: "Summary",
     aiSummaryStatus: AiSummaryStatus.READY,
     aiSummaryError: null,
@@ -55,6 +64,7 @@ test("mapping a QA real document only rewrites the public id", () => {
     publishedAtKind: "EXACT",
     enteredReadingAt: "2026-03-27T10:10:00.000Z",
     readState: ReadState.UNREAD,
+    readingProgress: 0,
     isFavorite: false,
     ingestionStatus: IngestionStatus.READY,
     createdAt: "2026-03-27T10:00:00.000Z",

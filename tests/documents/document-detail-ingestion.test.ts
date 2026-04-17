@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AiSummaryStatus, DocumentType, IngestionStatus, PublishedAtKind, ReadState } from "@prisma/client";
 import { buildContentOriginIndex } from "@/lib/documents/content-origin";
-import { getDocument, openDocument } from "@/server/modules/documents/document.service";
-import type { DocumentDetailRecord } from "@/server/modules/documents/document.repository";
+import { getDocument, openDocument, openReaderDocument } from "@/server/modules/documents/document.service";
+import type { DocumentDetailRecord, DocumentReaderRecord } from "@/server/modules/documents/document.repository";
 import type { CaptureIngestionError } from "@/server/modules/documents/document.types";
 
 function createDocumentRecord(overrides: Partial<DocumentDetailRecord> = {}): DocumentDetailRecord {
@@ -45,6 +45,51 @@ function createDocumentRecord(overrides: Partial<DocumentDetailRecord> = {}): Do
     file: overrides.file === undefined ? base.file : overrides.file,
     content: overrides.content === undefined ? base.content : overrides.content,
     tags: overrides.tags === undefined ? base.tags : overrides.tags,
+  };
+}
+
+function createReaderDocumentRecord(overrides: Partial<DocumentReaderRecord> = {}): DocumentReaderRecord {
+  const base = {
+    id: "reader_doc",
+    type: DocumentType.WEB_PAGE,
+    title: "视频阅读页",
+    sourceUrl: "https://youtu.be/svquts376lo",
+    canonicalUrl: "https://www.youtube.com/watch?v=svquts376lo",
+    videoUrl: "https://www.youtube.com/watch?v=svquts376lo",
+    videoProvider: "youtube",
+    videoDurationSeconds: 80,
+    transcriptSegments: [
+      {
+        start: 0,
+        end: 3.4,
+        text: "Hi there! Welcome back to another video.",
+      },
+    ],
+    transcriptSource: "GEMINI",
+    transcriptStatus: "READY",
+    aiSummary: null,
+    aiSummaryStatus: AiSummaryStatus.READY,
+    aiSummaryError: null,
+    excerpt: null,
+    author: "Volka English",
+    contentOriginLabel: null,
+    publishedAt: null,
+    publishedAtKind: PublishedAtKind.UNKNOWN,
+    enteredReadingAt: new Date("2026-04-17T00:00:00.000Z"),
+    readState: ReadState.UNREAD,
+    readingProgress: 0,
+    isFavorite: false,
+    ingestionStatus: IngestionStatus.READY,
+    content: {
+      contentHtml: null,
+      wordCount: 18,
+    },
+  } as unknown as DocumentReaderRecord;
+
+  return {
+    ...base,
+    ...overrides,
+    content: overrides.content === undefined ? base.content : overrides.content,
   };
 }
 
@@ -178,4 +223,20 @@ test("getDocument keeps pre-backfill wechat detail content-origin aligned with l
     key: listSide.options[0]?.value ?? null,
     label: listSide.options[0]?.label ?? null,
   });
+});
+
+test("openReaderDocument keeps transcript segments for video documents", async () => {
+  const readerRecord = createReaderDocumentRecord();
+
+  const data = await openReaderDocument(readerRecord.id, {
+    dependencies: {
+      getReaderDocumentById: async () => readerRecord,
+      getReaderNextDocument: async () => null,
+      markDocumentEnteredReading: async () => ({ count: 1 }),
+    },
+  });
+
+  assert.equal(data?.document.videoEmbed?.segments.length, 1);
+  assert.equal(data?.document.videoEmbed?.segments[0]?.text, "Hi there! Welcome back to another video.");
+  assert.equal(data?.document.transcriptStatus, "READY");
 });
