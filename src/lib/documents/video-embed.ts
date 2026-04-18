@@ -62,13 +62,20 @@ export function resolveDocumentVideoEmbed({
     return null;
   }
 
+  const normalizedTranscriptSource = normalizeTranscriptSource(transcriptSource);
+  const normalizedTranscriptSegments =
+    normalizedTranscriptSource === "GEMINI" ? [] : normalizeTranscriptSegments(transcriptSegments);
+  const effectiveTranscriptSource = normalizedTranscriptSource === "GEMINI" ? "NONE" : normalizedTranscriptSource;
+  const effectiveTranscriptStatus =
+    normalizedTranscriptSource === "GEMINI" ? "FAILED" : normalizeTranscriptStatus(transcriptStatus);
+
   return {
     provider: identity.provider,
     embedUrl: buildVideoEmbedUrl(identity),
-    segments: normalizeTranscriptSegments(transcriptSegments),
-    syncMode: resolveVideoSyncMode(identity.provider, transcriptSource),
-    transcriptSource: normalizeTranscriptSource(transcriptSource),
-    transcriptStatus: normalizeTranscriptStatus(transcriptStatus),
+    segments: normalizedTranscriptSegments,
+    syncMode: resolveVideoSyncMode(identity.provider, effectiveTranscriptSource),
+    transcriptSource: effectiveTranscriptSource,
+    transcriptStatus: effectiveTranscriptStatus,
   };
 }
 
@@ -150,9 +157,7 @@ export function buildVideoExternalId(identity: Pick<ResolvedVideoIdentity, "prov
 }
 
 export function resolveVideoSyncMode(provider: VideoProvider, transcriptSource?: string | null): VideoSyncMode {
-  if (transcriptSource === "GEMINI") {
-    return "seek";
-  }
+  void transcriptSource;
 
   return provider === "youtube" ? "full" : "manual";
 }

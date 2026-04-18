@@ -73,7 +73,7 @@ test("youtube transcript candidate urls include json3 fallback", () => {
   assert.equal(urls.some((url) => url.includes("fmt=json3")), true);
 });
 
-test("youtube metadata-only capture keeps the video import readable when transcript is unavailable", () => {
+test("youtube metadata-only capture stays importable without pretending AI text is a subtitle", () => {
   const captured = __videoCaptureForTests.buildYoutubeCapturedDocument({
     videoId: "svquts376lo",
     canonicalUrl: "https://www.youtube.com/watch?v=svquts376lo",
@@ -86,8 +86,8 @@ test("youtube metadata-only capture keeps the video import readable when transcr
     videoThumbnailUrl: "https://i.ytimg.com/vi/svquts376lo/hqdefault.jpg",
     videoDurationSeconds: null,
     transcriptSegments: [],
-    transcriptSource: "GEMINI",
-    transcriptStatus: "PENDING",
+    transcriptSource: "NONE",
+    transcriptStatus: "FAILED",
   });
 
   assert.equal(captured.provider, "youtube");
@@ -97,6 +97,8 @@ test("youtube metadata-only capture keeps the video import readable when transcr
   assert.equal(captured.plainText, "");
   assert.equal(captured.excerpt, "");
   assert.deepEqual(captured.transcriptSegments, []);
+  assert.equal(captured.transcriptSource, "NONE");
+  assert.equal(captured.transcriptStatus, "FAILED");
 });
 
 test("youtube innertube api key extractor supports both patterns", () => {

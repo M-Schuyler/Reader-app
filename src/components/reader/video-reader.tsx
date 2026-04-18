@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "@/components/ui/panel";
 import type { DocumentVideoEmbed } from "@/lib/documents/video-types";
+import { cx } from "@/utils/cx";
 
 const YOUTUBE_POLL_INTERVAL_MS = 600;
-const TRANSCRIPT_PENDING_POLL_INTERVAL_MS = 10_000;
 const VIDEO_READ_THRESHOLD = 0.88;
 
 type VideoReaderProps = {
@@ -58,21 +58,20 @@ export function VideoReader({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const segmentRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const markedReadRef = useRef(false);
-  const transcriptSweepRequestedRef = useRef(false);
   const [currentTimeSeconds, setCurrentTimeSeconds] = useState<number | null>(null);
   const [playerDurationSeconds, setPlayerDurationSeconds] = useState<number | null>(null);
   const [manualFocusedSegmentIndex, setManualFocusedSegmentIndex] = useState<number | null>(null);
   const [seekTo, setSeekTo] = useState<(seconds: number) => void>(() => () => undefined);
 
   const isYouTubeFullSync = videoEmbed.provider === "youtube" && videoEmbed.syncMode === "full";
-  const isSeekMode = videoEmbed.syncMode === "seek";
-  const canSeek = isYouTubeFullSync || isSeekMode;
+  const hasNativeTranscript = videoEmbed.transcriptSource === "NATIVE" && videoEmbed.segments.length > 0;
+  const canTrackPlayback = videoEmbed.provider === "youtube";
+  const canSeek = isYouTubeFullSync && hasNativeTranscript;
+  const usesManualTranscriptReading = hasNativeTranscript && !canSeek;
   const effectiveDurationSeconds = playerDurationSeconds ?? videoDurationSeconds;
-  const isPendingGeminiTranscript =
-    videoEmbed.transcriptStatus === "PENDING" && videoEmbed.transcriptSource === "GEMINI";
 
   useEffect(() => {
-    if (!canSeek || !iframeRef.current) {
+    if (!canTrackPlayback || !iframeRef.current) {
       setSeekTo(() => () => undefined);
       setCurrentTimeSeconds(null);
       setPlayerDurationSeconds(null);
@@ -149,13 +148,13 @@ export function VideoReader({
       setPlayerDurationSeconds(null);
       player?.destroy();
     };
-  }, [canSeek, videoEmbed.embedUrl]);
+  }, [canTrackPlayback, videoEmbed.embedUrl]);
 
   const syncedActiveSegmentIndex = useMemo(
     () => resolveActiveTranscriptSegment(videoEmbed.segments, currentTimeSeconds),
     [videoEmbed.segments, currentTimeSeconds],
   );
-  const activeSegmentIndex = canSeek ? syncedActiveSegmentIndex : manualFocusedSegmentIndex;
+  const activeSegmentIndex = canSeek ? syncedActiveSegmentIndex : usesManualTranscriptReading ? manualFocusedSegmentIndex : null;
 
   useEffect(() => {
     if (activeSegmentIndex === null) {
@@ -170,39 +169,7 @@ export function VideoReader({
   }, [activeSegmentIndex]);
 
   useEffect(() => {
-    if (!isPendingGeminiTranscript) {
-      transcriptSweepRequestedRef.current = false;
-      return;
-    }
-
-    if (transcriptSweepRequestedRef.current) {
-      return;
-    }
-
-    transcriptSweepRequestedRef.current = true;
-    void fetch("/api/transcript-jobs/sweep", { method: "POST" })
-      .then(() => {
-        router.refresh();
-      })
-      .catch(() => undefined);
-  }, [isPendingGeminiTranscript, router]);
-
-  useEffect(() => {
-    if (!isPendingGeminiTranscript) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      router.refresh();
-    }, TRANSCRIPT_PENDING_POLL_INTERVAL_MS);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [isPendingGeminiTranscript, router]);
-
-  useEffect(() => {
-    if (!canSeek || readState === ReadState.READ) {
+    if (!canTrackPlayback || readState === ReadState.READ) {
       return;
     }
 
@@ -224,7 +191,7 @@ export function VideoReader({
         router.refresh();
       })
       .catch(() => undefined);
-  }, [currentTimeSeconds, documentId, effectiveDurationSeconds, canSeek, readState, router]);
+  }, [currentTimeSeconds, documentId, effectiveDurationSeconds, canTrackPlayback, readState, router]);
 
   return (
     <div className="space-y-6">
@@ -242,11 +209,11 @@ export function VideoReader({
           />
         </div>
         <p className="text-xs leading-6 text-[color:var(--text-tertiary)]">
-          {isYouTubeFullSync
-            ? "YouTube 同步模式：点击字幕可跳转到对应时间点，并随播放进度自动高亮。"
-            : isSeekMode 
-            ? "Gemini 生成字幕：点击可跳转播放，由于非原生字幕，同步可能存在微小偏差。"
-            : "B 站手动模式：当前仅提供播放器与字幕阅读，不承诺自动时间同步。"}
+          {canSeek
+            ? "YouTube 原生字幕：点击字幕可跳转到对应时间点，并随播放进度自动高亮。"
+            : usesManualTranscriptReading
+            ? "当前视频带有原生字幕。你可以按时间阅读；由于播放器限制，暂不承诺自动同步。"
+            : "当前视频没有可验证字幕。Reader 仅保留播放器、元数据和原始链接。"}
         </p>
       </div>
 
@@ -255,16 +222,18 @@ export function VideoReader({
           <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">字幕</p>
           {videoEmbed.segments.length > 0 ? (
             <div className="max-h-[380px] overflow-y-auto rounded-[16px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-4 py-3">
-              <div className="text-[15px] leading-8 text-[color:var(--text-secondary)]">
+              <div className="space-y-1.5">
                 {videoEmbed.segments.map((segment, index) => {
                   const isActive = activeSegmentIndex === index;
                   return (
                     <button
-                      className={`mb-1 mr-1 inline-block rounded-[10px] px-1.5 py-0.5 text-left align-baseline text-[15px] leading-8 transition ${
+                      aria-pressed={isActive}
+                      className={cx(
+                        "grid w-full grid-cols-[auto_1fr] items-start gap-3 rounded-[14px] px-3 py-2.5 text-left transition",
                         isActive
                           ? "bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)]"
-                          : "text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-surface-strong)]"
-                      }`}
+                          : "text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-surface-strong)] hover:text-[color:var(--text-primary)]",
+                      )}
                       key={`${segment.start}-${segment.end}-${index}`}
                       onClick={() => {
                         if (canSeek) {
@@ -280,13 +249,14 @@ export function VideoReader({
                       type="button"
                     >
                       <span
-                        className={`mr-1 align-middle text-[10px] ${
-                          isActive ? "text-[color:var(--text-secondary)]" : "text-[color:var(--text-tertiary)]"
-                        }`}
+                        className={cx(
+                          "tabular-nums pt-0.5 text-[11px] font-medium leading-6",
+                          isActive ? "text-[color:var(--text-secondary)]" : "text-[color:var(--text-tertiary)]",
+                        )}
                       >
                         {formatVideoTime(segment.start)}
                       </span>
-                      {segment.text}
+                      <span className="min-w-0 text-[15px] leading-7">{segment.text}</span>
                     </button>
                   );
                 })}
@@ -294,11 +264,7 @@ export function VideoReader({
             </div>
           ) : (
             <p className="text-sm leading-7 text-[color:var(--text-secondary)]">
-              {videoEmbed.transcriptStatus === "PENDING"
-                ? "字幕生成中..."
-                : videoEmbed.provider === "youtube"
-                ? "当前还没拿到可用字幕。常见原因是视频本身没开放字幕，或者 YouTube 暂时拦截了字幕抓取；之后重新导入时，Reader 会继续重试。"
-                : "当前视频暂无可用字幕。"}
+              当前视频没有可验证字幕。Reader 仅保留播放器、元数据和原始链接。
             </p>
           )}
 

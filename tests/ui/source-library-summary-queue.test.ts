@@ -6,7 +6,7 @@ function readWorkspaceFile(path: string) {
   return readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 }
 
-test("sources page uses the overflow menu for capture actions and manual ai queue sweep", () => {
+test("sources page uses the overflow menu for capture actions and manual ai summary queue sweep", () => {
   const page = readWorkspaceFile("src/app/(main)/sources/page.tsx");
   const menu = readWorkspaceFile("src/components/library/source-library-more-menu.tsx");
 
@@ -20,8 +20,8 @@ test("sources page uses the overflow menu for capture actions and manual ai queu
   assert.match(menu, /CreateSourceForm/);
   assert.match(menu, /保存网页链接/);
   assert.match(menu, /添加 RSS 来源/);
-  assert.match(menu, /补跑 AI 队列/);
-  assert.match(menu, /保存网页链接[\s\S]*添加 RSS 来源[\s\S]*补跑 AI 队列/);
+  assert.match(menu, /补跑 AI 摘要队列/);
+  assert.match(menu, /保存网页链接[\s\S]*添加 RSS 来源[\s\S]*补跑 AI 摘要队列/);
   assert.match(menu, /min-w-\[280px\]/);
   assert.match(menu, /props\.expanded \? "∨" : "›"/);
   assert.match(menu, /fixed inset-0 z-40 bg-black\/20/);

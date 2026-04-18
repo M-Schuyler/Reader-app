@@ -156,8 +156,8 @@ async function captureYoutubeVideoDocument(identity: ResolvedVideoIdentity): Pro
   }
 
   const plainText = transcriptSegments.length > 0 ? buildTranscriptPlainText(transcriptSegments) : "";
-  const transcriptStatus = transcriptSegments.length > 0 ? TranscriptStatus.READY : TranscriptStatus.PENDING;
-  const transcriptSource = transcriptSegments.length > 0 ? TranscriptSource.NATIVE : TranscriptSource.GEMINI;
+  const transcriptStatus = transcriptSegments.length > 0 ? TranscriptStatus.READY : TranscriptStatus.FAILED;
+  const transcriptSource = transcriptSegments.length > 0 ? TranscriptSource.NATIVE : TranscriptSource.NONE;
 
   return buildYoutubeCapturedDocument({
     videoId: identity.id,
@@ -188,9 +188,31 @@ async function captureBilibiliVideoDocument(sourceUrl: string, bvid: string): Pr
   }
 
   const videoData = viewResponse.data;
+  const title = readString(videoData, "title") ?? "Bilibili Video";
+  const author = readString(readObject(videoData, "owner"), "name");
+  const thumbnailUrl = normalizeBilibiliThumbnailUrl(readString(videoData, "pic"));
+  const durationSeconds = readNumber(videoData, "duration");
+  const publishedAt = parseUnixTime(readNumber(videoData, "pubdate"));
   const cid = resolveBilibiliCid(videoData, inputUrl);
+
+  const metadataOnlyCapture = buildBilibiliCapturedDocument({
+    bvid,
+    canonicalUrl,
+    title,
+    author,
+    lang: null,
+    excerpt: null,
+    plainText: "",
+    publishedAt,
+    videoThumbnailUrl: thumbnailUrl,
+    videoDurationSeconds: durationSeconds,
+    transcriptSegments: [],
+    transcriptSource: TranscriptSource.NONE,
+    transcriptStatus: TranscriptStatus.FAILED,
+  });
+
   if (!cid) {
-    throw new RouteError("VIDEO_METADATA_FETCH_FAILED", 502, "B 站视频元数据缺少 cid。");
+    return metadataOnlyCapture;
   }
 
   const subtitleResponse = await fetchJson<{
@@ -208,16 +230,16 @@ async function captureBilibiliVideoDocument(sourceUrl: string, bvid: string): Pr
   }>(`https://api.bilibili.com/x/player/wbi/v2?bvid=${encodeURIComponent(bvid)}&cid=${cid}`);
 
   if (subtitleResponse.code !== 0 || !subtitleResponse.data) {
-    throw new RouteError("VIDEO_METADATA_FETCH_FAILED", 502, "B 站字幕列表获取失败。");
+    return metadataOnlyCapture;
   }
 
   if (subtitleResponse.data.need_login_subtitle === true) {
-    throw new RouteError("VIDEO_SUBTITLE_UNAVAILABLE", 422, "该 B 站视频字幕需要登录，当前无法导入。");
+    return metadataOnlyCapture;
   }
 
   const selectedSubtitle = selectBilibiliSubtitle(subtitleResponse.data.subtitle?.subtitles ?? []);
   if (!selectedSubtitle?.subtitle_url) {
-    throw new RouteError("VIDEO_SUBTITLE_UNAVAILABLE", 422, "该 B 站视频暂时没有可用字幕，无法导入。");
+    return metadataOnlyCapture;
   }
 
   const subtitleUrl = normalizeBilibiliSubtitleUrl(selectedSubtitle.subtitle_url);
@@ -231,38 +253,25 @@ async function captureBilibiliVideoDocument(sourceUrl: string, bvid: string): Pr
 
   const transcriptSegments = normalizeTranscriptSegmentsFromBody(subtitlePayload.body ?? []);
   if (transcriptSegments.length === 0) {
-    throw new RouteError("VIDEO_SUBTITLE_UNAVAILABLE", 422, "该 B 站视频暂时没有可用字幕，无法导入。");
+    return metadataOnlyCapture;
   }
 
   const plainText = buildTranscriptPlainText(transcriptSegments);
-  const title = readString(videoData, "title") ?? "Bilibili Video";
-  const author = readString(readObject(videoData, "owner"), "name");
-  const thumbnailUrl = normalizeBilibiliThumbnailUrl(readString(videoData, "pic"));
-  const durationSeconds = readNumber(videoData, "duration");
-  const publishedAt = parseUnixTime(readNumber(videoData, "pubdate"));
-
-  return {
-    provider: "bilibili",
-    externalId: buildVideoExternalId({
-      provider: "bilibili",
-      id: bvid,
-    }),
+  return buildBilibiliCapturedDocument({
+    bvid,
     canonicalUrl,
-    videoUrl: canonicalUrl,
     title,
     author,
     lang: selectedSubtitle.lan ?? null,
     excerpt: plainText.slice(0, 240),
     plainText,
-    textHash: createHash("sha256").update(plainText).digest("hex"),
-    wordCount: countReadableUnits(plainText),
     publishedAt,
     videoThumbnailUrl: thumbnailUrl,
     videoDurationSeconds: durationSeconds,
     transcriptSegments,
     transcriptSource: TranscriptSource.NATIVE,
     transcriptStatus: TranscriptStatus.READY,
-  };
+  });
 }
 
 async function resolveFinalRedirectUrl(url: string) {
@@ -490,6 +499,48 @@ function buildYoutubeCapturedDocument(input: {
     externalId: buildVideoExternalId({
       provider: "youtube",
       id: input.videoId,
+    }),
+    canonicalUrl: input.canonicalUrl,
+    videoUrl: input.canonicalUrl,
+    title: input.title,
+    author: input.author,
+    lang: input.lang,
+    excerpt,
+    plainText,
+    textHash: createHash("sha256").update(plainText).digest("hex"),
+    wordCount: countReadableUnits(plainText),
+    publishedAt: input.publishedAt,
+    videoThumbnailUrl: input.videoThumbnailUrl,
+    videoDurationSeconds: input.videoDurationSeconds,
+    transcriptSegments: input.transcriptSegments,
+    transcriptSource: input.transcriptSource,
+    transcriptStatus: input.transcriptStatus,
+  };
+}
+
+function buildBilibiliCapturedDocument(input: {
+  bvid: string;
+  canonicalUrl: string;
+  title: string;
+  author: string | null;
+  lang: string | null;
+  excerpt: string | null;
+  plainText: string;
+  publishedAt: Date | null;
+  videoThumbnailUrl: string | null;
+  videoDurationSeconds: number | null;
+  transcriptSegments: TranscriptSegment[];
+  transcriptSource: TranscriptSource;
+  transcriptStatus: TranscriptStatus;
+}): CapturedVideoDocument {
+  const plainText = input.plainText.trim();
+  const excerpt = typeof input.excerpt === "string" ? input.excerpt.trim() : plainText.slice(0, 240);
+
+  return {
+    provider: "bilibili",
+    externalId: buildVideoExternalId({
+      provider: "bilibili",
+      id: input.bvid,
     }),
     canonicalUrl: input.canonicalUrl,
     videoUrl: input.canonicalUrl,

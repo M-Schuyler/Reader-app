@@ -70,3 +70,20 @@ test("mapDocumentDetail keeps persisted video fields and builds video embed payl
     { start: 2, end: 4, text: "world" },
   ]);
 });
+
+test("mapDocumentDetail withholds Gemini-generated transcript text from the video embed payload", () => {
+  const mapped = mapDocumentDetail(
+    createDocumentDetailRecord({
+      transcriptSource: "GEMINI",
+      transcriptStatus: "READY",
+      transcriptSegments: [
+        { start: 0, end: 2, text: "hallucinated subtitle one" },
+        { start: 2, end: 4, text: "hallucinated subtitle two" },
+      ],
+    }),
+  );
+
+  assert.deepEqual(mapped.videoEmbed?.segments, []);
+  assert.equal(mapped.videoEmbed?.transcriptSource, "NONE");
+  assert.equal(mapped.videoEmbed?.transcriptStatus, "FAILED");
+});

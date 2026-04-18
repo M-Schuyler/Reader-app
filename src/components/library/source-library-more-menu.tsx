@@ -120,10 +120,7 @@ function SweepButton({ onDone }: { onDone: () => void }) {
   async function handleSweep() {
     setState("running");
     try {
-      await Promise.all([
-        fetch("/api/summary-jobs/sweep", { method: "POST" }),
-        fetch("/api/transcript-jobs/sweep", { method: "POST" }),
-      ]);
+      await fetch("/api/summary-jobs/sweep", { method: "POST" });
     } finally {
       setState("done");
       setTimeout(() => {
@@ -139,7 +136,7 @@ function SweepButton({ onDone }: { onDone: () => void }) {
       disabled={state === "running"}
       onClick={handleSweep}
     >
-      {state === "idle" && "补跑 AI 队列"}
+      {state === "idle" && "补跑 AI 摘要队列"}
       {state === "running" && "运行中…"}
       {state === "done" && "完成"}
     </button>

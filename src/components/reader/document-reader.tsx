@@ -119,6 +119,19 @@ export function DocumentReader({ document: initialDocument, nextUp }: DocumentRe
   const failedState = resolveDocumentFailedState(readerDocument.ingestion?.error);
   const showIngestionBadge = readerDocument.ingestionStatus !== IngestionStatus.READY;
   const documentAttribution = resolveDocumentAttribution(readerDocument);
+  const readerHeaderClassName = cx(
+    "mx-auto max-w-[var(--content-measure)]",
+    isVideoMode ? "space-y-4 lg:space-y-5" : "space-y-6",
+  );
+  const readerTitleClassName = cx(
+    "text-[color:var(--text-primary)]",
+    isVideoMode
+      ? "font-ui-heading text-[2rem] leading-[1.02] tracking-[-0.04em] sm:text-[2.75rem]"
+      : "font-display text-[2.5rem] leading-[1.1] tracking-[-0.02em] sm:text-[3.5rem]",
+  );
+  const readerSurfaceBodyClassName = cx(
+    isVideoMode ? "px-5 py-6 sm:px-7 sm:py-7" : "px-7 py-9 sm:px-11 sm:py-11",
+  );
 
   useEffect(() => {
     if (!isFloatingPanelOpen) {
@@ -204,7 +217,7 @@ export function DocumentReader({ document: initialDocument, nextUp }: DocumentRe
         </div>
       </div>
 
-      <header className="mx-auto max-w-[var(--content-measure)] space-y-6">
+      <header className={readerHeaderClassName}>
         <div className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-[color:var(--text-tertiary)]">
           <Link className="transition hover:text-[color:var(--text-primary)]" href="/sources">
             Sources
@@ -220,7 +233,7 @@ export function DocumentReader({ document: initialDocument, nextUp }: DocumentRe
         </div>
 
         <div className="space-y-4">
-          <h1 className="font-display text-[2.5rem] leading-[1.1] tracking-[-0.02em] text-[color:var(--text-primary)] sm:text-[3.5rem]">
+          <h1 className={readerTitleClassName}>
             {readerDocument.title}
           </h1>
 
@@ -291,7 +304,7 @@ export function DocumentReader({ document: initialDocument, nextUp }: DocumentRe
           padding="none"
           tone="transparent"
         >
-          <div className="px-7 py-9 sm:px-11 sm:py-11">
+          <div className={readerSurfaceBodyClassName}>
             {videoEmbed ? (
               <div className="space-y-5">
                 {isFailed ? (

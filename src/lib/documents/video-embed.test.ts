@@ -86,6 +86,30 @@ test("resolveDocumentVideoEmbed resolves bilibili links with manual sync mode", 
   });
 });
 
+test("resolveDocumentVideoEmbed drops Gemini-generated segments so they cannot masquerade as subtitles", () => {
+  const embed = resolveDocumentVideoEmbed({
+    videoProvider: "youtube",
+    videoUrl: "https://www.youtube.com/watch?v=VIIIP_uNGSU",
+    canonicalUrl: null,
+    sourceUrl: null,
+    transcriptSegments: [
+      { start: 0, end: 2.5, text: "AI generated text" },
+      { start: 2.5, end: 5, text: "that should not be shown" },
+    ],
+    transcriptSource: "GEMINI",
+    transcriptStatus: "READY",
+  });
+
+  assert.deepEqual(embed, {
+    provider: "youtube",
+    embedUrl: "https://www.youtube.com/embed/VIIIP_uNGSU?enablejsapi=1&playsinline=1&rel=0",
+    segments: [],
+    syncMode: "full",
+    transcriptSource: "NONE",
+    transcriptStatus: "FAILED",
+  });
+});
+
 test("resolveVideoIdentityFromUrl parses youtube and bilibili identifiers", () => {
   assert.deepEqual(resolveVideoIdentityFromUrl("https://youtu.be/VIIIP_uNGSU"), {
     provider: "youtube",

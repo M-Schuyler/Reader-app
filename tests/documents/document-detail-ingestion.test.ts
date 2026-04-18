@@ -65,7 +65,7 @@ function createReaderDocumentRecord(overrides: Partial<DocumentReaderRecord> = {
         text: "Hi there! Welcome back to another video.",
       },
     ],
-    transcriptSource: "GEMINI",
+    transcriptSource: "NATIVE",
     transcriptStatus: "READY",
     aiSummary: null,
     aiSummaryStatus: AiSummaryStatus.READY,
@@ -239,4 +239,30 @@ test("openReaderDocument keeps transcript segments for video documents", async (
   assert.equal(data?.document.videoEmbed?.segments.length, 1);
   assert.equal(data?.document.videoEmbed?.segments[0]?.text, "Hi there! Welcome back to another video.");
   assert.equal(data?.document.transcriptStatus, "READY");
+});
+
+test("openReaderDocument does not expose Gemini-generated transcript text as readable subtitles", async () => {
+  const readerRecord = createReaderDocumentRecord({
+    transcriptSource: "GEMINI",
+    transcriptStatus: "READY",
+    transcriptSegments: [
+      {
+        start: 0,
+        end: 3.4,
+        text: "This should not surface as a subtitle anymore.",
+      },
+    ],
+  });
+
+  const data = await openReaderDocument(readerRecord.id, {
+    dependencies: {
+      getReaderDocumentById: async () => readerRecord,
+      getReaderNextDocument: async () => null,
+      markDocumentEnteredReading: async () => ({ count: 1 }),
+    },
+  });
+
+  assert.deepEqual(data?.document.videoEmbed?.segments, []);
+  assert.equal(data?.document.videoEmbed?.transcriptSource, "NONE");
+  assert.equal(data?.document.videoEmbed?.transcriptStatus, "FAILED");
 });

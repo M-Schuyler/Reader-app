@@ -27,8 +27,8 @@ test("sources page uses the dedicated source index view with a compact overflow 
   assert.doesNotMatch(menu, /导入 Cubox/);
   assert.match(menu, /保存网页链接/);
   assert.match(menu, /添加 RSS 来源/);
-  assert.match(menu, /补跑 AI 队列/);
-  assert.match(menu, /保存网页链接[\s\S]*添加 RSS 来源[\s\S]*补跑 AI 队列/);
+  assert.match(menu, /补跑 AI 摘要队列/);
+  assert.match(menu, /保存网页链接[\s\S]*添加 RSS 来源[\s\S]*补跑 AI 摘要队列/);
   assert.match(menu, /min-w-\[280px\]/);
   assert.match(menu, /props\.expanded \? "∨" : "›"/);
   assert.doesNotMatch(readingPage, /description=/);

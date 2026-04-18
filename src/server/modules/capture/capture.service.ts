@@ -1,4 +1,11 @@
-import { IngestionJobKind, IngestionJobStatus, IngestionStatus, PublishedAtKind } from "@prisma/client";
+import {
+  IngestionJobKind,
+  IngestionJobStatus,
+  IngestionStatus,
+  PublishedAtKind,
+  TranscriptSource,
+  TranscriptStatus,
+} from "@prisma/client";
 import { deriveContentOriginMetadata, syncWechatSubsourceFromContentOrigin } from "@/lib/documents/content-origin";
 import { RouteError } from "@/server/api/response";
 import { prisma } from "@/server/db/client";
@@ -10,7 +17,6 @@ import {
   type CapturedVideoDocument,
 } from "@/server/modules/capture/video-capture";
 import { queueAndRunAutomaticDocumentAiSummary } from "@/server/modules/documents/document-ai-summary-jobs.service";
-import { hydrateDocumentTranscriptIfPossible } from "@/server/modules/documents/document-transcript-jobs.service";
 import { mapDocumentDetail } from "@/server/modules/documents/document.mapper";
 import {
   backfillHostnamePublishedAtUpperBound,
@@ -482,6 +488,14 @@ function needsVideoTranscriptRefresh(document: DocumentDetailRecord) {
     return true;
   }
 
+  if (document.transcriptSource !== TranscriptSource.NATIVE) {
+    return true;
+  }
+
+  if (document.transcriptStatus !== TranscriptStatus.READY) {
+    return true;
+  }
+
   if (countTranscriptSegments(document.transcriptSegments) === 0) {
     return true;
   }
@@ -556,15 +570,6 @@ async function hydrateDocumentMetadataIfPossible(document: DocumentDetailRecord)
     currentDocument = await queueAndRunAutomaticDocumentAiSummary(currentDocument);
   } catch (error) {
     console.error("Failed to generate automatic AI summary.", {
-      documentId: document.id,
-      error,
-    });
-  }
-
-  try {
-    currentDocument = (await hydrateDocumentTranscriptIfPossible(currentDocument)) ?? currentDocument;
-  } catch (error) {
-    console.error("Failed to hydrate document transcript.", {
       documentId: document.id,
       error,
     });

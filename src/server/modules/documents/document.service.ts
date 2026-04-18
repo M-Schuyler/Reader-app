@@ -13,7 +13,6 @@ import {
   prioritizeDocumentAiSummary,
   sweepPendingDocumentAiSummaryJobs,
 } from "./document-ai-summary-jobs.service";
-import { sweepPendingDocumentTranscriptJobs } from "./document-transcript-jobs.service";
 import {
   deleteDocumentById,
   deleteSourceAlias,
@@ -807,8 +806,4 @@ function dedupeSourceInputs(sources: DocumentSourceFilter[]) {
 
 function fromPersistedSourceAliasKind(kind: "FEED" | "DOMAIN"): SourceAliasTargetKind {
   return kind === "FEED" ? "feed" : "domain";
-}
-
-export async function sweepTranscriptQueueForReader() {
-  return sweepPendingDocumentTranscriptJobs();
 }

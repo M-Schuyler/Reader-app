@@ -8,15 +8,13 @@ function readWorkspaceFile(path: string) {
 
 test("transcript queue wiring avoids unsupported Hobby cron usage while keeping manual sweep support safe", () => {
   const vercelConfig = readWorkspaceFile("vercel.json");
-  const route = readWorkspaceFile("src/app/api/internal/transcript-jobs/sweep/route.ts");
-  const service = readWorkspaceFile("src/server/modules/documents/document-transcript-jobs.service.ts");
+  const sourceLibraryMenu = readWorkspaceFile("src/components/library/source-library-more-menu.tsx");
+  const captureService = readWorkspaceFile("src/server/modules/capture/capture.service.ts");
+  const videoReader = readWorkspaceFile("src/components/reader/video-reader.tsx");
 
-  assert.doesNotMatch(
-    vercelConfig,
-    /"path": "\/api\/internal\/transcript-jobs\/sweep"/,
-  );
-  assert.match(route, /export async function GET/);
-  assert.match(route, /requireInternalApiAccess/);
-  assert.match(service, /updateMany\(\{/);
-  assert.match(service, /status: IngestionJobStatus\.PENDING/);
+  assert.doesNotMatch(vercelConfig, /"path": "\/api\/internal\/transcript-jobs\/sweep"/);
+  assert.doesNotMatch(sourceLibraryMenu, /api\/transcript-jobs\/sweep/);
+  assert.doesNotMatch(sourceLibraryMenu, /补跑 AI 队列/);
+  assert.doesNotMatch(captureService, /hydrateDocumentTranscriptIfPossible/);
+  assert.doesNotMatch(videoReader, /api\/transcript-jobs\/sweep/);
 });

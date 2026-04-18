@@ -63,3 +63,14 @@ test("document reader renders embedded videos for supported document links", () 
   assert.match(reader, /\{videoEmbed \? \(/);
   assert.match(reader, /\) : isFailed \? \(/);
 });
+
+test("video documents use a compact header and tighter reader surface spacing", () => {
+  const reader = readWorkspaceFile("src/components/reader/document-reader.tsx");
+
+  assert.match(reader, /const readerHeaderClassName = cx\(/);
+  assert.match(reader, /isVideoMode \? "space-y-4 lg:space-y-5" : "space-y-6"/);
+  assert.match(reader, /const readerTitleClassName = cx\(/);
+  assert.match(reader, /font-ui-heading text-\[2rem\] leading-\[1\.02\] tracking-\[-0\.04em\] sm:text-\[2\.75rem\]/);
+  assert.match(reader, /const readerSurfaceBodyClassName = cx\(/);
+  assert.match(reader, /isVideoMode \? "px-5 py-6 sm:px-7 sm:py-7" : "px-7 py-9 sm:px-11 sm:py-11"/);
+});
