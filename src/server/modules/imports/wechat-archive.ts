@@ -5,10 +5,10 @@ import { deriveContentOriginMetadata, syncWechatSubsourceFromContentOrigin } fro
 import { generateDedupeKey } from "@/lib/documents/dedupe";
 import { RouteError } from "@/server/api/response";
 import {
-  createWebDocumentPlaceholder,
+  createWechatCatalogDocument,
   findDocumentByDedupeKey,
   getDocumentById,
-  hydrateCatalogDocument,
+  promoteCatalogDocumentToReady,
   type DocumentDetailRecord,
 } from "@/server/modules/documents/document.repository";
 import { queueAndRunAutomaticDocumentAiSummary } from "@/server/modules/documents/document-ai-summary-jobs.service";
@@ -34,7 +34,7 @@ type ImportWechatArchiveCatalogDependencies = {
   listArchivePaths?: typeof listWechatArchiveMarkdownPaths;
   readFile?: (archivePath: string) => Promise<string>;
   findDocumentByDedupeKey?: (dedupeKey: string) => Promise<{ id: string } | null>;
-  createWebDocumentPlaceholder?: typeof createWebDocumentPlaceholder;
+  createWechatCatalogDocument?: typeof createWechatCatalogDocument;
   syncWechatSubsource?: typeof syncArchiveWechatSubsource;
 };
 
@@ -44,8 +44,7 @@ type HydrateWechatArchiveDocumentDependencies = {
     ingestionStatus: IngestionStatus;
     archivePath: string | null;
   } | null>;
-  readFile?: (archivePath: string) => Promise<string>;
-  hydrateCatalogDocument?: typeof hydrateCatalogDocument;
+  promoteCatalogDocumentToReady?: typeof promoteCatalogDocumentToReady;
   queueAndRunAutomaticDocumentAiSummary?: typeof queueAndRunAutomaticDocumentAiSummary;
 };
 
@@ -95,7 +94,7 @@ export async function importWechatArchiveCatalog(
   const listArchivePaths = dependencies.listArchivePaths ?? listWechatArchiveMarkdownPaths;
   const loadArchive = dependencies.readFile ?? readArchiveFile;
   const findByDedupeKey = dependencies.findDocumentByDedupeKey ?? findDocumentByDedupeKey;
-  const createPlaceholder = dependencies.createWebDocumentPlaceholder ?? createWebDocumentPlaceholder;
+  const createCatalogDocument = dependencies.createWechatCatalogDocument ?? createWechatCatalogDocument;
   const syncWechatSubsource = dependencies.syncWechatSubsource ?? syncArchiveWechatSubsource;
   const archivePaths = await listArchivePaths(options.rootPath);
   const result: WechatArchiveCatalogImportResult = {
@@ -132,7 +131,12 @@ export async function importWechatArchiveCatalog(
         wechatAccountName: parsed.accountName,
       });
 
-      await createPlaceholder({
+      const rendered = renderCuboxMarkdownToDocumentContent(parsed.bodyMarkdown);
+      if (!rendered.plainText) {
+        throw new Error("Archive markdown does not contain readable content.");
+      }
+
+      await createCatalogDocument({
         title: parsed.title,
         sourceUrl: parsed.sourceUrl,
         canonicalUrl,
@@ -144,6 +148,13 @@ export async function importWechatArchiveCatalog(
         archivePath,
         ingestionStatus: IngestionStatus.CATALOG,
         dedupeKey,
+        excerpt: rendered.excerpt,
+        contentHtml: rendered.contentHtml,
+        plainText: rendered.plainText,
+        rawHtml: null,
+        textHash: rendered.textHash,
+        wordCount: countReadableUnits(rendered.plainText),
+        extractedAt: new Date(),
       });
       await syncWechatSubsource(contentOrigin, parsed.accountName);
       result.created += 1;
@@ -169,8 +180,7 @@ export async function hydrateWechatArchiveDocument(
   dependencies: HydrateWechatArchiveDocumentDependencies = {},
 ): Promise<DocumentDetailRecord> {
   const fetchDocument = dependencies.getDocumentById ?? getDocumentById;
-  const loadArchive = dependencies.readFile ?? readArchiveFile;
-  const persistHydratedDocument = dependencies.hydrateCatalogDocument ?? hydrateCatalogDocument;
+  const promote = dependencies.promoteCatalogDocumentToReady ?? promoteCatalogDocumentToReady;
   const queueSummary =
     dependencies.queueAndRunAutomaticDocumentAiSummary ?? queueAndRunAutomaticDocumentAiSummary;
   const document = await fetchDocument(id);
@@ -183,39 +193,14 @@ export async function hydrateWechatArchiveDocument(
     throw new RouteError(
       "DOCUMENT_NOT_IN_ARCHIVE_CATALOG",
       409,
-      "Only archive catalog documents can be imported from the local archive.",
+      "Only archive catalog documents can be imported.",
     );
   }
 
-  if (!document.archivePath) {
-    throw new RouteError("ARCHIVE_PATH_MISSING", 409, "Archive catalog document does not have a local file path.");
-  }
-
-  let markdown: string;
-  try {
-    markdown = await loadArchive(document.archivePath);
-  } catch {
-    throw new RouteError("ARCHIVE_FILE_UNAVAILABLE", 410, "The archived Markdown file is no longer available.");
-  }
-
-  const parsed = parseWechatArchiveMarkdown(markdown, document.archivePath);
-  const rendered = renderCuboxMarkdownToDocumentContent(parsed.bodyMarkdown);
-  if (!rendered.plainText) {
-    throw new RouteError("ARCHIVE_CONTENT_EMPTY", 422, "The archived Markdown file does not contain readable content.");
-  }
-
-  const hydrated = await persistHydratedDocument(id, {
-    excerpt: rendered.excerpt,
-    ingestionStatus: IngestionStatus.READY,
-    contentHtml: rendered.contentHtml,
-    plainText: rendered.plainText,
-    rawHtml: null,
-    textHash: rendered.textHash,
-    wordCount: countReadableUnits(rendered.plainText),
-    extractedAt: new Date(),
-  });
-
-  return queueSummary(hydrated);
+  // Content was stored when the catalog entry was created, so importing only promotes
+  // the document into the reading flow and queues the AI summary — no filesystem access.
+  const promoted = await promote(id);
+  return queueSummary(promoted);
 }
 
 export async function listWechatArchiveMarkdownPaths(rootPath: string) {

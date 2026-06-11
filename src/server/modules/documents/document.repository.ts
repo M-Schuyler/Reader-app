@@ -868,6 +868,83 @@ export async function hydrateCatalogDocument(id: string, input: HydrateCatalogDo
   });
 }
 
+type CreateWechatCatalogDocumentInput = CreateWebDocumentPlaceholderInput & {
+  excerpt: string | null;
+  contentHtml: string;
+  plainText: string;
+  rawHtml: string | null;
+  textHash: string;
+  wordCount: number | null;
+  extractedAt: Date;
+};
+
+// Catalog docs store their content up front (read from the local archive at import time)
+// so the on-demand import can run on serverless hosts without local filesystem access.
+export async function createWechatCatalogDocument(input: CreateWechatCatalogDocumentInput) {
+  return prisma.$transaction(async (tx) => {
+    const document = await tx.document.create({
+      data: {
+        type: DocumentType.WEB_PAGE,
+        title: input.title,
+        sourceUrl: input.sourceUrl,
+        canonicalUrl: input.canonicalUrl,
+        sourceId: input.sourceId ?? null,
+        dedupeKey: input.dedupeKey,
+        author: input.author ?? null,
+        contentOriginKey: input.contentOriginKey ?? null,
+        contentOriginLabel: input.contentOriginLabel ?? null,
+        publishedAt: input.publishedAt ?? null,
+        publishedAtKind: input.publishedAtKind ?? PublishedAtKind.UNKNOWN,
+        archivePath: input.archivePath ?? null,
+        ingestionStatus: input.ingestionStatus,
+        excerpt: input.excerpt,
+      },
+    });
+
+    await tx.documentContent.create({
+      data: {
+        documentId: document.id,
+        contentHtml: input.contentHtml,
+        plainText: input.plainText,
+        rawHtml: input.rawHtml,
+        textHash: input.textHash,
+        wordCount: input.wordCount,
+        extractedAt: input.extractedAt,
+      },
+    });
+
+    return document;
+  });
+}
+
+// Importing a catalog doc just promotes it into the reading flow; the content already exists.
+export async function promoteCatalogDocumentToReady(id: string) {
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.document.updateMany({
+      where: {
+        id,
+        ingestionStatus: IngestionStatus.CATALOG,
+      },
+      data: {
+        ingestionStatus: IngestionStatus.READY,
+      },
+    });
+
+    if (updated.count !== 1) {
+      throw new RouteError(
+        "DOCUMENT_NOT_IN_ARCHIVE_CATALOG",
+        409,
+        "Only archive catalog documents can be imported.",
+      );
+    }
+
+    return tx.document.findUniqueOrThrow({
+      where: { id },
+      ...documentDetailArgs,
+    });
+  });
+}
+
 export async function listWechatContentOriginBackfillCandidates(limit: number) {
   const scanLimit = limit * 10;
   const candidates = await prisma.document.findMany({

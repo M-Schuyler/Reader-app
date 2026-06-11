@@ -41,7 +41,7 @@ test("archive discovery excludes Reader-generated Obsidian exports", () => {
   assert.equal(isWechatArchiveMarkdownFile("原始文章.obsidian.md"), false);
 });
 
-test("importWechatArchiveCatalog creates one metadata-only catalog entry for duplicate archive URLs", async () => {
+test("importWechatArchiveCatalog stores one catalog entry with content for duplicate archive URLs", async () => {
   const createdInputs: Array<Record<string, unknown>> = [];
   const documentsByDedupeKey = new Map<string, { id: string }>();
 
@@ -51,7 +51,7 @@ test("importWechatArchiveCatalog creates one metadata-only catalog entry for dup
       listArchivePaths: async () => [archivePath, "/archive/请辩/md/同一篇文章.md"],
       readFile: async () => archiveMarkdown,
       findDocumentByDedupeKey: async (dedupeKey) => documentsByDedupeKey.get(dedupeKey) ?? null,
-      createWebDocumentPlaceholder: async (input) => {
+      createWechatCatalogDocument: async (input) => {
         createdInputs.push(input);
         const created = { id: "catalog_doc" };
         documentsByDedupeKey.set(String(input.dedupeKey), created);
@@ -69,23 +69,29 @@ test("importWechatArchiveCatalog creates one metadata-only catalog entry for dup
     failures: [],
   });
   assert.equal(createdInputs.length, 1);
-  assert.deepEqual(createdInputs[0], {
-    title: "为什么要建立财富",
-    sourceUrl: "https://mp.weixin.qq.com/s/example-id",
-    canonicalUrl: "https://mp.weixin.qq.com/s/example-id",
-    author: "蔡垒磊",
-    contentOriginKey: "wechat:nickname:请辩",
-    contentOriginLabel: "请辩",
-    publishedAt: new Date("2023-05-12T00:30:00.000Z"),
-    publishedAtKind: PublishedAtKind.EXACT,
-    archivePath,
-    ingestionStatus: IngestionStatus.CATALOG,
-    dedupeKey: "wechat:s:example-id",
-  });
+  const created = createdInputs[0];
+  assert.equal(created.title, "为什么要建立财富");
+  assert.equal(created.sourceUrl, "https://mp.weixin.qq.com/s/example-id");
+  assert.equal(created.canonicalUrl, "https://mp.weixin.qq.com/s/example-id");
+  assert.equal(created.author, "蔡垒磊");
+  assert.equal(created.contentOriginKey, "wechat:nickname:请辩");
+  assert.equal(created.contentOriginLabel, "请辩");
+  assert.deepEqual(created.publishedAt, new Date("2023-05-12T00:30:00.000Z"));
+  assert.equal(created.publishedAtKind, PublishedAtKind.EXACT);
+  assert.equal(created.archivePath, archivePath);
+  assert.equal(created.ingestionStatus, IngestionStatus.CATALOG);
+  assert.equal(created.dedupeKey, "wechat:s:example-id");
+  // Content is stored up front so on-demand import needs no filesystem access on serverless.
+  assert.equal(created.plainText, "第一段正文。\n\n第二段正文。");
+  assert.match(String(created.contentHtml), /<p>第一段正文。<\/p>/);
+  assert.equal(created.wordCount, 12);
+  assert.equal(created.rawHtml, null);
+  assert.ok(created.extractedAt instanceof Date);
+  assert.ok(typeof created.textHash === "string" && (created.textHash as string).length > 0);
 });
 
-test("hydrateWechatArchiveDocument writes readable content, marks READY, and triggers the existing summary pipeline", async () => {
-  const persistedInputs: Array<Record<string, unknown>> = [];
+test("hydrateWechatArchiveDocument promotes the catalog doc to READY and triggers the summary pipeline", async () => {
+  let promotedId: string | null = null;
   let queuedDocumentId: string | null = null;
 
   const hydrated = await hydrateWechatArchiveDocument("catalog_doc", {
@@ -94,16 +100,11 @@ test("hydrateWechatArchiveDocument writes readable content, marks READY, and tri
       ingestionStatus: IngestionStatus.CATALOG,
       archivePath,
     }),
-    readFile: async () => archiveMarkdown,
-    hydrateCatalogDocument: async (id, input) => {
-      persistedInputs.push({ id, ...input });
+    promoteCatalogDocumentToReady: async (id) => {
+      promotedId = id;
       return {
         id,
         ingestionStatus: IngestionStatus.READY,
-        archivePath,
-        content: {
-          plainText: input.plainText,
-        },
       } as never;
     },
     queueAndRunAutomaticDocumentAiSummary: async (document) => {
@@ -113,13 +114,8 @@ test("hydrateWechatArchiveDocument writes readable content, marks READY, and tri
   });
 
   assert.equal(hydrated.ingestionStatus, IngestionStatus.READY);
+  assert.equal(promotedId, "catalog_doc");
   assert.equal(queuedDocumentId, "catalog_doc");
-  assert.equal(persistedInputs.length, 1);
-  assert.equal(persistedInputs[0].id, "catalog_doc");
-  assert.equal(persistedInputs[0].ingestionStatus, IngestionStatus.READY);
-  assert.match(String(persistedInputs[0].contentHtml), /<p>第一段正文。<\/p>/);
-  assert.equal(persistedInputs[0].plainText, "第一段正文。\n\n第二段正文。");
-  assert.equal(persistedInputs[0].wordCount, 12);
 });
 
 test("hydrateWechatArchiveDocument rejects documents outside the catalog state", async () => {
