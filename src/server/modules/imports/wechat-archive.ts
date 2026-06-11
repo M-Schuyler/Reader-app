@@ -28,6 +28,8 @@ const PUBLISHED_AT_PATTERN = /(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?/;
 
 type ImportWechatArchiveCatalogOptions = {
   rootPath: string;
+  // When set, only archives published on/after this date are imported (older/undated are skipped).
+  minPublishedAt?: Date | null;
 };
 
 type ImportWechatArchiveCatalogDependencies = {
@@ -108,6 +110,12 @@ export async function importWechatArchiveCatalog(
   for (const archivePath of archivePaths) {
     try {
       const parsed = parseWechatArchiveMarkdown(await loadArchive(archivePath), archivePath);
+
+      if (options.minPublishedAt && (!parsed.publishedAt || parsed.publishedAt < options.minPublishedAt)) {
+        result.skipped += 1;
+        continue;
+      }
+
       const canonicalUrl = parsed.sourceUrl;
       const dedupeKey = generateDedupeKey({
         type: DocumentType.WEB_PAGE,
