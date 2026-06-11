@@ -82,15 +82,15 @@ function SourceLibraryShelf({
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-2 border-b border-[color:var(--border-subtle)] pb-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-1">
+          {!hideRecentLabel && (
+            <span className="text-[11px] font-medium uppercase tracking-[0.28em] text-[color:var(--text-tertiary)]">
+              Recent · 7 Days
+            </span>
+          )}
           <h2 className="font-ui-heading text-[1.45rem] leading-tight tracking-[-0.03em] text-[color:var(--text-primary)]">
             {title}
           </h2>
-          {!hideRecentLabel && (
-            <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--text-tertiary)]">
-              Recent 7 days
-            </span>
-          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-4">

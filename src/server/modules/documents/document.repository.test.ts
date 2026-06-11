@@ -11,6 +11,43 @@ test("unknown source filter only matches documents with no source, no feed, and 
   });
 });
 
+test("document queries exclude catalog entries unless the caller explicitly requests the catalog", () => {
+  assert.deepEqual(
+    __documentRepositoryForTests.buildDocumentWhere({
+      surface: "source",
+      page: 1,
+      pageSize: 20,
+      sort: "latest",
+    }),
+    {
+      AND: [
+        {
+          ingestionStatus: {
+            not: "CATALOG",
+          },
+        },
+      ],
+    },
+  );
+
+  assert.deepEqual(
+    __documentRepositoryForTests.buildDocumentWhere({
+      surface: "source",
+      ingestionStatus: "CATALOG",
+      page: 1,
+      pageSize: 20,
+      sort: "latest",
+    }),
+    {
+      AND: [
+        {
+          ingestionStatus: "CATALOG",
+        },
+      ],
+    },
+  );
+});
+
 test("source index rows only select the lightweight fields needed for homepage aggregation", () => {
   assert.deepEqual(Object.keys(sourceIndexRowArgs.select ?? {}).sort(), [
     "canonicalUrl",
@@ -43,6 +80,9 @@ test("document origin rows select persisted content-origin fields and the legacy
 test("wechat content-origin backfill targets only unresolved persisted wechat origins", () => {
   assert.deepEqual(__documentRepositoryForTests.buildWechatContentOriginBackfillWhere(), {
     type: "WEB_PAGE",
+    ingestionStatus: {
+      not: "CATALOG",
+    },
     AND: [
       {
         OR: [

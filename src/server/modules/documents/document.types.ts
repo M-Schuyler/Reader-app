@@ -33,6 +33,7 @@ export type DocumentTagLabel = {
 export type DocumentListQuery = {
   surface: DocumentSurface;
   sourceId?: string;
+  ingestionStatus?: IngestionStatus;
   q?: string;
   type?: DocumentType;
   origin?: string;
@@ -58,6 +59,10 @@ export type DocumentListItem = {
   excerpt: string | null;
   lang: string | null;
   author: string | null;
+  contentOrigin?: {
+    key: string;
+    label: string;
+  } | null;
   videoThumbnailUrl: string | null;
   publishedAt: string | null;
   publishedAtKind: PublishedAtKind;

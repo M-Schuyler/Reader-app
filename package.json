@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "verify:local": "npm test && npm run typecheck && npm run build:local",
     "smoke:wechat": "node --import tsx scripts/smoke/wechat-capture.ts",
+    "import:wechat-archive-catalog": "node --import tsx scripts/import/wechat-archive-catalog.ts",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",

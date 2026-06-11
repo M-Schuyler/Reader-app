@@ -34,6 +34,7 @@ import {
   updateDocumentFavorite,
 } from "./document.repository";
 import { listWechatSubsourcesByBiz } from "./wechat-subsource.repository";
+import { hydrateWechatArchiveDocument } from "@/server/modules/imports/wechat-archive";
 import type {
   CaptureIngestionError,
   DeleteDocumentResponseData,
@@ -87,6 +88,11 @@ type UpdateDocumentReadStateDependencies = {
   getDocumentById?: typeof getDocumentById;
   markDocumentRead?: typeof markDocumentRead;
   listWechatSubsourcesByBiz?: typeof listWechatSubsourcesByBiz;
+};
+
+type ImportDocumentFromArchiveDependencies = {
+  hydrateWechatArchiveDocument?: typeof hydrateWechatArchiveDocument;
+  getDocument?: (id: string) => Promise<GetDocumentResponseData | null>;
 };
 
 export async function getDocuments(
@@ -191,6 +197,17 @@ export async function getDocument(id: string, dependencies: DocumentDetailDepend
   }
 
   return buildDocumentDetailResponse(document, dependencies);
+}
+
+export async function importDocumentFromArchive(
+  id: string,
+  dependencies: ImportDocumentFromArchiveDependencies = {},
+): Promise<GetDocumentResponseData | null> {
+  const hydrateDocument = dependencies.hydrateWechatArchiveDocument ?? hydrateWechatArchiveDocument;
+  const fetchMappedDocument = dependencies.getDocument ?? ((documentId: string) => getDocument(documentId));
+
+  await hydrateDocument(id);
+  return fetchMappedDocument(id);
 }
 
 export async function openDocument(id: string, dependencies: DocumentDetailDependencies = {}): Promise<GetDocumentResponseData | null> {

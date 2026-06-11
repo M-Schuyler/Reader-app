@@ -406,6 +406,7 @@ function createDocumentListRecord(overrides: Partial<DocumentListRecord>): Docum
     readingProgress: 0,
     isFavorite: false,
     ingestionStatus: IngestionStatus.READY,
+    archivePath: null,
     sourceId: null,
     feedId: null,
     createdAt: new Date("2026-04-07T07:20:38.081Z"),

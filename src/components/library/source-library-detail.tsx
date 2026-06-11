@@ -203,7 +203,9 @@ export function SourceAliasEditor({ source }: { source: SourceLibrarySourceConte
           <Button onClick={() => setIsEditing(true)} size="sm" variant="secondary">
             {source.customLabel ? "重命名书架" : "自定义命名"}
           </Button>
-          <p className="text-xs leading-6 text-[color:var(--text-tertiary)]">给这个来源起一个你更容易识别的名字。</p>
+          {!source.customLabel ? (
+            <p className="text-xs leading-6 text-[color:var(--text-tertiary)]">给这个来源起一个你更容易识别的名字。</p>
+          ) : null}
         </div>
       )}
     </div>

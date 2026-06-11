@@ -67,6 +67,13 @@ export function mapDocumentListItem(record: DocumentListRecord): DocumentListIte
     excerpt: record.excerpt,
     lang: record.lang,
     author: record.author,
+    contentOrigin:
+      record.contentOriginKey && record.contentOriginLabel
+        ? {
+            key: record.contentOriginKey,
+            label: record.contentOriginLabel,
+          }
+        : null,
     videoThumbnailUrl: record.videoThumbnailUrl,
     publishedAt: toIso(record.publishedAt),
     publishedAtKind: record.publishedAtKind,

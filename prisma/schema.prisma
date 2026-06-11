@@ -20,6 +20,7 @@ enum ReadState {
 }
 
 enum IngestionStatus {
+  CATALOG
   PENDING
   PROCESSING
   READY
@@ -184,6 +185,7 @@ model Document {
   isFavorite      Boolean          @default(false)
   readingProgress Float            @default(0)
   ingestionStatus IngestionStatus  @default(PENDING)
+  archivePath     String?
 
   feedId          String?
   feed            Feed?            @relation(fields: [feedId], references: [id], onDelete: SetNull)
@@ -213,6 +215,7 @@ model Document {
   @@index([contentOriginKey])
   @@index([type, externalId])
   @@index([sourceId, publishedAt])
+  @@index([ingestionStatus, publishedAt])
 }
 
 model DocumentContent {

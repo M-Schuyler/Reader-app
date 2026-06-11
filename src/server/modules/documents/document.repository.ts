@@ -11,6 +11,7 @@ import {
   TranscriptSource,
   TranscriptStatus,
 } from "@prisma/client";
+import { RouteError } from "@/server/api/response";
 import { prisma } from "@/server/db/client";
 import type {
   CaptureIngestionError,
@@ -776,6 +777,12 @@ type CreateWebDocumentPlaceholderInput = {
   sourceUrl: string;
   canonicalUrl: string | null;
   sourceId?: string | null;
+  author?: string | null;
+  contentOriginKey?: string | null;
+  contentOriginLabel?: string | null;
+  publishedAt?: Date | null;
+  publishedAtKind?: PublishedAtKind;
+  archivePath?: string | null;
   ingestionStatus: IngestionStatus;
   dedupeKey: string | null;
 };
@@ -789,10 +796,75 @@ export async function createWebDocumentPlaceholder(input: CreateWebDocumentPlace
       canonicalUrl: input.canonicalUrl,
       sourceId: input.sourceId ?? null,
       dedupeKey: input.dedupeKey,
-      publishedAtKind: PublishedAtKind.UNKNOWN,
+      author: input.author ?? null,
+      contentOriginKey: input.contentOriginKey ?? null,
+      contentOriginLabel: input.contentOriginLabel ?? null,
+      publishedAt: input.publishedAt ?? null,
+      publishedAtKind: input.publishedAtKind ?? PublishedAtKind.UNKNOWN,
+      archivePath: input.archivePath ?? null,
       ingestionStatus: input.ingestionStatus,
     },
     ...documentDetailArgs,
+  });
+}
+
+type HydrateCatalogDocumentInput = {
+  excerpt: string | null;
+  ingestionStatus: typeof IngestionStatus.READY;
+  contentHtml: string;
+  plainText: string;
+  rawHtml: string | null;
+  textHash: string;
+  wordCount: number | null;
+  extractedAt: Date;
+};
+
+export async function hydrateCatalogDocument(id: string, input: HydrateCatalogDocumentInput) {
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.document.updateMany({
+      where: {
+        id,
+        ingestionStatus: IngestionStatus.CATALOG,
+      },
+      data: {
+        excerpt: input.excerpt,
+        ingestionStatus: input.ingestionStatus,
+      },
+    });
+
+    if (updated.count !== 1) {
+      throw new RouteError(
+        "DOCUMENT_NOT_IN_ARCHIVE_CATALOG",
+        409,
+        "Only archive catalog documents can be imported from the local archive.",
+      );
+    }
+
+    await tx.documentContent.upsert({
+      where: { documentId: id },
+      create: {
+        documentId: id,
+        contentHtml: input.contentHtml,
+        plainText: input.plainText,
+        rawHtml: input.rawHtml,
+        textHash: input.textHash,
+        wordCount: input.wordCount,
+        extractedAt: input.extractedAt,
+      },
+      update: {
+        contentHtml: input.contentHtml,
+        plainText: input.plainText,
+        rawHtml: input.rawHtml,
+        textHash: input.textHash,
+        wordCount: input.wordCount,
+        extractedAt: input.extractedAt,
+      },
+    });
+
+    return tx.document.findUniqueOrThrow({
+      where: { id },
+      ...documentDetailArgs,
+    });
   });
 }
 
@@ -948,6 +1020,16 @@ export async function updateDocumentAiSummaryFailure(id: string, errorMessage: s
 
 function buildDocumentWhere(query: DocumentListQuery): Prisma.DocumentWhereInput {
   const clauses: Prisma.DocumentWhereInput[] = [];
+
+  clauses.push(
+    query.ingestionStatus
+      ? { ingestionStatus: query.ingestionStatus }
+      : {
+          ingestionStatus: {
+            not: IngestionStatus.CATALOG,
+          },
+        },
+  );
 
   if (query.sourceId) {
     clauses.push({ sourceId: query.sourceId });
@@ -1147,6 +1229,7 @@ function buildDocumentOrderBy(sort: DocumentListSort, surface: DocumentListQuery
 }
 
 export const __documentRepositoryForTests = {
+  buildDocumentWhere,
   buildDocumentSourceWhere,
   buildWechatContentOriginBackfillWhere,
   isRepairableWechatContentOriginCandidate,
@@ -1164,6 +1247,9 @@ function buildWechatContentOriginBackfillWhere(): Prisma.DocumentWhereInput {
 
   return {
     type: DocumentType.WEB_PAGE,
+    ingestionStatus: {
+      not: IngestionStatus.CATALOG,
+    },
     AND: [
       {
         OR: [

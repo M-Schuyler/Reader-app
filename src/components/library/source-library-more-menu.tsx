@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { CaptureUrlForm } from "@/components/library/capture-url-form";
 import { CreateSourceForm } from "@/components/library/create-source-form";
@@ -72,6 +73,13 @@ export function SourceLibraryMoreMenu({ sweepHref }: SourceLibraryMoreMenuProps)
               >
                 <CreateSourceForm variant="menu" />
               </ExpandableMenuSection>
+              <Link
+                className="flex w-full items-center gap-2.5 rounded-[12px] px-3 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-surface-soft)] hover:text-[color:var(--text-primary)]"
+                href="/sources/archive"
+                onClick={closeMenu}
+              >
+                公众号存档
+              </Link>
               <SweepButton onDone={closeMenu} />
             </div>
           </div>

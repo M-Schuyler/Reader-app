@@ -17,6 +17,10 @@ type DocumentListProps = {
   data: GetDocumentsResponseData;
   showDelete?: boolean;
   onItemDelete?: () => void;
+  catalogSelection?: {
+    selectedIds: string[];
+    onSelectionChange: (id: string, selected: boolean) => void;
+  };
   emptyState?: {
     eyebrow: string;
     title: string;
@@ -31,6 +35,7 @@ const DEFAULT_EMPTY_STATE = {
 };
 
 export function DocumentList({ 
+  catalogSelection,
   data, 
   emptyState = DEFAULT_EMPTY_STATE,
   showDelete = false,
@@ -59,6 +64,7 @@ export function DocumentList({
       <div className="divide-y divide-[color:var(--border-subtle)]">
         {data.items.map((item) => (
           <DocumentCard 
+            catalogSelection={catalogSelection}
             item={item} 
             key={item.id} 
             onDelete={onItemDelete}
@@ -71,10 +77,12 @@ export function DocumentList({
 }
 
 function DocumentCard({ 
+  catalogSelection,
   item, 
   showDelete,
   onDelete 
 }: { 
+  catalogSelection?: DocumentListProps["catalogSelection"];
   item: DocumentListItem;
   showDelete?: boolean;
   onDelete?: () => void;
@@ -82,8 +90,11 @@ function DocumentCard({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   
+  const isCatalog = item.ingestionStatus === IngestionStatus.CATALOG;
   const isFailed = item.ingestionStatus === IngestionStatus.FAILED;
   const favorite = useDocumentFavoriteController(item);
   const shouldShowStatusBadge = item.ingestionStatus !== IngestionStatus.READY;
@@ -117,6 +128,30 @@ function DocumentCard({
     }
   }
 
+  async function handleArchiveImport(e: MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      const response = await fetch(`/api/documents/${item.id}/import-from-archive`, { method: "POST" });
+      if (!response.ok) {
+        setImportError("导入失败");
+        return;
+      }
+
+      startTransition(() => {
+        router.push(`/reading/${item.id}`);
+        router.refresh();
+      });
+    } catch {
+      setImportError("网络错误");
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
   return (
     <article className="group relative px-6 py-8 transition-all duration-300 hover:bg-stone-900/[0.02] sm:px-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -125,6 +160,12 @@ function DocumentCard({
             <span className="opacity-40 transition-opacity group-hover:opacity-70">{formatDocumentType(item.type)}</span>
             <span className="opacity-40 transition-opacity group-hover:opacity-70">·</span>
             <span className="opacity-40 transition-opacity group-hover:opacity-70 tabular-nums">{formatPublishedAtLabel(item.publishedAt, item.publishedAtKind, item.createdAt)}</span>
+            {isCatalog && item.contentOrigin?.label ? (
+              <>
+                <span className="opacity-40 transition-opacity group-hover:opacity-70">·</span>
+                <span className="opacity-40 transition-opacity group-hover:opacity-70">{item.contentOrigin.label}</span>
+              </>
+            ) : null}
             
             <div className="flex items-center gap-2 ml-1">
               {item.readState === "READ" && (
@@ -139,52 +180,25 @@ function DocumentCard({
             </div>
           </div>
 
-          <Link className="block space-y-3.5" href={`/reading/${item.id}`}>
-            <h3 className="max-w-4xl font-ui-heading text-[1.8rem] font-bold leading-[1.1] tracking-[-0.045em] text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)]">
-              {item.title}
-            </h3>
-            
-            {(item.aiSummary || item.excerpt) && (
-              <div className={cx(
-                "relative max-w-3xl rounded-2xl px-4 py-3 text-[15px] leading-relaxed transition-colors",
-                item.aiSummary 
-                  ? "bg-[color:var(--ai-card-accent)]/5 text-[color:var(--text-primary)] border-l-2 border-[color:var(--ai-card-accent)]/30" 
-                  : "text-[color:var(--text-secondary)] opacity-85"
-              )}>
-                {item.aiSummary && (
-                  <div className="mb-2">
-                    <MagicWandIcon className="h-4 w-4 text-[color:var(--ai-card-accent)]" />
-                  </div>
-                )}
-                <p className="line-clamp-3">
-                  {item.aiSummary ?? item.excerpt}
-                </p>
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-[12px] font-medium text-[color:var(--text-tertiary)] transition-colors group-hover:text-[color:var(--text-secondary)]">
-              {!isFailed && item.wordCount ? (
-                <div className="flex items-center gap-2 rounded-full bg-stone-900/[0.03] px-2 py-0.5 group-hover:bg-stone-900/[0.05]">
-                  <span>{formatWordCount(item.wordCount)}</span>
-                  <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)] opacity-30" />
-                  <span className="text-[11px] font-bold text-[color:var(--ai-card-accent)]">
-                    {formatReadingTime(item.wordCount)}
-                  </span>
-                </div>
-              ) : null}
-              <div className="flex items-center gap-2 truncate opacity-60">
-                <span className="h-3 w-px bg-[color:var(--border-subtle)]" />
-                {faviconUrl ? (
-                  <img
-                    alt=""
-                    className="h-3.5 w-3.5 rounded-sm grayscale opacity-70 transition-all group-hover:grayscale-0 group-hover:opacity-100"
-                    src={faviconUrl}
-                  />
-                ) : null}
-                <span className="truncate">{sourceLabel}</span>
-              </div>
+          {isCatalog ? (
+            <div className="block space-y-3.5">
+              <DocumentCardPrimaryContent
+                faviconUrl={faviconUrl}
+                isFailed={isFailed}
+                item={item}
+                sourceLabel={sourceLabel}
+              />
             </div>
-          </Link>
+          ) : (
+            <Link className="block space-y-3.5" href={`/reading/${item.id}`}>
+              <DocumentCardPrimaryContent
+                faviconUrl={faviconUrl}
+                isFailed={isFailed}
+                item={item}
+                sourceLabel={sourceLabel}
+              />
+            </Link>
+          )}
 
           <div className="pt-1 opacity-60 transition-opacity group-hover:opacity-100">
             <DocumentTagPills basePath="/reading" tags={item.tags} />
@@ -192,43 +206,67 @@ function DocumentCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-2">
-          {item.videoThumbnailUrl && (
-            <div className="hidden xl:block pointer-events-none">
-              <img
-                src={item.videoThumbnailUrl}
-                alt=""
-                className="h-[60px] w-[100px] rounded-xl object-cover border border-[color:var(--border-subtle)] shadow-sm transition-transform group-hover:scale-105"
+          {isCatalog ? (
+            <>
+              <input
+                aria-label={`选择 ${item.title}`}
+                checked={catalogSelection?.selectedIds.includes(item.id) ?? false}
+                className="h-4 w-4 rounded border-[color:var(--border-strong)] accent-[color:var(--text-primary)]"
+                onChange={(event) => catalogSelection?.onSelectionChange(item.id, event.target.checked)}
+                onClick={(event) => event.stopPropagation()}
+                type="checkbox"
               />
-            </div>
-          )}
-
-          <FavoriteToggleButton
-            buttonLabel={favorite.buttonLabel}
-            className="relative z-10 opacity-20 transition-opacity group-hover:opacity-100"
-            isFavorite={favorite.isFavorite}
-            isSubmitting={favorite.isSubmitting}
-            onClick={favorite.toggleFavorite}
-          />
-          
-          {showDelete && (
-            <button
-              className="rounded-full p-2 text-[color:var(--text-tertiary)] opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-              onClick={handleDelete}
-              title="删除文章"
-              disabled={isDeleting || isPending}
-            >
-              {isDeleting ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              ) : (
-                <TrashIcon />
+              <button
+                className="inline-flex min-h-10 items-center rounded-[18px] border border-[color:var(--border-subtle)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:border-[color:var(--border-strong)]"
+                disabled={isImporting || isPending}
+                onClick={handleArchiveImport}
+                type="button"
+              >
+                {isImporting ? "导入中…" : "导入"}
+              </button>
+            </>
+          ) : (
+            <>
+              {item.videoThumbnailUrl && (
+                <div className="hidden xl:block pointer-events-none">
+                  <img
+                    src={item.videoThumbnailUrl}
+                    alt=""
+                    className="h-[60px] w-[100px] rounded-xl object-cover border border-[color:var(--border-subtle)] shadow-sm transition-transform group-hover:scale-105"
+                  />
+                </div>
               )}
-            </button>
+
+              <FavoriteToggleButton
+                buttonLabel={favorite.buttonLabel}
+                className="relative z-10 opacity-20 transition-opacity group-hover:opacity-100"
+                isFavorite={favorite.isFavorite}
+                isSubmitting={favorite.isSubmitting}
+                onClick={favorite.toggleFavorite}
+              />
+
+              {showDelete && (
+                <button
+                  className="rounded-full p-2 text-[color:var(--text-tertiary)] opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                  onClick={handleDelete}
+                  title="删除文章"
+                  disabled={isDeleting || isPending}
+                >
+                  {isDeleting ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  ) : (
+                    <TrashIcon />
+                  )}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
       
-      {favorite.actionError && <p className="mt-2 text-xs text-red-500">{favorite.actionError}</p>}
+      {!isCatalog && favorite.actionError && <p className="mt-2 text-xs text-red-500">{favorite.actionError}</p>}
       {deleteError && <p className="mt-2 text-xs text-red-500">{deleteError}</p>}
+      {importError && <p className="mt-2 text-xs text-[color:var(--badge-danger-text)]">{importError}</p>}
 
       {item.readState !== "UNREAD" && (
         <div className="absolute bottom-0 left-0 h-0.5 w-full bg-stone-900/5">
@@ -239,6 +277,65 @@ function DocumentCard({
         </div>
       )}
     </article>
+  );
+}
+
+function DocumentCardPrimaryContent({
+  faviconUrl,
+  isFailed,
+  item,
+  sourceLabel,
+}: {
+  faviconUrl: string | null;
+  isFailed: boolean;
+  item: DocumentListItem;
+  sourceLabel: string;
+}) {
+  return (
+    <>
+      <h3 className="max-w-4xl font-ui-heading text-[1.8rem] font-bold leading-[1.1] tracking-[-0.045em] text-[color:var(--text-primary)] transition-colors group-hover:text-[color:var(--text-primary-strong)]">
+        {item.title}
+      </h3>
+
+      {(item.aiSummary || item.excerpt) && (
+        <div className={cx(
+          "relative max-w-3xl rounded-2xl px-4 py-3 text-[15px] leading-relaxed transition-colors",
+          item.aiSummary
+            ? "bg-[color:var(--ai-card-accent)]/5 text-[color:var(--text-primary)] border-l-2 border-[color:var(--ai-card-accent)]/30"
+            : "text-[color:var(--text-secondary)] opacity-85",
+        )}>
+          {item.aiSummary && (
+            <div className="mb-2">
+              <MagicWandIcon className="h-4 w-4 text-[color:var(--ai-card-accent)]" />
+            </div>
+          )}
+          <p className="line-clamp-3">{item.aiSummary ?? item.excerpt}</p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-[12px] font-medium text-[color:var(--text-tertiary)] transition-colors group-hover:text-[color:var(--text-secondary)]">
+        {!isFailed && item.wordCount ? (
+          <div className="flex items-center gap-2 rounded-full bg-stone-900/[0.03] px-2 py-0.5 group-hover:bg-stone-900/[0.05]">
+            <span>{formatWordCount(item.wordCount)}</span>
+            <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)] opacity-30" />
+            <span className="text-[11px] font-bold text-[color:var(--ai-card-accent)]">
+              {formatReadingTime(item.wordCount)}
+            </span>
+          </div>
+        ) : null}
+        <div className="flex items-center gap-2 truncate opacity-60">
+          <span className="h-3 w-px bg-[color:var(--border-subtle)]" />
+          {faviconUrl ? (
+            <img
+              alt=""
+              className="h-3.5 w-3.5 rounded-sm grayscale opacity-70 transition-all group-hover:grayscale-0 group-hover:opacity-100"
+              src={faviconUrl}
+            />
+          ) : null}
+          <span className="truncate">{sourceLabel}</span>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -276,6 +373,7 @@ function StatusIconTooltip({ icon, label }: { icon: ReactNode; label: string }) 
 
 function formatIngestionStatus(status: IngestionStatus) {
   switch (status) {
+    case IngestionStatus.CATALOG: return "未导入";
     case IngestionStatus.FAILED: return "抓取失败";
     case IngestionStatus.READY: return "可阅读";
     case IngestionStatus.PROCESSING: return "处理中";
@@ -286,6 +384,7 @@ function formatIngestionStatus(status: IngestionStatus) {
 
 function statusTone(status: IngestionStatus) {
   switch (status) {
+    case IngestionStatus.CATALOG: return "subtle";
     case IngestionStatus.FAILED: return "danger";
     case IngestionStatus.PROCESSING: return "warning";
     case IngestionStatus.PENDING: return "subtle";

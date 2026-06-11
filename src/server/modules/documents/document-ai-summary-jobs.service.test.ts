@@ -721,6 +721,7 @@ function createSummaryDocumentRecord(
     readingProgress: 0,
     isFavorite: false,
     ingestionStatus: IngestionStatus.READY,
+    archivePath: null,
     feedId: null,
     sourceId: null,
     content: {
