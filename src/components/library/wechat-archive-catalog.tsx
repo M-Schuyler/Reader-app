@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { Panel } from "@/components/ui/panel";
 import { formatPublishedAtLabel } from "@/lib/documents/published-at";
 import type { DocumentListItem, GetDocumentsResponseData } from "@/server/modules/documents/document.types";
+import { cx } from "@/utils/cx";
 
 type WechatArchiveCatalogProps = {
   data: GetDocumentsResponseData;
@@ -16,6 +17,7 @@ type WechatArchiveCatalogProps = {
   };
   previousHref: string | null;
   nextHref: string | null;
+  activeOrigin: string | null;
 };
 
 async function importArchiveIds(ids: string[]): Promise<string[]> {
@@ -33,7 +35,13 @@ async function importArchiveIds(ids: string[]): Promise<string[]> {
   return failed;
 }
 
-export function WechatArchiveCatalog({ data, emptyState, previousHref, nextHref }: WechatArchiveCatalogProps) {
+export function WechatArchiveCatalog({
+  data,
+  emptyState,
+  previousHref,
+  nextHref,
+  activeOrigin,
+}: WechatArchiveCatalogProps) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [importingIds, setImportingIds] = useState<string[]>([]);
@@ -97,6 +105,22 @@ export function WechatArchiveCatalog({ data, emptyState, previousHref, nextHref 
 
   return (
     <div className="space-y-5">
+      {/* 信息源分类:点击按公众号筛选目录 */}
+      {data.contentOrigin && data.contentOrigin.options.length > 1 ? (
+        <div className="flex flex-wrap gap-2">
+          <OriginChip active={!activeOrigin} href="/sources/archive" label="全部" total={data.pagination.total} />
+          {data.contentOrigin.options.map((option) => (
+            <OriginChip
+              active={activeOrigin === option.value}
+              count={option.count}
+              href={`/sources/archive?origin=${encodeURIComponent(option.value)}`}
+              key={option.value}
+              label={option.label}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {selectedIds.length > 0 ? (
         <Panel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" tone="muted">
           <p className="text-sm font-medium text-[color:var(--text-primary)]">已选 {selectedIds.length} 篇</p>
@@ -151,6 +175,36 @@ export function WechatArchiveCatalog({ data, emptyState, previousHref, nextHref 
         </div>
       ) : null}
     </div>
+  );
+}
+
+function OriginChip({
+  href,
+  label,
+  active,
+  count,
+  total,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  count?: number;
+  total?: number;
+}) {
+  const badge = count ?? total;
+  return (
+    <Link
+      className={cx(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition",
+        active
+          ? "border-transparent bg-[color:var(--text-primary)] text-[color:var(--bg-canvas)]"
+          : "border-[color:var(--border-subtle)] text-[color:var(--text-secondary)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]",
+      )}
+      href={href}
+    >
+      {label}
+      {typeof badge === "number" ? <span className={active ? "opacity-70" : "opacity-50"}>{badge}</span> : null}
+    </Link>
   );
 }
 

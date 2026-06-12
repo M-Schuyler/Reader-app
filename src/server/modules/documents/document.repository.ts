@@ -158,7 +158,7 @@ export type DocumentOriginRowRecord = Prisma.DocumentGetPayload<typeof documentO
 
 export async function listDocuments(query: DocumentListQuery) {
   const where = buildDocumentWhere(query);
-  const orderBy = buildDocumentOrderBy(query.sort, query.surface);
+  const orderBy = buildDocumentOrderBy(query.sort, query.surface, query.ingestionStatus);
 
   const [total, items] = await prisma.$transaction([
     prisma.document.count({ where }),
@@ -196,7 +196,7 @@ export async function listDocumentOriginRows(query: DocumentListQuery) {
       ...query,
       origin: undefined,
     }),
-    orderBy: buildDocumentOrderBy(query.sort, query.surface),
+    orderBy: buildDocumentOrderBy(query.sort, query.surface, query.ingestionStatus),
   });
 }
 
@@ -1279,10 +1279,20 @@ function buildDocumentSourceWhere(source: NonNullable<DocumentListQuery["source"
   }
 }
 
-function buildDocumentOrderBy(sort: DocumentListSort, surface: DocumentListQuery["surface"]): Prisma.DocumentOrderByWithRelationInput[] {
+function buildDocumentOrderBy(
+  sort: DocumentListSort,
+  surface: DocumentListQuery["surface"],
+  ingestionStatus?: IngestionStatus,
+): Prisma.DocumentOrderByWithRelationInput[] {
   let base: Prisma.DocumentOrderByWithRelationInput[];
 
-  if (surface === "source") {
+  if (ingestionStatus === IngestionStatus.CATALOG) {
+    // 存档目录按文章发布日期排序,匹配每行显示的日期(而非导入时间)。
+    base =
+      sort === "earliest"
+        ? [{ publishedAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }]
+        : [{ publishedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }];
+  } else if (surface === "source") {
     base = sort === "earliest" ? [{ createdAt: "asc" }] : [{ createdAt: "desc" }];
   } else {
     switch (sort) {

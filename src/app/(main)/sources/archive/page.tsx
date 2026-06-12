@@ -20,8 +20,11 @@ export default async function WechatArchivePage({ searchParams }: WechatArchiveP
     pageSize: 50,
     surface: "source",
   });
-  const previousHref = data.pagination.page > 1 ? buildArchivePageHref(data.pagination.page - 1) : null;
-  const nextHref = data.pagination.page < data.pagination.totalPages ? buildArchivePageHref(data.pagination.page + 1) : null;
+  const activeOrigin = parsedQuery.origin ?? null;
+  const previousHref =
+    data.pagination.page > 1 ? buildArchivePageHref(data.pagination.page - 1, activeOrigin) : null;
+  const nextHref =
+    data.pagination.page < data.pagination.totalPages ? buildArchivePageHref(data.pagination.page + 1, activeOrigin) : null;
 
   return (
     <section className="space-y-8">
@@ -35,6 +38,7 @@ export default async function WechatArchivePage({ searchParams }: WechatArchiveP
       </Panel>
 
       <WechatArchiveCatalog
+        activeOrigin={activeOrigin}
         data={data}
         emptyState={{
           eyebrow: "备份库",
@@ -48,6 +52,14 @@ export default async function WechatArchivePage({ searchParams }: WechatArchiveP
   );
 }
 
-function buildArchivePageHref(page: number) {
-  return page > 1 ? `/sources/archive?page=${page}` : "/sources/archive";
+function buildArchivePageHref(page: number, origin?: string | null) {
+  const params = new URLSearchParams();
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+  if (origin) {
+    params.set("origin", origin);
+  }
+  const queryString = params.toString();
+  return queryString ? `/sources/archive?${queryString}` : "/sources/archive";
 }
