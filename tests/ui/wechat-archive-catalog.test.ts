@@ -30,24 +30,22 @@ test("archive page reuses the locked Sources page structure and requests only ca
   assert.match(page, /还没扫描存档/);
 });
 
-test("catalog UI reuses DocumentList and provides single plus selected imports", () => {
+test("catalog UI is a compact hover-expanding list with single and batch imports", () => {
   const catalog = readWorkspaceFile("src/components/library/wechat-archive-catalog.tsx");
-  const list = readWorkspaceFile("src/components/library/document-list.tsx");
   const menu = readWorkspaceFile("src/components/library/source-library-more-menu.tsx");
 
-  assert.match(catalog, /DocumentList/);
+  // 目录式:默认紧凑单行(truncate),悬停才展开摘要详情(group-hover)
+  assert.match(catalog, /truncate/);
+  assert.match(catalog, /group-hover:grid-rows-\[1fr\]/);
+  assert.match(catalog, /item\.excerpt/);
+  // 单篇 + 批量导入
+  assert.match(catalog, /import-from-archive/);
+  assert.match(catalog, /onImport/);
   assert.match(catalog, /导入选中/);
   assert.match(catalog, /selectedIds/);
-  assert.match(catalog, /for \(const id of selectedIds\)/);
-  assert.match(list, /IngestionStatus\.CATALOG/);
-  assert.match(list, /type="checkbox"/);
-  assert.match(list, /import-from-archive/);
-  assert.match(list, /未导入/);
-  assert.match(list, /isCatalog \? \(\s*<div className="block space-y-3\.5">/);
-  assert.match(
-    list,
-    /inline-flex min-h-10 items-center rounded-\[18px\] border border-\[color:var\(--border-subtle\)\] px-4 text-sm font-medium text-\[color:var\(--text-primary\)\] transition hover:border-\[color:var\(--border-strong\)\]/,
-  );
+  // checkbox 选择
+  assert.match(catalog, /type="checkbox"/);
+  // 入口仍在 Sources 的更多菜单
   assert.match(menu, /公众号存档/);
   assert.match(menu, /\/sources\/archive/);
 });
