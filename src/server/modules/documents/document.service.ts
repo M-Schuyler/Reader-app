@@ -1,4 +1,4 @@
-import { DocumentType, ReadState } from "@prisma/client";
+import { DocumentType, IngestionStatus, ReadState } from "@prisma/client";
 import { RouteError } from "@/server/api/response";
 import {
   buildContentOriginIndex,
@@ -417,6 +417,11 @@ export async function prioritizeDocumentAiSummaryForReader(
 }
 
 function supportsContentOriginFiltering(query: DocumentListQuery) {
+  // 存档目录页:总是按公众号(content origin)聚合,供顶部信息源分类 chips 使用。
+  if (query.ingestionStatus === IngestionStatus.CATALOG) {
+    return true;
+  }
+
   const enableContentOrigin = (query as DocumentListQuery & { enableContentOrigin?: boolean }).enableContentOrigin;
   if (!enableContentOrigin || query.surface !== "source") {
     return false;
