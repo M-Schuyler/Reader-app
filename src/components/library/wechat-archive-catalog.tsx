@@ -197,7 +197,7 @@ function OriginChip({
       className={cx(
         "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition",
         active
-          ? "border-transparent bg-[color:var(--text-primary)] text-[color:var(--bg-canvas)]"
+          ? "border-[color:var(--text-primary)] bg-[color:var(--bg-surface-strong)] text-[color:var(--text-primary)]"
           : "border-[color:var(--border-subtle)] text-[color:var(--text-secondary)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]",
       )}
       href={href}
